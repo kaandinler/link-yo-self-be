@@ -37,7 +37,8 @@ class BaseRepository(Generic[T]):
         await run_in_transaction(_delete, entity)
 
     # Non-transactional read operations (no auto commit)
-    async def list_all(self, transactional: bool = False) -> Awaitable[Sequence[T]]:
+
+    async def list_all(self, transactional: bool = False) -> Sequence[T]:
         async def _list_all(session: AsyncSession) -> Sequence[T]:
             result = await session.execute(select(self._model_type))
             return result.scalars().all()

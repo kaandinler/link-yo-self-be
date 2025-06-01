@@ -3,7 +3,10 @@ from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, Asyn
 
 from core.auth.auth_service import AuthService
 from repositories.user.user_repository import UserRepository
+from repositories.auth.refresh_token_repository import RefreshTokenRepository
+from repositories.link.link_repository import LinkRepository  # EKLENDI
 from services.user.user_service import UserService
+from services.link.link_service import LinkService  # EKLENDI
 from settings import settings
 
 
@@ -44,6 +47,17 @@ class Container(containers.DeclarativeContainer):
         session_factory=async_session_factory
     )
 
+    refresh_token_repository = providers.Factory(
+        RefreshTokenRepository,
+        session_factory=async_session_factory
+    )
+
+    # Link repository EKLENDI
+    link_repository = providers.Factory(
+        LinkRepository,
+        session_factory=async_session_factory
+    )
+
     # Services
     user_service = providers.Factory(
         UserService,
@@ -54,7 +68,14 @@ class Container(containers.DeclarativeContainer):
         AuthService,
         user_service=user_service,
         user_repository=user_repository,
+        refresh_token_repository=refresh_token_repository,
         secret_key=config.jwt_secret_key,
         algorithm=config.jwt_algorithm,
         expire_minutes=config.jwt_expire_minutes,
+    )
+
+    # Link service EKLENDI
+    link_service = providers.Factory(
+        LinkService,
+        link_repo=link_repository
     )

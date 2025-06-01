@@ -1,36 +1,8 @@
-from fastapi import APIRouter, Depends
-from dependency_injector.wiring import Provide, inject
-from typing import List
+from fastapi import APIRouter
 
-from deps import get_current_user, get_current_admin_user
-from di.container import Container
-from services.user.user_service_dto import UserRead
-from core.schemas.response import BaseResponseModel
-from core.exceptions import NotFoundException
+from routers.v1.user_router import router as router_v1
 
 router = APIRouter(prefix="/users", tags=["users"])
 
-@router.get("/", response_model=BaseResponseModel[List[UserRead]])
-@inject
-async def list_users(
-    current_user=Depends(get_current_admin_user),
-    service=Depends(Provide[Container.user_service])
-):
-    users = await service.list_users()
-    return {"data": users, "message": "Kullanıcı listesi başarıyla getirildi"}
-
-@router.get("/{user_id}", response_model=BaseResponseModel[UserRead])
-@inject
-async def get_user(
-    user_id: int,
-    current_user=Depends(get_current_user),
-    service=Depends(Provide[Container.user_service])
-):
-    user = await service.get_user(user_id)
-    if not user:
-        raise NotFoundException(f"Kullanıcı bulunamadı: {user_id}")
-    return {"data": user, "message": "Kullanıcı başarıyla getirildi"}
-
-@router.get('/me', response_model=BaseResponseModel[UserRead])
-async def read_users_me(current_user=Depends(get_current_user)):
-    return {"data": current_user, "message": "Profil bilgileri başarıyla getirildi"}
+# V1 API endpoint'lerini include et
+router.include_router(router_v1)

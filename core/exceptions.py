@@ -4,7 +4,7 @@ from fastapi import HTTPException, status
 
 class BaseAppException(HTTPException):
     """
-    Ana uygulama exception sınıfı. Tüm özel uygulama istisnaları bu sınıftan türetilmelidir.
+    Base application exception class. All custom application exceptions should inherit from this class.
     """
     status_code: int = status.HTTP_500_INTERNAL_SERVER_ERROR
     detail: str = "Unknown error occurred."
@@ -18,23 +18,23 @@ class BaseAppException(HTTPException):
     ):
         """
         Args:
-            detail: Hata ile ilgili açıklama
-            headers: HTTP yanıt başlıkları
-            **kwargs: Ek bağlam bilgileri (hata mesajına eklenebilir)
+            detail: Description about the error
+            headers: HTTP response headers
+            **kwargs: Additional context information (can be added to the error message)
         """
         self.extra_info = kwargs
 
-        # Eğer detay verilmişse, sınıfın varsayılan değeri yerine onu kullan
+        # If detail is provided, use it instead of the class default value
         actual_detail = detail if detail is not None else self.detail
 
-        # Eğer ek bilgiler varsa ve detay bir string ise, detayı zenginleştir
+        # If there is additional info and detail is a string, enrich the detail
         if self.extra_info and isinstance(actual_detail, str):
             actual_detail = (f"{actual_detail} Extra info: {self.extra_info}")
 
-        # Eğer headers verilmişse, sınıfın varsayılan değeri yerine onu kullan
+        # If headers are provided, use them instead of the class default value
         actual_headers = headers if headers is not None else self.headers
 
-        # Ana sınıfın __init__ metodunu çağır
+        # Call the parent class's __init__ method
         super().__init__(
             status_code=self.status_code,
             detail=actual_detail,
@@ -43,32 +43,32 @@ class BaseAppException(HTTPException):
 
 
 class NotAuthenticatedException(BaseAppException):
-    """Kullanıcı kimlik doğrulama hatası"""
+    """User authentication error"""
     status_code = status.HTTP_401_UNAUTHORIZED
     detail = "Unauthenticated user"
     headers = {"WWW-Authenticate": "Bearer"}
 
 
 class PermissionDeniedException(BaseAppException):
-    """Yetki hatası"""
+    """Permission error"""
     status_code = status.HTTP_403_FORBIDDEN
     detail = "Permission denied"
 
 
 class NotFoundException(BaseAppException):
-    """Kaynak bulunamadı hatası"""
+    """Resource not found error"""
     status_code = status.HTTP_404_NOT_FOUND
     detail = "Resource not found"
 
 
 class AlreadyExistsException(BaseAppException):
-    """Kaynak zaten var hatası"""
+    """Resource already exists error"""
     status_code = status.HTTP_409_CONFLICT
     detail ="Resource already exists"
 
 
 class ValidationException(BaseAppException):
-    """Veri doğrulama hatası"""
+    """Data validation error"""
     status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
     detail = "Validation error"
 
@@ -80,31 +80,31 @@ class ValidationException(BaseAppException):
     ):
         """
         Args:
-            detail: Hata ile ilgili genel açıklama
-            errors: Doğrulama hatalarının listesi
-            **kwargs: Ek bağlam bilgileri
+            detail: General description about the error
+            errors: List of validation errors
+            **kwargs: Additional context information
         """
         if errors:
-            # errors listesi varsa, detail'i dinamik olarak oluştur
+            # If there is an errors list, create detail dynamically
             super().__init__(detail=detail, validation_errors=errors, **kwargs)
         else:
             super().__init__(detail=detail, **kwargs)
 
 
 class DatabaseException(BaseAppException):
-    """Veritabanı hatası"""
+    """Database error"""
     status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
     detail = "Error occurred while accessing the database."
 
 
 class ExternalServiceException(BaseAppException):
-    """Dış servis hatası"""
+    """External service error"""
     status_code = status.HTTP_502_BAD_GATEWAY
     detail = "External service error occurred."
 
 
 class RateLimitException(BaseAppException):
-    """İstek limiti aşıldı hatası"""
+    """Request limit exceeded error"""
     status_code = status.HTTP_429_TOO_MANY_REQUESTS
     detail = "Rate limit exceeded. Please try again later."
 
@@ -116,16 +116,16 @@ class RateLimitException(BaseAppException):
     ):
         """
         Args:
-            detail: Hata ile ilgili açıklama
-            retry_after: Kaç saniye sonra tekrar denenmesi gerektiği
-            **kwargs: Ek bağlam bilgileri
+            detail: Description about the error
+            retry_after: How many seconds to wait before retrying
+            **kwargs: Additional context information
         """
         headers = {"Retry-After": str(retry_after)} if retry_after else None
         super().__init__(detail=detail, headers=headers, **kwargs)
 
 
 class ServiceUnavailableException(BaseAppException):
-    """Servis kullanılamıyor hatası"""
+    """Service unavailable error"""
     status_code = status.HTTP_503_SERVICE_UNAVAILABLE
     detail = "Service unavailable. Please try again later."
 
@@ -137,15 +137,23 @@ class ServiceUnavailableException(BaseAppException):
     ):
         """
         Args:
-            detail: Hata ile ilgili açıklama
-            retry_after: Kaç saniye sonra tekrar denenmesi gerektiği
-            **kwargs: Ek bağlam bilgileri
+            detail: Description about the error
+            retry_after: How many seconds to wait before retrying
+            **kwargs: Additional context information
         """
         headers = {"Retry-After": str(retry_after)} if retry_after else None
         super().__init__(detail=detail, headers=headers, **kwargs)
 
 # Login credentials exception
 class InvalidCredentialsException(BaseAppException):
-    """Geçersiz kimlik bilgileri hatası"""
+    """Invalid credentials error"""
     status_code = status.HTTP_401_UNAUTHORIZED
     detail = "Invalid credentials provided."
+
+
+class UnauthorizedException(BaseAppException):
+    """Unauthorized access error"""
+    status_code = status.HTTP_401_UNAUTHORIZED
+    detail = "Unauthorized access"
+    headers = {"WWW-Authenticate": "Bearer"}
+

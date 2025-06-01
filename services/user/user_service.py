@@ -22,3 +22,17 @@ class UserService(BaseService):
 
     async def create_user(self, user: User):
         return await self.repository.create_user(user)
+
+    async def update_user(self, user: User):
+        """Update user information"""
+        return await self.repository.update(user)
+
+    async def check_username_availability(self, username: str) -> bool:
+        """Check if username is available"""
+        user = await self.repository.get_by_username(username)
+        return user is None
+
+    async def check_email_availability(self, email: str) -> bool:
+        """Check if email is available"""
+        user = await self.repository.get_by_email(email)
+        return user is None

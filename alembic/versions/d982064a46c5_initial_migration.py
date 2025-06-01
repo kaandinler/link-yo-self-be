@@ -1,8 +1,8 @@
-"""create users, platforms, social_accounts tables
+"""initial migration
 
-Revision ID: 723e14d857df
+Revision ID: d982064a46c5
 Revises: 
-Create Date: 2025-05-14 01:36:41.806724
+Create Date: 2025-05-25 18:42:00.279515
 
 """
 from typing import Sequence, Union
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = '723e14d857df'
+revision: str = 'd982064a46c5'
 down_revision: Union[str, None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -46,6 +46,40 @@ def upgrade() -> None:
     op.create_index(op.f('ix_users_email'), 'users', ['email'], unique=True)
     op.create_index(op.f('ix_users_id'), 'users', ['id'], unique=False)
     op.create_index(op.f('ix_users_username'), 'users', ['username'], unique=True)
+    op.create_table('links',
+    sa.Column('user_id', sa.Integer(), nullable=False),
+    sa.Column('title', sa.String(length=255), nullable=False),
+    sa.Column('url', sa.String(length=2048), nullable=False),
+    sa.Column('description', sa.Text(), nullable=True),
+    sa.Column('icon_url', sa.String(length=500), nullable=True),
+    sa.Column('background_color', sa.String(length=20), nullable=True),
+    sa.Column('text_color', sa.String(length=20), nullable=True),
+    sa.Column('border_radius', sa.Integer(), nullable=False),
+    sa.Column('is_active', sa.Boolean(), nullable=False),
+    sa.Column('click_count', sa.Integer(), nullable=False),
+    sa.Column('order_index', sa.Integer(), nullable=False),
+    sa.Column('id', sa.Integer(), nullable=False),
+    sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
+    sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
+    sa.Column('is_deleted', sa.Boolean(), nullable=False),
+    sa.ForeignKeyConstraint(['user_id'], ['users.id'], ondelete='CASCADE'),
+    sa.PrimaryKeyConstraint('id')
+    )
+    op.create_index(op.f('ix_links_id'), 'links', ['id'], unique=False)
+    op.create_table('refresh_tokens',
+    sa.Column('token', sa.Text(), nullable=False),
+    sa.Column('user_id', sa.Integer(), nullable=False),
+    sa.Column('expires_at', sa.DateTime(timezone=True), nullable=False),
+    sa.Column('is_revoked', sa.Boolean(), nullable=False),
+    sa.Column('id', sa.Integer(), nullable=False),
+    sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
+    sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
+    sa.Column('is_deleted', sa.Boolean(), nullable=False),
+    sa.ForeignKeyConstraint(['user_id'], ['users.id'], ondelete='CASCADE'),
+    sa.PrimaryKeyConstraint('id')
+    )
+    op.create_index(op.f('ix_refresh_tokens_id'), 'refresh_tokens', ['id'], unique=False)
+    op.create_index(op.f('ix_refresh_tokens_token'), 'refresh_tokens', ['token'], unique=True)
     op.create_table('social_accounts',
     sa.Column('user_id', sa.Integer(), nullable=False),
     sa.Column('platform_id', sa.Integer(), nullable=False),
@@ -87,6 +121,11 @@ def downgrade() -> None:
     op.drop_table('user_page_settings')
     op.drop_index(op.f('ix_social_accounts_id'), table_name='social_accounts')
     op.drop_table('social_accounts')
+    op.drop_index(op.f('ix_refresh_tokens_token'), table_name='refresh_tokens')
+    op.drop_index(op.f('ix_refresh_tokens_id'), table_name='refresh_tokens')
+    op.drop_table('refresh_tokens')
+    op.drop_index(op.f('ix_links_id'), table_name='links')
+    op.drop_table('links')
     op.drop_index(op.f('ix_users_username'), table_name='users')
     op.drop_index(op.f('ix_users_id'), table_name='users')
     op.drop_index(op.f('ix_users_email'), table_name='users')
