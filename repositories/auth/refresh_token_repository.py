@@ -1,4 +1,4 @@
-from typing import Optional, Sequence, Awaitable
+from typing import Optional
 from sqlalchemy import select, update, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 from datetime import datetime
@@ -35,7 +35,7 @@ class RefreshTokenRepository(BaseRepository[RefreshToken]):
                 select(RefreshToken).where(
                     and_(
                         RefreshToken.token == token_value,
-                        RefreshToken.is_revoked == False,
+                        not RefreshToken.is_revoked,
                         RefreshToken.expires_at > datetime.utcnow()
                     )
                 )
@@ -66,7 +66,7 @@ class RefreshTokenRepository(BaseRepository[RefreshToken]):
                 .where(
                     and_(
                         RefreshToken.user_id == user_id_,
-                        RefreshToken.is_revoked == False
+                        not RefreshToken.is_revoked
                     )
                 )
                 .values(is_revoked=True)

@@ -1,6 +1,6 @@
 import datetime
 
-from sqlalchemy import Column, Integer, String, UniqueConstraint, ForeignKey, DateTime, Boolean, func, JSON, Text
+from sqlalchemy import Column, Integer, String, UniqueConstraint, ForeignKey, DateTime, Boolean, JSON, Text
 from sqlalchemy.orm import relationship, declarative_base, DeclarativeMeta
 
 Base: DeclarativeMeta = declarative_base()

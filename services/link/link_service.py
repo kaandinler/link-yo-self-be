@@ -1,13 +1,12 @@
 # services/link/link_service.py
 
-from typing import List, Optional
-from sqlalchemy.ext.asyncio import AsyncSession
+from typing import List
 
 from core.base_service import BaseService
 from core.exceptions import NotFoundException, PermissionDeniedException
-from models import Link, User
+from models import Link
 from repositories.link.link_repository import LinkRepository
-from services.link.link_service_dto import LinkCreate, LinkUpdate, LinkRead, LinkReorderRequest
+from services.link.link_service_dto import LinkCreate, LinkUpdate, LinkReorderRequest
 
 
 class LinkService(BaseService):

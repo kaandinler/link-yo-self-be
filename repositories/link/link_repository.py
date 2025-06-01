@@ -32,10 +32,10 @@ class LinkRepository(BaseRepository[Link]):
             query = select(Link).where(Link.user_id == user_id)
 
             if not include_inactive:
-                query = query.where(Link.is_active == True)
+                query = query.where(Link.is_active)
 
             # is_deleted = False kontrolü ekleyelim (soft delete için)
-            query = query.where(Link.is_deleted == False)
+            query = query.where(not Link.is_deleted)
             query = query.order_by(Link.order_index.asc())
 
             result = await session.execute(query)
@@ -48,7 +48,7 @@ class LinkRepository(BaseRepository[Link]):
 
         async def _get_max_order(session: AsyncSession, user_id: int) -> Optional[int]:
             query = select(func.max(Link.order_index)).where(
-                and_(Link.user_id == user_id, Link.is_deleted == False)
+                and_(Link.user_id == user_id, not Link.is_deleted)
             )
             result = await session.execute(query)
             return result.scalar()
@@ -78,8 +78,8 @@ class LinkRepository(BaseRepository[Link]):
             query = select(Link).where(
                 and_(
                     Link.user_id == user_id,
-                    Link.is_active == True,
-                    Link.is_deleted == False
+                    Link.is_active,
+                    not Link.is_deleted
                 )
             ).order_by(Link.order_index.asc())
 
@@ -96,7 +96,7 @@ class LinkRepository(BaseRepository[Link]):
                 and_(
                     Link.user_id == user_id,
                     Link.url == url,
-                    Link.is_deleted == False
+                    not Link.is_deleted
                 )
             )
             result = await session.execute(query)
@@ -111,7 +111,7 @@ class LinkRepository(BaseRepository[Link]):
             query = select(Link).where(
                 and_(
                     Link.user_id == user_id,
-                    Link.is_deleted == False,
+                    not Link.is_deleted,
                     (Link.title.ilike(f"%{search_term}%") |
                      Link.description.ilike(f"%{search_term}%") |
                      Link.url.ilike(f"%{search_term}%"))
@@ -131,7 +131,7 @@ class LinkRepository(BaseRepository[Link]):
                 and_(
                     Link.user_id == user_id,
                     Link.is_active == is_active,
-                    Link.is_deleted == False
+                    not Link.is_deleted
                 )
             ).order_by(Link.order_index.asc())
 

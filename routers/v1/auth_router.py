@@ -8,7 +8,7 @@ from core.schemas.response import BaseResponseModel
 from di.container import Container
 from services.auth.auth_service_dto import TokenResponse, TokenRefreshRequest
 from services.user.user_service import UserService
-from services.user.user_service_dto import UserCreate, UserRead, UserCreateMinimal
+from services.user.user_service_dto import UserRead, UserCreateMinimal
 
 router = APIRouter(tags=['auth'])
 

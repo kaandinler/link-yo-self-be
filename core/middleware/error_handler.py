@@ -7,7 +7,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.exc import SQLAlchemyError
 
 from core.exceptions import BaseAppException, DatabaseException
-from core.schemas.response import ErrorResponse, ResponseStatus
+from core.schemas.response import ErrorResponse
 
 logger = logging.getLogger(__name__)
 

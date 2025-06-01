@@ -1,6 +1,6 @@
 # routers/v1/profile_router.py
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends
 from dependency_injector.wiring import inject, Provide
 
 from core.schemas.response import SuccessResponse
