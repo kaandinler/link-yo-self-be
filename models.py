@@ -1,6 +1,6 @@
 import datetime
 
-from sqlalchemy import Column, Integer, String, UniqueConstraint, ForeignKey, DateTime, Boolean, JSON, Text
+from sqlalchemy import Column, Integer, String, UniqueConstraint, ForeignKey, DateTime, Boolean, JSON, Text, func
 from sqlalchemy.orm import relationship, declarative_base, DeclarativeMeta
 
 Base: DeclarativeMeta = declarative_base()
@@ -11,8 +11,8 @@ class BaseModel(Base):
     __abstract__ = True
 
     id = Column(Integer, primary_key=True, index=True)
-    created_at = Column(DateTime(timezone=True), server_default=str(datetime.datetime.now(datetime.UTC)), nullable=False)
-    updated_at = Column(DateTime(timezone=True), onupdate=str(datetime.datetime.now(datetime.UTC)), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=True)
     is_deleted = Column(Boolean, default=False, nullable=False)
 
 

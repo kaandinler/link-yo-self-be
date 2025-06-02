@@ -1,8 +1,8 @@
-"""initial migration
+"""initial commit
 
-Revision ID: d982064a46c5
+Revision ID: 676b770fc51c
 Revises: 
-Create Date: 2025-05-25 18:42:00.279515
+Create Date: 2025-06-02 03:20:01.007581
 
 """
 from typing import Sequence, Union
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = 'd982064a46c5'
+revision: str = '676b770fc51c'
 down_revision: Union[str, None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -35,8 +35,23 @@ def upgrade() -> None:
     op.create_table('users',
     sa.Column('username', sa.String(length=50), nullable=False),
     sa.Column('email', sa.String(length=255), nullable=False),
-    sa.Column('profile_image_url', sa.String(), nullable=True),
     sa.Column('hashed_password', sa.String(length=128), nullable=False),
+    sa.Column('first_name', sa.String(length=50), nullable=True),
+    sa.Column('last_name', sa.String(length=50), nullable=True),
+    sa.Column('display_name', sa.String(length=100), nullable=True),
+    sa.Column('bio', sa.Text(), nullable=True),
+    sa.Column('profile_image_url', sa.String(length=500), nullable=True),
+    sa.Column('page_title', sa.String(length=100), nullable=True),
+    sa.Column('page_description', sa.String(length=500), nullable=True),
+    sa.Column('website', sa.String(length=500), nullable=True),
+    sa.Column('twitter_username', sa.String(length=100), nullable=True),
+    sa.Column('instagram_username', sa.String(length=100), nullable=True),
+    sa.Column('linkedin_username', sa.String(length=100), nullable=True),
+    sa.Column('theme_color', sa.String(length=20), nullable=True),
+    sa.Column('background_type', sa.String(length=20), nullable=True),
+    sa.Column('background_value', sa.String(length=500), nullable=True),
+    sa.Column('profile_completed', sa.Boolean(), nullable=False),
+    sa.Column('onboarding_completed', sa.Boolean(), nullable=False),
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
     sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),

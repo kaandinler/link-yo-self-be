@@ -5,6 +5,7 @@ from fastapi.security import OAuth2PasswordRequestForm
 from core.auth.auth_service import AuthService
 from core.exceptions import AlreadyExistsException
 from core.schemas.response import BaseResponseModel
+from deps import get_current_user
 from di.container import Container
 from services.auth.auth_service_dto import TokenResponse, TokenRefreshRequest
 from services.user.user_service import UserService
@@ -53,13 +54,14 @@ async def refresh_token(
 @router.post('/logout', status_code=status.HTTP_204_NO_CONTENT)
 @inject
 async def logout(
-        refresh_request: TokenRefreshRequest,
-        auth_service: AuthService = Depends(Provide[Container.auth_service])
+    current_user=Depends(get_current_user),  # Token'dan user'ı al
+    auth_service: AuthService = Depends(Provide[Container.auth_service])
 ):
-    # Refresh token'ı geçersiz kıl
-    await auth_service.revoke_refresh_token(refresh_request.refresh_token)
-
+    """Kullanıcının tüm refresh token'larını geçersiz kılar"""
+    # Kullanıcının tüm refresh token'larını iptal et
+    await auth_service.revoke_all_user_tokens(current_user.id)
     return None
+
 
 @router.post("/register", response_model=BaseResponseModel[UserRead], status_code=status.HTTP_201_CREATED)
 @inject
