@@ -15,25 +15,29 @@ class LinkService(BaseService):
         self.repository = link_repo
 
     async def create_link(self, user_id: int, link_data: LinkCreate) -> Link:
-        """Kullanıcı için yeni link oluşturur"""
-        # Yeni linkin sıra numarasını belirle (son sıra + 1)
-        max_order = await self.repository.get_max_order_for_user(user_id)
-        order_index = (max_order or 0) + 1
 
-        link = Link(
-            user_id=user_id,
-            title=link_data.title,
-            url=link_data.url,
-            description=link_data.description,
-            icon_url=link_data.icon_url,
-            background_color=link_data.background_color,
-            text_color=link_data.text_color,
-            border_radius=link_data.border_radius or 8,
-            is_active=link_data.is_active if link_data.is_active is not None else True,
-            order_index=order_index
-        )
+        try:
+            """Kullanıcı için yeni link oluşturur"""
+            # Yeni linkin sıra numarasını belirle (son sıra + 1)
+            max_order = await self.repository.get_max_order_for_user(user_id)
+            order_index = (max_order or 0) + 1
 
-        return await self.repository.create_link(link)
+            link = Link(
+                user_id=user_id,
+                title=link_data.title,
+                url=link_data.url,
+                description=link_data.description,
+                icon_url=link_data.icon_url,
+                background_color=link_data.background_color,
+                text_color=link_data.text_color,
+                border_radius=link_data.border_radius or 8,
+                is_active=link_data.is_active if link_data.is_active is not None else True,
+                order_index=order_index
+            )
+
+            return await self.repository.create_link(link)
+        except Exception as e:
+            raise Exception(f"Error creating link: {str(e)}")
 
     async def get_user_links(self, user_id: int, include_inactive: bool = False) -> List[Link]:
         """Kullanıcının linklerini sıralı şekilde getirir"""

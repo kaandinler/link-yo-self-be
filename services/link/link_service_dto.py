@@ -103,8 +103,6 @@ class LinkRead(BaseModel):
     is_active: bool = True
     click_count: int = 0
     order_index: int = 0
-    created_at: str
-    updated_at: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -130,7 +128,6 @@ class LinkAnalytics(BaseModel):
     title: str
     url: str
     click_count: int
-    created_at: str
 
     class Config:
         from_attributes = True
