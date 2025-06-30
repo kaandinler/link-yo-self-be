@@ -4,7 +4,7 @@ from typing import List
 from fastapi import APIRouter, Depends, status, Query
 from dependency_injector.wiring import inject, Provide
 
-from core.schemas.response import SuccessResponse  # BaseResponseModel yerine
+from core.schemas.response import SuccessResponse, ErrorResponse  # BaseResponseModel yerine
 from deps import get_current_user
 from di.container import Container
 from models import User
@@ -26,12 +26,20 @@ async def create_link(
     current_user: User = Depends(get_current_user),
     link_service: LinkService = Depends(Provide[Container.link_service])
 ):
-    """Yeni link oluşturur"""
-    link = await link_service.create_link(current_user.id, link_data)
-    return SuccessResponse.create(
-        data=link,
-        message="Link successfully created"
-    )
+    try:
+
+        """Yeni link oluşturur"""
+        link = await link_service.create_link(current_user.id, link_data)
+        return SuccessResponse(
+            data=link,
+            message="Link successfully created"
+        )
+    except Exception as e:
+        # Hata durumunda uygun bir hata mesajı döndür
+        return ErrorResponse(
+            data=None,
+            message=f"Error creating link: {str(e)}"
+        )
 
 
 @router.get("/", response_model=SuccessResponse[List[LinkRead]])

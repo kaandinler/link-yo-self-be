@@ -35,7 +35,7 @@ class LinkRepository(BaseRepository[Link]):
                 query = query.where(Link.is_active)
 
             # is_deleted = False kontrolü ekleyelim (soft delete için)
-            query = query.where(not Link.is_deleted)
+            query = query.where(Link.is_deleted == False)
             query = query.order_by(Link.order_index.asc())
 
             result = await session.execute(query)
@@ -48,7 +48,7 @@ class LinkRepository(BaseRepository[Link]):
 
         async def _get_max_order(session: AsyncSession, user_id: int) -> Optional[int]:
             query = select(func.max(Link.order_index)).where(
-                and_(Link.user_id == user_id, not Link.is_deleted)
+                and_(Link.user_id == user_id, Link.is_deleted == False)
             )
             result = await session.execute(query)
             return result.scalar()
@@ -79,7 +79,7 @@ class LinkRepository(BaseRepository[Link]):
                 and_(
                     Link.user_id == user_id,
                     Link.is_active,
-                    not Link.is_deleted
+                    Link.is_deleted == False
                 )
             ).order_by(Link.order_index.asc())
 
@@ -96,7 +96,7 @@ class LinkRepository(BaseRepository[Link]):
                 and_(
                     Link.user_id == user_id,
                     Link.url == url,
-                    not Link.is_deleted
+                    Link.is_deleted == False
                 )
             )
             result = await session.execute(query)
@@ -111,7 +111,7 @@ class LinkRepository(BaseRepository[Link]):
             query = select(Link).where(
                 and_(
                     Link.user_id == user_id,
-                    not Link.is_deleted,
+                    Link.is_deleted == False,
                     (Link.title.ilike(f"%{search_term}%") |
                      Link.description.ilike(f"%{search_term}%") |
                      Link.url.ilike(f"%{search_term}%"))
@@ -131,7 +131,7 @@ class LinkRepository(BaseRepository[Link]):
                 and_(
                     Link.user_id == user_id,
                     Link.is_active == is_active,
-                    not Link.is_deleted
+                    Link.is_deleted == False
                 )
             ).order_by(Link.order_index.asc())
 
