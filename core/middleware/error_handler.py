@@ -1,6 +1,6 @@
 import logging
 import traceback
-from typing import Callable
+from collections.abc import Callable
 
 from fastapi import FastAPI, Request, status
 from fastapi.responses import JSONResponse
@@ -32,17 +32,17 @@ async def catch_exceptions_middleware(request: Request, call_next: Callable):
         )
     except SQLAlchemyError as exc:
         # Special handling for database errors
-        logger.error(f"Database error: {str(exc)}")
+        logger.error(f"Database error: {exc!s}")
         logger.debug(traceback.format_exc())
-        db_exception = DatabaseException(detail=f"Database error: {str(exc)}")
+        db_exception = DatabaseException(detail=f"Database error: {exc!s}")
         error_response = ErrorResponse.create(message="A database error occurred. Please try again later.")
         return JSONResponse(
             status_code=db_exception.status_code,
             content=error_response.model_dump(),
         )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - global catch-all middleware, bilincli
         # For undefined error situations
-        error_detail = f"Unexpected error: {str(exc)}"
+        error_detail = f"Unexpected error: {exc!s}"
         logger.error(error_detail)
         logger.debug(traceback.format_exc())
 

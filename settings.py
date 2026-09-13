@@ -1,6 +1,7 @@
 # settings.py
-from typing import List, Optional
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
@@ -21,7 +22,7 @@ class Settings(BaseSettings):
     environment: str = "development"
 
     # Güvenlik ayarları
-    allowed_hosts: Optional[List[str]] = None
-    allowed_origins: Optional[List[str]] = None
+    allowed_hosts: list[str] | None = None
+    allowed_origins: list[str] | None = None
 
 settings = Settings()

@@ -1,4 +1,5 @@
-from typing import AsyncGenerator, Callable, TypeVar
+from collections.abc import AsyncGenerator, Callable
+from typing import TypeVar
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 

@@ -1,24 +1,26 @@
 import logging
-from fastapi import FastAPI, Request, APIRouter
+
+from fastapi import APIRouter, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.middleware.httpsredirect import HTTPSRedirectMiddleware
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import JSONResponse
 
 # Import the db module for session factory setup
 import db
-from di.container import Container
-from settings import settings
-from routers import user_router, auth_router, link_router, profile_router, public_router
 from core.exceptions import (
+    DatabaseException,
+    InvalidCredentialsException,
     NotAuthenticatedException,
-    PermissionDeniedException,
     NotFoundException,
-    DatabaseException, InvalidCredentialsException
+    PermissionDeniedException,
 )
 from core.middleware.error_handler import setup_exception_handlers
-from core.utils.response_wrapper import add_response_model
 from core.schemas.response import ErrorResponse
+from core.utils.response_wrapper import add_response_model
+from di.container import Container
+from routers import auth_router, link_router, profile_router, public_router, user_router
+from settings import settings
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)

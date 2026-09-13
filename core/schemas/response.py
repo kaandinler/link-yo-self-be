@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import Any, Generic, List, Optional, TypeVar, Dict, Union
+from typing import Any, Generic, TypeVar, Union
 
 from pydantic import BaseModel, Field
 
@@ -25,8 +25,8 @@ class BaseResponseModel(BaseModel, Generic[T]):
         data: İsteğe bağlı yanıt verisi
     """
     status: ResponseStatus = Field(default=ResponseStatus.SUCCESS)
-    message: Optional[str] = Field(default=None, description="İsteğe bağlı açıklayıcı mesaj")
-    data: Optional[T] = Field(default=None, description="Yanıt verisi")
+    message: str | None = Field(default=None, description="İsteğe bağlı açıklayıcı mesaj")
+    data: T | None = Field(default=None, description="Yanıt verisi")
 
 
 class PaginatedResponseModel(BaseResponseModel, Generic[T]):
@@ -36,8 +36,8 @@ class PaginatedResponseModel(BaseResponseModel, Generic[T]):
     Ek Özellikler:
         meta: Sayfalandırma meta bilgileri
     """
-    data: Optional[List[T]] = Field(default=None)
-    meta: Optional[Dict[str, Any]] = Field(
+    data: list[T] | None = Field(default=None)
+    meta: dict[str, Any] | None = Field(
         default=None,
         description="Sayfalandırma meta bilgileri: toplam, sayfa, sayfa_boyutu vb."
     )
@@ -51,7 +51,7 @@ class ErrorResponseModel(BaseResponseModel):
         errors: Doğrulama hatalarının ayrıntılı listesi
     """
     status: ResponseStatus = Field(default=ResponseStatus.ERROR)
-    errors: Optional[List[Dict[str, Any]]] = Field(
+    errors: list[dict[str, Any]] | None = Field(
         default=None,
         description="Doğrulama hataları listesi"
     )
@@ -62,7 +62,9 @@ class SuccessResponse(BaseResponseModel[T]):
     status: ResponseStatus = Field(default=ResponseStatus.SUCCESS)
 
     @classmethod
-    def create(cls, data: T = None, message: str = None) -> "SuccessResponse":
+    def create(
+        cls, data: T | None = None, message: str | None = None
+    ) -> "SuccessResponse":
         """Başarılı bir yanıt oluşturur"""
         return cls(
             status=ResponseStatus.SUCCESS,
@@ -80,7 +82,7 @@ class ErrorResponse(BaseResponseModel):
         cls,
         message: str,
         data: Any = None,
-        errors: List[Dict[str, Any]] = None
+        errors: list[dict[str, Any]] | None = None
     ) -> Union["ErrorResponse", "ErrorResponseModel"]:
         """Hata yanıtı oluşturur"""
         if errors:

@@ -1,16 +1,17 @@
-from pydantic import BaseModel, Field, field_validator
-from typing import Optional
 import re
+
+from pydantic import BaseModel, Field, field_validator
+
 
 class LinkCreate(BaseModel):
     title: str = Field(..., min_length=1, max_length=255, description="Link title")
     url: str = Field(..., min_length=1, max_length=2048, description="Link URL")
-    description: Optional[str] = Field(None, max_length=500, description="Link description")
-    icon_url: Optional[str] = Field(None, max_length=500, description="Link icon URL")
-    background_color: Optional[str] = Field(None, max_length=20, description="Background color (hex)")
-    text_color: Optional[str] = Field(None, max_length=20, description="Text color (hex)")
-    border_radius: Optional[int] = Field(8, ge=0, le=50, description="Border radius in pixels")
-    is_active: Optional[bool] = Field(True, description="Whether the link is active")
+    description: str | None = Field(None, max_length=500, description="Link description")
+    icon_url: str | None = Field(None, max_length=500, description="Link icon URL")
+    background_color: str | None = Field(None, max_length=20, description="Background color (hex)")
+    text_color: str | None = Field(None, max_length=20, description="Text color (hex)")
+    border_radius: int | None = Field(8, ge=0, le=50, description="Border radius in pixels")
+    is_active: bool | None = Field(True, description="Whether the link is active")
 
     @field_validator("url", mode="before")
     @classmethod
@@ -35,7 +36,7 @@ class LinkCreate(BaseModel):
 
     @field_validator("background_color", "text_color", mode="before")
     @classmethod
-    def validate_color(cls, color: Optional[str]) -> Optional[str]:
+    def validate_color(cls, color: str | None) -> str | None:
         if color is None:
             return color
 
@@ -47,18 +48,18 @@ class LinkCreate(BaseModel):
 
 
 class LinkUpdate(BaseModel):
-    title: Optional[str] = Field(None, min_length=1, max_length=255)
-    url: Optional[str] = Field(None, min_length=1, max_length=2048)
-    description: Optional[str] = Field(None, max_length=500)
-    icon_url: Optional[str] = Field(None, max_length=500)
-    background_color: Optional[str] = Field(None, max_length=20)
-    text_color: Optional[str] = Field(None, max_length=20)
-    border_radius: Optional[int] = Field(None, ge=0, le=50)
-    is_active: Optional[bool] = None
+    title: str | None = Field(None, min_length=1, max_length=255)
+    url: str | None = Field(None, min_length=1, max_length=2048)
+    description: str | None = Field(None, max_length=500)
+    icon_url: str | None = Field(None, max_length=500)
+    background_color: str | None = Field(None, max_length=20)
+    text_color: str | None = Field(None, max_length=20)
+    border_radius: int | None = Field(None, ge=0, le=50)
+    is_active: bool | None = None
 
     @field_validator("url", mode="before")
     @classmethod
-    def validate_url(cls, url: Optional[str]) -> Optional[str]:
+    def validate_url(cls, url: str | None) -> str | None:
         if url is None:
             return url
 
@@ -80,7 +81,7 @@ class LinkUpdate(BaseModel):
 
     @field_validator("background_color", "text_color", mode="before")
     @classmethod
-    def validate_color(cls, color: Optional[str]) -> Optional[str]:
+    def validate_color(cls, color: str | None) -> str | None:
         if color is None:
             return color
 
@@ -95,10 +96,10 @@ class LinkRead(BaseModel):
     user_id: int
     title: str
     url: str
-    description: Optional[str] = None
-    icon_url: Optional[str] = None
-    background_color: Optional[str] = None
-    text_color: Optional[str] = None
+    description: str | None = None
+    icon_url: str | None = None
+    background_color: str | None = None
+    text_color: str | None = None
     border_radius: int = 8
     is_active: bool = True
     click_count: int = 0

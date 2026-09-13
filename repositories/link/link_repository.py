@@ -1,7 +1,7 @@
 # repositories/link/link_repository.py
 
-from typing import List, Optional
-from sqlalchemy import select, update, func, and_
+
+from sqlalchemy import and_, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.base_repository import BaseRepository
@@ -25,10 +25,10 @@ class LinkRepository(BaseRepository[Link]):
         """Link siler"""
         await self.delete(link)
 
-    async def get_links_by_user(self, user_id: int, include_inactive: bool = False) -> List[Link]:
+    async def get_links_by_user(self, user_id: int, include_inactive: bool = False) -> list[Link]:
         """Kullanıcının linklerini order_index'e göre sıralı şekilde getirir"""
 
-        async def _get_links(session: AsyncSession, user_id: int, include_inactive: bool) -> List[Link]:
+        async def _get_links(session: AsyncSession, user_id: int, include_inactive: bool) -> list[Link]:
             query = select(Link).where(Link.user_id == user_id)
 
             if not include_inactive:
@@ -43,10 +43,10 @@ class LinkRepository(BaseRepository[Link]):
 
         return await self.execute_query(_get_links, user_id, include_inactive, transactional=False)
 
-    async def get_max_order_for_user(self, user_id: int) -> Optional[int]:
+    async def get_max_order_for_user(self, user_id: int) -> int | None:
         """Kullanıcının linklerinin maksimum order değerini getirir"""
 
-        async def _get_max_order(session: AsyncSession, user_id: int) -> Optional[int]:
+        async def _get_max_order(session: AsyncSession, user_id: int) -> int | None:
             query = select(func.max(Link.order_index)).where(
                 and_(Link.user_id == user_id, Link.is_deleted == False)
             )
@@ -55,10 +55,10 @@ class LinkRepository(BaseRepository[Link]):
 
         return await self.execute_query(_get_max_order, user_id, transactional=False)
 
-    async def update_link_orders(self, user_id: int, ordered_link_ids: List[int]) -> None:
+    async def update_link_orders(self, user_id: int, ordered_link_ids: list[int]) -> None:
         """Kullanıcının linklerinin sırasını günceller"""
 
-        async def _update_orders(session: AsyncSession, user_id: int, ordered_link_ids: List[int]) -> None:
+        async def _update_orders(session: AsyncSession, user_id: int, ordered_link_ids: list[int]) -> None:
             # Her link ID için yeni order_index değerini hesapla ve güncelle
             for index, link_id in enumerate(ordered_link_ids):
                 await session.execute(
@@ -71,10 +71,10 @@ class LinkRepository(BaseRepository[Link]):
 
         await self.execute_query(_update_orders, user_id, ordered_link_ids, transactional=True)
 
-    async def get_public_links(self, user_id: int) -> List[Link]:
+    async def get_public_links(self, user_id: int) -> list[Link]:
         """Kullanıcının public sayfası için aktif linklerini getirir"""
 
-        async def _get_public_links(session: AsyncSession, user_id: int) -> List[Link]:
+        async def _get_public_links(session: AsyncSession, user_id: int) -> list[Link]:
             query = select(Link).where(
                 and_(
                     Link.user_id == user_id,
@@ -88,10 +88,10 @@ class LinkRepository(BaseRepository[Link]):
 
         return await self.execute_query(_get_public_links, user_id, transactional=False)
 
-    async def get_link_by_url(self, user_id: int, url: str) -> Optional[Link]:
+    async def get_link_by_url(self, user_id: int, url: str) -> Link | None:
         """Kullanıcının belirli URL'ye sahip linkini getirir (duplicate kontrolü için)"""
 
-        async def _get_by_url(session: AsyncSession, user_id: int, url: str) -> Optional[Link]:
+        async def _get_by_url(session: AsyncSession, user_id: int, url: str) -> Link | None:
             query = select(Link).where(
                 and_(
                     Link.user_id == user_id,
@@ -104,10 +104,10 @@ class LinkRepository(BaseRepository[Link]):
 
         return await self.execute_query(_get_by_url, user_id, url, transactional=False)
 
-    async def search_links(self, user_id: int, search_term: str) -> List[Link]:
+    async def search_links(self, user_id: int, search_term: str) -> list[Link]:
         """Kullanıcının linklerinde arama yapar"""
 
-        async def _search_links(session: AsyncSession, user_id: int, search_term: str) -> List[Link]:
+        async def _search_links(session: AsyncSession, user_id: int, search_term: str) -> list[Link]:
             query = select(Link).where(
                 and_(
                     Link.user_id == user_id,
@@ -123,10 +123,10 @@ class LinkRepository(BaseRepository[Link]):
 
         return await self.execute_query(_search_links, user_id, search_term, transactional=False)
 
-    async def get_links_by_status(self, user_id: int, is_active: bool) -> List[Link]:
+    async def get_links_by_status(self, user_id: int, is_active: bool) -> list[Link]:
         """Kullanıcının belirli durumda olan linklerini getirir"""
 
-        async def _get_by_status(session: AsyncSession, user_id: int, is_active: bool) -> List[Link]:
+        async def _get_by_status(session: AsyncSession, user_id: int, is_active: bool) -> list[Link]:
             query = select(Link).where(
                 and_(
                     Link.user_id == user_id,

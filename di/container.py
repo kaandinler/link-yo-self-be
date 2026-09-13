@@ -1,12 +1,12 @@
 from dependency_injector import containers, providers
-from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from core.auth.auth_service import AuthService
-from repositories.user.user_repository import UserRepository
 from repositories.auth.refresh_token_repository import RefreshTokenRepository
 from repositories.link.link_repository import LinkRepository  # EKLENDI
-from services.user.user_service import UserService
+from repositories.user.user_repository import UserRepository
 from services.link.link_service import LinkService  # EKLENDI
+from services.user.user_service import UserService
 from settings import settings
 
 
