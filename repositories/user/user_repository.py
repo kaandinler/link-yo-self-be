@@ -52,6 +52,28 @@ class UserRepository(BaseRepository[User]):
         # Use the execute_query helper for flexible transaction handling
         return await self.execute_query(_get_by_email, email, transactional=transactional)
 
+    async def get_public_profile(
+        self, username: str, transactional: bool = False
+    ) -> Optional[User]:
+        """Public profil icin kullaniciyi linkleriyle birlikte getirir.
+
+        Soft delete edilmis kullanicilar public sayfada gorunmez.
+        """
+
+        async def _get_public_profile(
+            session: AsyncSession, username_: str
+        ) -> Optional[User]:
+            result = await session.execute(
+                select(User)
+                .options(selectinload(User.links))
+                .where(User.username == username_, User.is_deleted.is_(False))
+            )
+            return result.scalars().first()
+
+        return await self.execute_query(
+            _get_public_profile, username, transactional=transactional
+        )
+
     async def create_user(self, user: User) -> User:
         """Create a new user (always transactional)"""
         return await self.create(user)

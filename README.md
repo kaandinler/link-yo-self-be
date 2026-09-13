@@ -1,1 +1,98 @@
-# link-yo-self-be
+# LinkYoSelf API
+
+Linktree benzeri bir "link in bio" servisinin FastAPI backend'i.
+Kullanicilar kayit olur, profillerini duzenler, linklerini yonetir ve
+`/{username}` adresinde herkese acik bir link sayfasina sahip olur.
+
+## Kurulum
+
+```bash
+python -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt        # gelistirme icin: requirements-dev.txt
+
+cp .env.example .env                   # DATABASE_URL ve SECRET_KEY'i doldurun
+alembic upgrade head
+
+uvicorn main:app --reload
+```
+
+Swagger arayuzu: <http://localhost:8000/docs>
+
+> **Not:** `bcrypt` 4.0.1'e pinlenmistir. `passlib` 1.7.4 bcrypt >= 4.1 ile
+> uyumsuzdur ve yukseltilirse kayit ucu 500 doner.
+
+## Testler
+
+```bash
+pip install -r requirements-dev.txt
+pytest
+```
+
+Testler SQLite (aiosqlite) uzerinde calisir, ayri bir veritabani kurulumu
+gerektirmez. Her test sifirdan olusturulan bos bir semada calisir.
+
+## Mimari
+
+```
+routers/          HTTP katmani (routers/v1/* surumlenmis endpoint'ler)
+services/         Is kurallari + DTO'lar (Pydantic)
+repositories/     Veri erisimi (SQLAlchemy async)
+core/             Ortak altyapi: auth, exception'lar, response zarfi
+di/container.py   dependency-injector container'i
+models.py         SQLAlchemy modelleri
+alembic/          Migration'lar
+```
+
+Tum yanitlar ortak bir zarf kullanir:
+
+```json
+{ "status": "success", "message": "...", "data": { } }
+```
+
+## Endpoint'ler
+
+Tum yollar `/api/v1` onekiyle servis edilir.
+
+### Auth
+| Method | Yol | Aciklama |
+|---|---|---|
+| POST | `/auth/register` | Kayit (username, email, password) |
+| POST | `/auth/token` | Giris — `username` alanina e-posta veya kullanici adi |
+| POST | `/auth/refresh` | Refresh token ile yeni access token |
+| POST | `/auth/logout` | Kullanicinin tum refresh token'larini iptal eder |
+
+### Kullanici
+| Method | Yol | Aciklama |
+|---|---|---|
+| GET | `/users/me` | Giris yapmis kullanici |
+| GET | `/users/{user_id}` | Id ile kullanici |
+| GET | `/users/` | Tum kullanicilar (`is_admin` gerekir) |
+
+### Profil & onboarding
+| Method | Yol | Aciklama |
+|---|---|---|
+| GET | `/profile/me` | Profil detayi |
+| GET | `/profile/onboarding-status` | Hangi adimda oldugu |
+| POST | `/profile/complete-step-1..4` | Onboarding adimlari |
+| PUT | `/profile/update` | Profili topluca guncelle |
+| POST | `/profile/complete-onboarding` | Onboarding'i tamamla |
+| POST | `/profile/skip-onboarding` | Onboarding'i atla |
+
+### Linkler
+| Method | Yol | Aciklama |
+|---|---|---|
+| POST | `/links/` | Link olustur |
+| GET | `/links/` | Linkleri listele (`?include_inactive=true`) |
+| GET/PUT/DELETE | `/links/{link_id}` | Link detay / guncelle / sil |
+| POST | `/links/reorder` | Siralamayi degistir |
+| PATCH | `/links/{link_id}/toggle` | Aktif/pasif |
+| GET | `/links/analytics/summary` | Tiklanma ozeti |
+| POST | `/links/{link_id}/click` | **Public** — tiklanmayi kaydeder |
+
+### Public profil
+| Method | Yol | Aciklama |
+|---|---|---|
+| GET | `/p/{username}` | **Public** — profil + aktif linkler |
+
+`/p/{username}` token gerektirmez, buyuk/kucuk harf duyarsizdir ve
+e-posta / id / admin gibi hassas alanlari donmez.
