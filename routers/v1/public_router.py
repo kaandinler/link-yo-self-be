@@ -1,6 +1,8 @@
 # routers/v1/public_router.py
 """Kimlik dogrulamasi gerektirmeyen public profil endpoint'leri."""
 
+from typing import Annotated
+
 from dependency_injector.wiring import Provide, inject
 from fastapi import APIRouter, Depends, Path
 
@@ -15,10 +17,10 @@ router = APIRouter(tags=["public"])
 @router.get("/{username}", response_model=SuccessResponse[PublicProfile])
 @inject
 async def get_public_profile(
-    username: str = Path(
-        ..., min_length=3, max_length=30, description="Profil kullanici adi"
-    ),
-    user_service: UserService = Depends(Provide[Container.user_service]),
+    username: Annotated[
+        str, Path(min_length=3, max_length=30, description="Profil kullanici adi")
+    ],
+    user_service: Annotated[UserService, Depends(Provide[Container.user_service])],
 ):
     """Bir kullanicinin herkese acik link sayfasini doner.
 

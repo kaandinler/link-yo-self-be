@@ -4,7 +4,6 @@ Bu modeller kimlik dogrulamasi olmadan servis edildigi icin hassas alanlar
 (e-posta, id, is_admin, onboarding durumu vb.) bilincli olarak disarida
 birakilmistir.
 """
-from typing import List, Optional
 
 from pydantic import BaseModel, ConfigDict
 
@@ -15,10 +14,10 @@ class PublicLink(BaseModel):
     id: int
     title: str
     url: str
-    description: Optional[str] = None
-    icon_url: Optional[str] = None
-    background_color: Optional[str] = None
-    text_color: Optional[str] = None
+    description: str | None = None
+    icon_url: str | None = None
+    background_color: str | None = None
+    text_color: str | None = None
     border_radius: int = 8
     order_index: int = 0
 
@@ -30,19 +29,19 @@ class PublicProfile(BaseModel):
 
     username: str
     display_name: str
-    bio: Optional[str] = None
-    profile_image_url: Optional[str] = None
+    bio: str | None = None
+    profile_image_url: str | None = None
 
-    page_title: Optional[str] = None
-    page_description: Optional[str] = None
-    website: Optional[str] = None
+    page_title: str | None = None
+    page_description: str | None = None
+    website: str | None = None
 
-    twitter_username: Optional[str] = None
-    instagram_username: Optional[str] = None
-    linkedin_username: Optional[str] = None
+    twitter_username: str | None = None
+    instagram_username: str | None = None
+    linkedin_username: str | None = None
 
-    theme_color: Optional[str] = None
-    background_type: Optional[str] = None
-    background_value: Optional[str] = None
+    theme_color: str | None = None
+    background_type: str | None = None
+    background_value: str | None = None
 
-    links: List[PublicLink] = []
+    links: list[PublicLink] = []

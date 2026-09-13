@@ -17,12 +17,12 @@ os.environ["ACCESS_TOKEN_EXPIRE_MINUTES"] = "30"
 os.environ["ENVIRONMENT"] = "development"
 os.environ["DB_ECHO"] = "false"
 
-import pytest  # noqa: E402
-import pytest_asyncio  # noqa: E402
-from httpx import ASGITransport, AsyncClient  # noqa: E402
+import pytest
+import pytest_asyncio
+from httpx import ASGITransport, AsyncClient
 
-from main import app as fastapi_app  # noqa: E402
-from models import Base  # noqa: E402
+from main import app as fastapi_app
+from models import Base
 
 
 @pytest.fixture(scope="session")
@@ -61,7 +61,7 @@ async def register_user(client: AsyncClient, **overrides) -> dict:
 
 
 async def login(
-    client: AsyncClient, identifier: str = None, password: str = None
+    client: AsyncClient, identifier: str | None = None, password: str | None = None
 ) -> str:
     """Giris yapar ve access token doner."""
     response = await client.post(
