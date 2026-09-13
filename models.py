@@ -50,6 +50,9 @@ class User(BaseModel):
     profile_completed = Column(Boolean, default=False, nullable=False)
     onboarding_completed = Column(Boolean, default=False, nullable=False)
 
+    # Yetkilendirme
+    is_admin = Column(Boolean, default=False, nullable=False)
+
     # İlişkiler
     social_accounts = relationship(
         'SocialAccount', back_populates='user', cascade='all, delete-orphan'

@@ -45,9 +45,16 @@ class AuthService:
     def hash_password(self, password: str) -> str:
         return self.pwd_context.hash(password)
 
-    async def authenticate_user(self, email: str, password: str) -> Optional[User]:
-        """Authenticate a user by username and password"""
-        user = await self.user_service.get_by_email(email)
+    async def authenticate_user(self, identifier: str, password: str) -> Optional[User]:
+        """Kullaniciyi e-posta VEYA kullanici adi ile dogrular.
+
+        OAuth2PasswordRequestForm alani `username` olarak geldigi icin kullanici
+        her ikisini de girebilmeli; once e-posta, bulunamazsa kullanici adi
+        uzerinden aranir.
+        """
+        user = await self.user_service.get_by_email(identifier)
+        if not user:
+            user = await self.user_service.get_by_username(identifier.lower())
         if not user or not self.verify_password(password, user.hashed_password):
             raise InvalidCredentialsException
         return user
