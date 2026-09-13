@@ -18,7 +18,9 @@ from services.user.user_service_dto import (
     OnboardingStatus
 )
 
-router = APIRouter(prefix="/profile", tags=["profile"])
+# Prefix dışarıdaki routers/profile_router.py tarafından veriliyor (/profile),
+# burada tekrar tanımlanırsa /api/v1/profile/profile/... oluşur.
+router = APIRouter(tags=["profile"])
 
 
 @router.get("/me", response_model=SuccessResponse[UserRead])

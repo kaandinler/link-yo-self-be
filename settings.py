@@ -13,6 +13,10 @@ class Settings(BaseSettings):
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 30
 
+    # SQLAlchemy engine SQL loglarini stdout'a yazsin mi?
+    # (Onceden kodda sabit True idi; production'da ve testlerde istenmiyor.)
+    db_echo: bool = False
+
     # Ortam değişkeni
     environment: str = "development"
 

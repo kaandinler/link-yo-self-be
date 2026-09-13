@@ -9,7 +9,7 @@ from fastapi.responses import JSONResponse
 import db
 from di.container import Container
 from settings import settings
-from routers import user_router, auth_router, link_router, profile_router
+from routers import user_router, auth_router, link_router, profile_router, public_router
 from core.exceptions import (
     NotAuthenticatedException,
     PermissionDeniedException,
@@ -114,6 +114,8 @@ def create_app() -> FastAPI:
             "routers.v1.auth_router",
             "routers.v1.link_router",  # EKLENDI
             "routers.v1.profile_router",  # EKLENDI
+            "routers.public_router",
+            "routers.v1.public_router",
             "deps"
         ]
     )
@@ -123,6 +125,7 @@ def create_app() -> FastAPI:
     wrapped_auth_router = add_response_model(auth_router.router)
     wrapped_link_router = add_response_model(link_router.router)
     wrapped_profile_router = add_response_model(profile_router.router)
+    wrapped_public_router = add_response_model(public_router.router)
 
     # V1 API router'ı oluştur
     api_v1_router = APIRouter(prefix="/api/v1")
@@ -132,6 +135,7 @@ def create_app() -> FastAPI:
     api_v1_router.include_router(wrapped_auth_router)
     api_v1_router.include_router(wrapped_link_router)
     api_v1_router.include_router(wrapped_profile_router)
+    api_v1_router.include_router(wrapped_public_router)
 
     # API v1 router'ı uygulamaya ekle
     app.include_router(api_v1_router)

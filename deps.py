@@ -6,7 +6,9 @@ from core.auth.auth_service import AuthService
 from di.container import Container
 from models import User
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl='/auth/token')
+# Swagger'daki "Authorize" butonunun dogru endpoint'e istek atmasi icin
+# tam yol verilmeli (router'lar /api/v1 prefix'i altinda).
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl='/api/v1/auth/token')
 credentials_exception = HTTPException(
     status.HTTP_401_UNAUTHORIZED,
     detail='Could not validate credentials',
@@ -59,10 +61,10 @@ async def get_current_admin_user(current_user: User = Depends(get_current_user))
     First authenticates the user, then checks if they have admin privileges.
     If not, raises a 403 Forbidden error.
     """
-    # Burada admin kontrolü yapılıyor
-    # Model yapınıza göre is_admin, role veya user_type gibi bir alan ekleyebilirsiniz
-    # Şu an için username === "admin" ise admin olarak kabul ediyoruz
-    if current_user.username != "admin":  # Bu koşulu modeldeki uygun alana göre değiştirin
+    # Admin yetkisi User.is_admin alanindan okunuyor.
+    # (Onceden username == "admin" kontrolu vardi; "admin" kayit sirasinda
+    # rezerve kelime oldugu icin bu endpoint'e hicbir zaman erisilemiyordu.)
+    if not current_user.is_admin:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Admin privileges required",

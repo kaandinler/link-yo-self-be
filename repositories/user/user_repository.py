@@ -2,6 +2,7 @@ from typing import Optional, Sequence, Awaitable
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from core.base_repository import BaseRepository
 from models import User
@@ -25,7 +26,12 @@ class UserRepository(BaseRepository[User]):
 
         async def _get_by_username(session: AsyncSession, username_: str) -> Optional[User]:
             result = await session.execute(
-                select(User).where(User.username == username_)
+                # links eager yuklenmeli: User.profile_completion_percentage bu
+                # iliskiye eriseyor ve session kapandiktan sonra lazy load
+                # DetachedInstanceError firlatir.
+                select(User)
+                .options(selectinload(User.links))
+                .where(User.username == username_)
             )
             return result.scalars().first()
 
@@ -37,12 +43,36 @@ class UserRepository(BaseRepository[User]):
 
         async def _get_by_email(session: AsyncSession, email_: str) -> Optional[User]:
             result = await session.execute(
-                select(User).where(User.email == email_)
+                select(User)
+                .options(selectinload(User.links))
+                .where(User.email == email_)
             )
             return result.scalars().first()
 
         # Use the execute_query helper for flexible transaction handling
         return await self.execute_query(_get_by_email, email, transactional=transactional)
+
+    async def get_public_profile(
+        self, username: str, transactional: bool = False
+    ) -> Optional[User]:
+        """Public profil icin kullaniciyi linkleriyle birlikte getirir.
+
+        Soft delete edilmis kullanicilar public sayfada gorunmez.
+        """
+
+        async def _get_public_profile(
+            session: AsyncSession, username_: str
+        ) -> Optional[User]:
+            result = await session.execute(
+                select(User)
+                .options(selectinload(User.links))
+                .where(User.username == username_, User.is_deleted.is_(False))
+            )
+            return result.scalars().first()
+
+        return await self.execute_query(
+            _get_public_profile, username, transactional=transactional
+        )
 
     async def create_user(self, user: User) -> User:
         """Create a new user (always transactional)"""

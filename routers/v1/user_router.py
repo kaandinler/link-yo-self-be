@@ -10,6 +10,7 @@ from core.exceptions import NotFoundException
 
 router = APIRouter(tags=["users"])
 
+
 @router.get("/", response_model=BaseResponseModel[List[UserRead]])
 @inject
 async def list_users(
@@ -20,6 +21,18 @@ async def list_users(
     return BaseResponseModel(
         data=users,
         message="Users retrieved successfully"
+    )
+
+
+# NOT: /me route'u /{user_id}'den ÖNCE tanımlanmalı, aksi halde FastAPI
+# "me" değerini user_id path parametresi olarak yorumlayıp 422 döner.
+@router.get('/me', response_model=BaseResponseModel[UserRead])
+async def read_users_me(current_user=Depends(get_current_user)):
+    # SQLAlchemy modeli direkt döndürmek yerine, Pydantic modeline dönüştürerek döndürüyoruz
+    user_data = UserRead.model_validate(current_user)
+    return BaseResponseModel(
+        data=user_data,
+        message="User profile retrieved successfully"
     )
 
 
@@ -36,14 +49,4 @@ async def get_user(
     return BaseResponseModel(
         data=user,
         message="User retrieved successfully"
-    )
-
-
-@router.get('/me', response_model=BaseResponseModel[UserRead])
-async def read_users_me(current_user=Depends(get_current_user)):
-    # SQLAlchemy modeli direkt döndürmek yerine, Pydantic modeline dönüştürerek döndürüyoruz
-    user_data = UserRead.model_validate(current_user)
-    return BaseResponseModel(
-        data=user_data,
-        message="User profile retrieved successfully"
     )
