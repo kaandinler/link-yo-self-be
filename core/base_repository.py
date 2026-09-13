@@ -1,9 +1,10 @@
-from typing import Any, Callable, Generic, Sequence, Type, TypeVar, Optional, Awaitable
+from collections.abc import Awaitable, Callable, Sequence
+from typing import Any, Generic, TypeVar
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from db import run_in_transaction, execute_without_transaction
+from db import execute_without_transaction, run_in_transaction
 
 T = TypeVar('T')
 
@@ -11,7 +12,7 @@ T = TypeVar('T')
 class BaseRepository(Generic[T]):
     def __init__(self, session_factory: Callable[[], AsyncSession]):
         self._session_factory = session_factory
-        self._model_type: Type[T] = None  # Will be set by child classes
+        self._model_type: type[T] = None  # Will be set by child classes
 
     # Transactional operations (with auto commit/rollback)
     async def create(self, entity: T) -> T:
@@ -54,8 +55,8 @@ class BaseRepository(Generic[T]):
         else:
             return await execute_without_transaction(_list_all)
 
-    async def get_by_id(self, id_: Any, transactional: bool = False) -> Optional[T]:
-        async def _get_by_id(session: AsyncSession, id_value: Any) -> Optional[T]:
+    async def get_by_id(self, id_: Any, transactional: bool = False) -> T | None:
+        async def _get_by_id(session: AsyncSession, id_value: Any) -> T | None:
             return await session.get(self._model_type, id_value)
 
         if transactional:

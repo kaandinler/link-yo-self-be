@@ -1,5 +1,6 @@
+from collections.abc import Callable
 from functools import wraps
-from typing import Any, Callable, TypeVar
+from typing import Any, TypeVar
 
 from fastapi import APIRouter
 
@@ -59,7 +60,14 @@ def add_response_model(router: APIRouter) -> APIRouter:
     # Her bir metot için yeni bir wrapper oluştur
     for method_name, original_method in original_methods.items():
         @wraps(original_method)
-        def wrapped_method(*args: Any, **kwargs: Any) -> Callable:
+        def wrapped_method(
+            *args: Any,
+            # Dongu degiskeni varsayilan deger olarak baglanmali. Aksi halde
+            # closure'lar gec baglanir ve get/post/put/... hepsi dongunun son
+            # metodunu (trace) cagirir.
+            _method: Callable = original_method,
+            **kwargs: Any,
+        ) -> Callable:
             # response_model parametresini kontrol et
             response_model = kwargs.get("response_model")
 
@@ -70,7 +78,7 @@ def add_response_model(router: APIRouter) -> APIRouter:
                 kwargs.pop("response_model", None)
 
                 # Normal fonksiyonu çağır ama response_model olmadan
-                route_decorator = original_method(*args, **kwargs)
+                route_decorator = _method(*args, **kwargs)
 
                 # Endpoint fonksiyonunu sarmala
                 def decorator(func: Callable) -> Callable:
@@ -86,7 +94,7 @@ def add_response_model(router: APIRouter) -> APIRouter:
                 return decorator
 
             # response_model yoksa veya zaten bir BaseResponseModel ise, normal davran
-            return original_method(*args, **kwargs)
+            return _method(*args, **kwargs)
 
         # Router'ın ilgili metodunu güncelle
         setattr(router, method_name, wrapped_method)

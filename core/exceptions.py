@@ -1,4 +1,5 @@
-from typing import Any, Dict, List, Optional
+from typing import Any, ClassVar
+
 from fastapi import HTTPException, status
 
 
@@ -8,12 +9,12 @@ class BaseAppException(HTTPException):
     """
     status_code: int = status.HTTP_500_INTERNAL_SERVER_ERROR
     detail: str = "Unknown error occurred."
-    headers: Optional[Dict[str, Any]] = None
+    headers: dict[str, Any] | None = None
 
     def __init__(
         self,
-        detail: Optional[str] = None,
-        headers: Optional[Dict[str, Any]] = None,
+        detail: str | None = None,
+        headers: dict[str, Any] | None = None,
         **kwargs
     ):
         """
@@ -46,7 +47,7 @@ class NotAuthenticatedException(BaseAppException):
     """User authentication error"""
     status_code = status.HTTP_401_UNAUTHORIZED
     detail = "Unauthenticated user"
-    headers = {"WWW-Authenticate": "Bearer"}
+    headers: ClassVar[dict[str, str]] = {"WWW-Authenticate": "Bearer"}
 
 
 class PermissionDeniedException(BaseAppException):
@@ -74,8 +75,8 @@ class ValidationException(BaseAppException):
 
     def __init__(
         self,
-        detail: Optional[str] = None,
-        errors: Optional[List[Dict[str, Any]]] = None,
+        detail: str | None = None,
+        errors: list[dict[str, Any]] | None = None,
         **kwargs
     ):
         """
@@ -110,8 +111,8 @@ class RateLimitException(BaseAppException):
 
     def __init__(
         self,
-        detail: Optional[str] = None,
-        retry_after: Optional[int] = None,
+        detail: str | None = None,
+        retry_after: int | None = None,
         **kwargs
     ):
         """
@@ -131,8 +132,8 @@ class ServiceUnavailableException(BaseAppException):
 
     def __init__(
         self,
-        detail: Optional[str] = None,
-        retry_after: Optional[int] = None,
+        detail: str | None = None,
+        retry_after: int | None = None,
         **kwargs
     ):
         """
@@ -155,5 +156,5 @@ class UnauthorizedException(BaseAppException):
     """Unauthorized access error"""
     status_code = status.HTTP_401_UNAUTHORIZED
     detail = "Unauthorized access"
-    headers = {"WWW-Authenticate": "Bearer"}
+    headers: ClassVar[dict[str, str]] = {"WWW-Authenticate": "Bearer"}
 

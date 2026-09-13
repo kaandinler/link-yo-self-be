@@ -1,6 +1,13 @@
-from pydantic import BaseModel, EmailStr, Field, field_validator, computed_field
-from typing import Optional
 from datetime import datetime
+
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    EmailStr,
+    Field,
+    computed_field,
+    field_validator,
+)
 
 
 class UserCreateMinimal(BaseModel):
@@ -39,22 +46,22 @@ class UserCreateMinimal(BaseModel):
 
 class ProfileCompletionStep1(BaseModel):
     """Step 1: Basic Profile Info"""
-    first_name: Optional[str] = Field(None, max_length=50, description="First name")
-    last_name: Optional[str] = Field(None, max_length=50, description="Last name")
-    display_name: Optional[str] = Field(None, max_length=100, description="Display name on profile page")
-    bio: Optional[str] = Field(None, max_length=500, description="Short bio/description")
-    profile_image_url: Optional[str] = Field(None, max_length=500, description="Profile image URL")
+    first_name: str | None = Field(None, max_length=50, description="First name")
+    last_name: str | None = Field(None, max_length=50, description="Last name")
+    display_name: str | None = Field(None, max_length=100, description="Display name on profile page")
+    bio: str | None = Field(None, max_length=500, description="Short bio/description")
+    profile_image_url: str | None = Field(None, max_length=500, description="Profile image URL")
 
 
 class ProfileCompletionStep2(BaseModel):
     """Step 2: Page Settings"""
-    page_title: Optional[str] = Field(None, max_length=100, description="Custom page title")
-    page_description: Optional[str] = Field(None, max_length=500, description="Page meta description")
-    website: Optional[str] = Field(None, max_length=500, description="Personal/business website")
+    page_title: str | None = Field(None, max_length=100, description="Custom page title")
+    page_description: str | None = Field(None, max_length=500, description="Page meta description")
+    website: str | None = Field(None, max_length=500, description="Personal/business website")
 
     @field_validator("website", mode="before")
     @classmethod
-    def validate_website(cls, website: Optional[str]) -> Optional[str]:
+    def validate_website(cls, website: str | None) -> str | None:
         if not website:
             return website
 
@@ -78,13 +85,13 @@ class ProfileCompletionStep2(BaseModel):
 
 class ProfileCompletionStep3(BaseModel):
     """Step 3: Social Media Links"""
-    twitter_username: Optional[str] = Field(None, max_length=100, description="Twitter username (without @)")
-    instagram_username: Optional[str] = Field(None, max_length=100, description="Instagram username (without @)")
-    linkedin_username: Optional[str] = Field(None, max_length=100, description="LinkedIn username")
+    twitter_username: str | None = Field(None, max_length=100, description="Twitter username (without @)")
+    instagram_username: str | None = Field(None, max_length=100, description="Instagram username (without @)")
+    linkedin_username: str | None = Field(None, max_length=100, description="LinkedIn username")
 
     @field_validator("twitter_username", "instagram_username", "linkedin_username", mode="before")
     @classmethod
-    def clean_username(cls, username: Optional[str]) -> Optional[str]:
+    def clean_username(cls, username: str | None) -> str | None:
         if not username:
             return username
         # Remove @ symbol if present
@@ -93,13 +100,13 @@ class ProfileCompletionStep3(BaseModel):
 
 class ProfileCompletionStep4(BaseModel):
     """Step 4: Theme & Appearance"""
-    theme_color: Optional[str] = Field("#1383eb", max_length=20, description="Primary theme color")
-    background_type: Optional[str] = Field("color", description="Background type: color, gradient, image")
-    background_value: Optional[str] = Field("#ffffff", max_length=500, description="Background color/image URL")
+    theme_color: str | None = Field("#1383eb", max_length=20, description="Primary theme color")
+    background_type: str | None = Field("color", description="Background type: color, gradient, image")
+    background_value: str | None = Field("#ffffff", max_length=500, description="Background color/image URL")
 
     @field_validator("theme_color", mode="before")
     @classmethod
-    def validate_color(cls, color: Optional[str]) -> Optional[str]:
+    def validate_color(cls, color: str | None) -> str | None:
         if not color:
             return "#1383eb"  # Default color
 
@@ -111,7 +118,7 @@ class ProfileCompletionStep4(BaseModel):
 
     @field_validator("background_type", mode="before")
     @classmethod
-    def validate_background_type(cls, bg_type: Optional[str]) -> Optional[str]:
+    def validate_background_type(cls, bg_type: str | None) -> str | None:
         if not bg_type:
             return "color"
 
@@ -124,20 +131,20 @@ class ProfileCompletionStep4(BaseModel):
 
 class UserProfileUpdate(BaseModel):
     """Complete profile update - all optional"""
-    first_name: Optional[str] = Field(None, max_length=50)
-    last_name: Optional[str] = Field(None, max_length=50)
-    display_name: Optional[str] = Field(None, max_length=100)
-    bio: Optional[str] = Field(None, max_length=500)
-    profile_image_url: Optional[str] = Field(None, max_length=500)
-    page_title: Optional[str] = Field(None, max_length=100)
-    page_description: Optional[str] = Field(None, max_length=500)
-    website: Optional[str] = Field(None, max_length=500)
-    twitter_username: Optional[str] = Field(None, max_length=100)
-    instagram_username: Optional[str] = Field(None, max_length=100)
-    linkedin_username: Optional[str] = Field(None, max_length=100)
-    theme_color: Optional[str] = Field(None, max_length=20)
-    background_type: Optional[str] = Field(None)
-    background_value: Optional[str] = Field(None, max_length=500)
+    first_name: str | None = Field(None, max_length=50)
+    last_name: str | None = Field(None, max_length=50)
+    display_name: str | None = Field(None, max_length=100)
+    bio: str | None = Field(None, max_length=500)
+    profile_image_url: str | None = Field(None, max_length=500)
+    page_title: str | None = Field(None, max_length=100)
+    page_description: str | None = Field(None, max_length=500)
+    website: str | None = Field(None, max_length=500)
+    twitter_username: str | None = Field(None, max_length=100)
+    instagram_username: str | None = Field(None, max_length=100)
+    linkedin_username: str | None = Field(None, max_length=100)
+    theme_color: str | None = Field(None, max_length=20)
+    background_type: str | None = Field(None)
+    background_value: str | None = Field(None, max_length=500)
 
 
 class UserRead(BaseModel):
@@ -145,26 +152,26 @@ class UserRead(BaseModel):
     id: int
     username: str
     email: EmailStr
-    first_name: Optional[str] = None
-    last_name: Optional[str] = None
-    display_name: Optional[str] = None
-    bio: Optional[str] = None
-    profile_image_url: Optional[str] = None
-    page_title: Optional[str] = None
-    page_description: Optional[str] = None
-    website: Optional[str] = None
-    twitter_username: Optional[str] = None
-    instagram_username: Optional[str] = None
-    linkedin_username: Optional[str] = None
-    theme_color: Optional[str] = None
-    background_type: Optional[str] = None
-    background_value: Optional[str] = None
+    first_name: str | None = None
+    last_name: str | None = None
+    display_name: str | None = None
+    bio: str | None = None
+    profile_image_url: str | None = None
+    page_title: str | None = None
+    page_description: str | None = None
+    website: str | None = None
+    twitter_username: str | None = None
+    instagram_username: str | None = None
+    linkedin_username: str | None = None
+    theme_color: str | None = None
+    background_type: str | None = None
+    background_value: str | None = None
     profile_completed: bool = False
     onboarding_completed: bool = False
 
     # DateTime fields as strings
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
 
     # Computed field - profile completion percentage
     @computed_field
@@ -186,12 +193,9 @@ class UserRead(BaseModel):
 
         return int((completed_fields / total_fields) * 100)
 
-    class Config:
-        from_attributes = True
-        # DateTime serialization için
-        json_encoders = {
-            datetime: lambda v: v.isoformat() if v else None
-        }
+    # Pydantic v2: datetime alanlari varsayilan olarak ISO 8601 serilestiriliyor,
+    # ayrica json_encoders gerekmiyor (v2'de deprecated).
+    model_config = ConfigDict(from_attributes=True)
 
 
 class OnboardingStatus(BaseModel):
@@ -199,7 +203,7 @@ class OnboardingStatus(BaseModel):
     step: int = 1  # Hangi adımda
     completed_steps: list[int] = []
     profile_completion_percentage: int = 0
-    next_step_title: Optional[str] = None
+    next_step_title: str | None = None
     can_skip: bool = True
 
 

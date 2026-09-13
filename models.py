@@ -1,7 +1,17 @@
-import datetime
 
-from sqlalchemy import Column, Integer, String, UniqueConstraint, ForeignKey, DateTime, Boolean, JSON, Text, func
-from sqlalchemy.orm import relationship, declarative_base, DeclarativeMeta
+from sqlalchemy import (
+    JSON,
+    Boolean,
+    Column,
+    DateTime,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+    func,
+)
+from sqlalchemy.orm import DeclarativeMeta, declarative_base, relationship
 
 Base: DeclarativeMeta = declarative_base()
 

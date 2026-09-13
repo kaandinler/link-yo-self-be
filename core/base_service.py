@@ -1,5 +1,6 @@
 
-from typing import TypeVar, Generic, Optional, Sequence
+from collections.abc import Sequence
+from typing import Generic, TypeVar
 
 from core.base_repository import BaseRepository
 
@@ -14,7 +15,7 @@ class BaseService(Generic[T]):
         """Create a new entity"""
         return await self.repository.create(entity)
 
-    async def get_by_id(self, entity_id: int) -> Optional[T]:
+    async def get_by_id(self, entity_id: int) -> T | None:
         """Get entity by ID"""
         return await self.repository.get_by_id(entity_id)
 

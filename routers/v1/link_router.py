@@ -1,19 +1,18 @@
 # routers/v1/link_router.py
 
-from typing import List
-from fastapi import APIRouter, Depends, status, Query
-from dependency_injector.wiring import inject, Provide
+from dependency_injector.wiring import Provide, inject
+from fastapi import APIRouter, Depends, Query, status
 
-from core.schemas.response import SuccessResponse, ErrorResponse  # BaseResponseModel yerine
+from core.schemas.response import SuccessResponse
 from deps import get_current_user
 from di.container import Container
 from models import User
 from services.link.link_service import LinkService
 from services.link.link_service_dto import (
     LinkCreate,
-    LinkUpdate,
     LinkRead,
-    LinkReorderRequest
+    LinkReorderRequest,
+    LinkUpdate,
 )
 
 router = APIRouter(tags=["links"])
@@ -26,23 +25,20 @@ async def create_link(
     current_user: User = Depends(get_current_user),
     link_service: LinkService = Depends(Provide[Container.link_service])
 ):
-    try:
-
-        """Yeni link oluşturur"""
-        link = await link_service.create_link(current_user.id, link_data)
-        return SuccessResponse(
-            data=link,
-            message="Link successfully created"
-        )
-    except Exception as e:
-        # Hata durumunda uygun bir hata mesajı döndür
-        return ErrorResponse(
-            data=None,
-            message=f"Error creating link: {str(e)}"
-        )
+    """Yeni link oluşturur"""
+    # NOT: Burada try/except yok. Onceki hali her hatayi yakalayip
+    # ErrorResponse donuyordu, ama status_code 201 oldugu icin basarisiz
+    # istekler de "201 Created" ile yanitlaniyordu. Hatalar artik global
+    # exception handler'lara birakiliyor; dogru status kodu ve ayni hata
+    # zarfi oradan geliyor (dosyadaki diger endpoint'lerle tutarli).
+    link = await link_service.create_link(current_user.id, link_data)
+    return SuccessResponse.create(
+        data=link,
+        message="Link successfully created"
+    )
 
 
-@router.get("/", response_model=SuccessResponse[List[LinkRead]])
+@router.get("/", response_model=SuccessResponse[list[LinkRead]])
 @inject
 async def get_my_links(
     include_inactive: bool = Query(False, description="Include inactive links"),
@@ -99,7 +95,7 @@ async def delete_link(
     await link_service.delete_link(link_id, current_user.id)
 
 
-@router.post("/reorder", response_model=SuccessResponse[List[LinkRead]])
+@router.post("/reorder", response_model=SuccessResponse[list[LinkRead]])
 @inject
 async def reorder_links(
     reorder_data: LinkReorderRequest,

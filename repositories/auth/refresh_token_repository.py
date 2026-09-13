@@ -1,5 +1,5 @@
-from typing import Optional
-from sqlalchemy import select, update, and_
+
+from sqlalchemy import and_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.base_repository import BaseRepository
@@ -16,10 +16,10 @@ class RefreshTokenRepository(BaseRepository[RefreshToken]):
         """Yeni bir refresh token oluşturur"""
         return await self.create(refresh_token)
 
-    async def get_by_token(self, token: str, transactional: bool = False) -> Optional[RefreshToken]:
+    async def get_by_token(self, token: str, transactional: bool = False) -> RefreshToken | None:
         """Token değeri ile refresh token kaydını bulur"""
 
-        async def _get_by_token(session: AsyncSession, token_value: str) -> Optional[RefreshToken]:
+        async def _get_by_token(session: AsyncSession, token_value: str) -> RefreshToken | None:
             result = await session.execute(
                 select(RefreshToken).where(RefreshToken.token == token_value)
             )
@@ -27,10 +27,10 @@ class RefreshTokenRepository(BaseRepository[RefreshToken]):
 
         return await self.execute_query(_get_by_token, token, transactional=transactional)
 
-    async def get_valid_token(self, token: str, transactional: bool = False) -> Optional[RefreshToken]:
+    async def get_valid_token(self, token: str, transactional: bool = False) -> RefreshToken | None:
         """Geçerli bir refresh token kaydını bulur (süresi dolmamış ve revoke edilmemiş)"""
 
-        async def _get_valid_token(session: AsyncSession, token_value: str) -> Optional[RefreshToken]:
+        async def _get_valid_token(session: AsyncSession, token_value: str) -> RefreshToken | None:
             result = await session.execute(
                 select(RefreshToken).where(
                     and_(

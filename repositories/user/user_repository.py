@@ -1,4 +1,4 @@
-from typing import Optional, Sequence, Awaitable
+from collections.abc import Awaitable, Sequence
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -17,14 +17,14 @@ class UserRepository(BaseRepository[User]):
         """Get all users with optional transaction control"""
         return await self.list_all(transactional=transactional)
 
-    async def get_user(self, user_id: int, transactional: bool = False) -> Optional[User]:
+    async def get_user(self, user_id: int, transactional: bool = False) -> User | None:
         """Get user by ID with optional transaction control"""
         return await self.get_by_id(user_id, transactional=transactional)
 
-    async def get_by_username(self, username: str, transactional: bool = False) -> Optional[User]:
+    async def get_by_username(self, username: str, transactional: bool = False) -> User | None:
         """Get user by username with optional transaction control"""
 
-        async def _get_by_username(session: AsyncSession, username_: str) -> Optional[User]:
+        async def _get_by_username(session: AsyncSession, username_: str) -> User | None:
             result = await session.execute(
                 # links eager yuklenmeli: User.profile_completion_percentage bu
                 # iliskiye eriseyor ve session kapandiktan sonra lazy load
@@ -38,10 +38,10 @@ class UserRepository(BaseRepository[User]):
         # Use the execute_query helper for flexible transaction handling
         return await self.execute_query(_get_by_username, username, transactional=transactional)
 
-    async def get_by_email(self, email: str, transactional: bool = False) -> Optional[User]:
+    async def get_by_email(self, email: str, transactional: bool = False) -> User | None:
         """Get user by email with optional transaction control"""
 
-        async def _get_by_email(session: AsyncSession, email_: str) -> Optional[User]:
+        async def _get_by_email(session: AsyncSession, email_: str) -> User | None:
             result = await session.execute(
                 select(User)
                 .options(selectinload(User.links))
@@ -54,7 +54,7 @@ class UserRepository(BaseRepository[User]):
 
     async def get_public_profile(
         self, username: str, transactional: bool = False
-    ) -> Optional[User]:
+    ) -> User | None:
         """Public profil icin kullaniciyi linkleriyle birlikte getirir.
 
         Soft delete edilmis kullanicilar public sayfada gorunmez.
@@ -62,7 +62,7 @@ class UserRepository(BaseRepository[User]):
 
         async def _get_public_profile(
             session: AsyncSession, username_: str
-        ) -> Optional[User]:
+        ) -> User | None:
             result = await session.execute(
                 select(User)
                 .options(selectinload(User.links))

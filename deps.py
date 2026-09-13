@@ -35,7 +35,7 @@ async def get_current_user(
                 detail="Invalid authentication credentials",
                 headers={"WWW-Authenticate": "Bearer"},
             )
-    except Exception:
+    except Exception:  # noqa: BLE001 - token dogrulamada her hata 401'e cevrilir
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid authentication credentials",

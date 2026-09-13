@@ -1,6 +1,8 @@
 """Link CRUD, siralama, toggle ve analytics testleri."""
 import pytest
 
+from core.exceptions import NotFoundException
+from services.link.link_service import LinkService
 from tests.conftest import auth_header, login, register_user
 
 LINK = {"title": "GitHub", "url": "https://github.com/kaandinler"}
@@ -47,6 +49,24 @@ class TestCreateLink:
     async def test_tokensiz_401(self, client):
         response = await client.post("/api/v1/links/", json=LINK)
         assert response.status_code == 401
+
+
+class TestCreateLinkHataYonetimi:
+    async def test_servis_hatasi_201_donmez(self, auth_client, monkeypatch):
+        """Regresyon: create_link'teki try/except her hatayi yakalayip
+        ErrorResponse donuyordu, ama endpoint'in status_code'u 201 oldugu icin
+        basarisiz istekler "201 Created" ile yanitlaniyordu.
+        """
+
+        async def patlayan_create(*args, **kwargs):
+            raise NotFoundException("Simule edilmis hata")
+
+        monkeypatch.setattr(LinkService, "create_link", patlayan_create)
+
+        response = await auth_client.post("/api/v1/links/", json=LINK)
+
+        assert response.status_code == 404
+        assert response.json()["status"] == "error"
 
 
 class TestListLinks:

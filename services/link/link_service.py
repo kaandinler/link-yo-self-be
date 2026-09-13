@@ -1,12 +1,11 @@
 # services/link/link_service.py
 
-from typing import List
 
 from core.base_service import BaseService
 from core.exceptions import NotFoundException, PermissionDeniedException
 from models import Link
 from repositories.link.link_repository import LinkRepository
-from services.link.link_service_dto import LinkCreate, LinkUpdate, LinkReorderRequest
+from services.link.link_service_dto import LinkCreate, LinkReorderRequest, LinkUpdate
 
 
 class LinkService(BaseService):
@@ -16,30 +15,31 @@ class LinkService(BaseService):
 
     async def create_link(self, user_id: int, link_data: LinkCreate) -> Link:
 
-        try:
-            """Kullanıcı için yeni link oluşturur"""
-            # Yeni linkin sıra numarasını belirle (son sıra + 1)
-            max_order = await self.repository.get_max_order_for_user(user_id)
-            order_index = (max_order or 0) + 1
+        """Kullanıcı için yeni link oluşturur"""
+        # NOT: Onceki hali tum hatalari yakalayip bare Exception olarak
+        # yeniden firlatiyordu; bu da NotFoundException/DatabaseException gibi
+        # anlamli hatalarin status kodunu kaybettiriyordu. Hatalar artik
+        # oldugu gibi yukari cikiyor.
+        # Yeni linkin sıra numarasını belirle (son sıra + 1)
+        max_order = await self.repository.get_max_order_for_user(user_id)
+        order_index = (max_order or 0) + 1
 
-            link = Link(
-                user_id=user_id,
-                title=link_data.title,
-                url=link_data.url,
-                description=link_data.description,
-                icon_url=link_data.icon_url,
-                background_color=link_data.background_color,
-                text_color=link_data.text_color,
-                border_radius=link_data.border_radius or 8,
-                is_active=link_data.is_active if link_data.is_active is not None else True,
-                order_index=order_index
-            )
+        link = Link(
+            user_id=user_id,
+            title=link_data.title,
+            url=link_data.url,
+            description=link_data.description,
+            icon_url=link_data.icon_url,
+            background_color=link_data.background_color,
+            text_color=link_data.text_color,
+            border_radius=link_data.border_radius or 8,
+            is_active=link_data.is_active if link_data.is_active is not None else True,
+            order_index=order_index
+        )
 
-            return await self.repository.create_link(link)
-        except Exception as e:
-            raise Exception(f"Error creating link: {str(e)}")
+        return await self.repository.create_link(link)
 
-    async def get_user_links(self, user_id: int, include_inactive: bool = False) -> List[Link]:
+    async def get_user_links(self, user_id: int, include_inactive: bool = False) -> list[Link]:
         """Kullanıcının linklerini sıralı şekilde getirir"""
         return await self.repository.get_links_by_user(user_id, include_inactive)
 
@@ -70,7 +70,7 @@ class LinkService(BaseService):
         link = await self.get_link_by_id(link_id, user_id)
         await self.repository.delete_link(link)
 
-    async def reorder_links(self, user_id: int, reorder_data: LinkReorderRequest) -> List[Link]:
+    async def reorder_links(self, user_id: int, reorder_data: LinkReorderRequest) -> list[Link]:
         """Kullanıcının linklerini yeniden sıralar"""
         # Kullanıcının tüm linklerinin bu listede olduğunu kontrol et
         user_links = await self.repository.get_links_by_user(user_id, include_inactive=True)

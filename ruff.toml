@@ -1,0 +1,13 @@
+# Ruff yapilandirmasi
+# CI (.github/workflows/ruff.yml) bu dosyayi otomatik olarak kullanir.
+
+target-version = "py311"
+
+[lint]
+ignore = [
+    # FastAPI'de Depends()/Query()/Path()/Body() varsayilan degerde cagrilir;
+    # framework'un idiyomatik kullanimi bu, ruff icin ise yanlis pozitif.
+    # Yeni kodda mumkun oldugunca Annotated[...] tercih edilmeli, ancak
+    # mevcut router'lar klasik stili kullaniyor.
+    "B008",
+]
