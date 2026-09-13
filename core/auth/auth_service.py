@@ -8,6 +8,7 @@ from passlib.context import CryptContext
 
 from core.exceptions import InvalidCredentialsException, UnauthorizedException
 from models import User, RefreshToken
+from utils.time_utils import utcnow
 from repositories.user.user_repository import UserRepository
 from repositories.auth.refresh_token_repository import RefreshTokenRepository
 from services.user.user_service import UserService
@@ -62,7 +63,7 @@ class AuthService:
     def create_access_token(self, data: Dict[str, Any]) -> str:
         """Create a JWT access token with expiration time"""
         to_encode = data.copy()
-        expire = datetime.utcnow() + timedelta(minutes=self.expire_minutes)
+        expire = utcnow() + timedelta(minutes=self.expire_minutes)
         to_encode.update({"exp": expire})
 
         # Ensure we have a subject claim
@@ -109,7 +110,7 @@ class AuthService:
 
         # Refresh token oluştur
         refresh_token_value = str(uuid.uuid4())
-        expires_at = datetime.utcnow() + timedelta(days=self.refresh_expire_days)
+        expires_at = utcnow() + timedelta(days=self.refresh_expire_days)
 
         # Refresh token veritabanına kaydet
         refresh_token = RefreshToken(

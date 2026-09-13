@@ -1,10 +1,10 @@
 from typing import Optional
 from sqlalchemy import select, update, and_
 from sqlalchemy.ext.asyncio import AsyncSession
-from datetime import datetime
 
 from core.base_repository import BaseRepository
 from models import RefreshToken
+from utils.time_utils import utcnow
 
 
 class RefreshTokenRepository(BaseRepository[RefreshToken]):
@@ -35,8 +35,11 @@ class RefreshTokenRepository(BaseRepository[RefreshToken]):
                 select(RefreshToken).where(
                     and_(
                         RefreshToken.token == token_value,
-                        not RefreshToken.is_revoked,
-                        RefreshToken.expires_at > datetime.utcnow()
+                        # DIKKAT: Python'un `not` operatoru burada kullanilamaz;
+                        # kolonu Python bool'una cevirip sorguyu WHERE false
+                        # haline getirir. SQL karsiligi icin .is_(False) sart.
+                        RefreshToken.is_revoked.is_(False),
+                        RefreshToken.expires_at > utcnow()
                     )
                 )
             )
@@ -66,7 +69,7 @@ class RefreshTokenRepository(BaseRepository[RefreshToken]):
                 .where(
                     and_(
                         RefreshToken.user_id == user_id_,
-                        not RefreshToken.is_revoked
+                        RefreshToken.is_revoked.is_(False)
                     )
                 )
                 .values(is_revoked=True)

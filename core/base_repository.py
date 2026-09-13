@@ -26,6 +26,12 @@ class BaseRepository(Generic[T]):
         async def _update(session: AsyncSession, entity_: T) -> T:
             session.add(entity_)
             await session.flush()
+            # onupdate/server_default ile hesaplanan alanlar (orn. updated_at)
+            # flush sonrasi "expired" durumda kalir. Session kapandiktan sonra
+            # bunlara erisilmek istendiginde DetachedInstanceError firlar, bu da
+            # response serilestirmesini 500'e dusurur. Bu yuzden session hala
+            # acikken degerleri geri yukluyoruz.
+            await session.refresh(entity_)
             return entity_
 
         return await run_in_transaction(_update, entity)

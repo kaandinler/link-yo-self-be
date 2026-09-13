@@ -27,7 +27,7 @@ async def catch_exceptions_middleware(request: Request, call_next: Callable):
         error_response = ErrorResponse.create(message=exc.detail)
         return JSONResponse(
             status_code=exc.status_code,
-            content=error_response.dict(),
+            content=error_response.model_dump(),
             headers=exc.headers,
         )
     except SQLAlchemyError as exc:
@@ -38,7 +38,7 @@ async def catch_exceptions_middleware(request: Request, call_next: Callable):
         error_response = ErrorResponse.create(message="A database error occurred. Please try again later.")
         return JSONResponse(
             status_code=db_exception.status_code,
-            content=error_response.dict(),
+            content=error_response.model_dump(),
         )
     except Exception as exc:
         # For undefined error situations
@@ -49,7 +49,7 @@ async def catch_exceptions_middleware(request: Request, call_next: Callable):
         error_response = ErrorResponse.create(message=error_detail)
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            content=error_response.dict(),
+            content=error_response.model_dump(),
         )
 
 
@@ -59,6 +59,21 @@ def setup_exception_handlers(app: FastAPI) -> None:
     """
     app.middleware("http")(catch_exceptions_middleware)
 
+    # BaseAppException HTTPException'dan turedigi icin Starlette'in
+    # ExceptionMiddleware'i onu disaridaki catch_exceptions_middleware'e
+    # ulasmadan yakalayip ham {"detail": ...} olarak donduruyordu. Bu handler
+    # tum uygulama hatalarinin ayni ErrorResponse zarfini kullanmasini saglar.
+    # (main.py'deki daha spesifik handler'lar tam sinif eslesmesiyle oncelikli.)
+    @app.exception_handler(BaseAppException)
+    async def app_exception_handler(request: Request, exc: BaseAppException) -> JSONResponse:
+        logger.warning(f"Handled error: {exc.__class__.__name__}. Details: {exc.detail}")
+        error_response = ErrorResponse.create(message=exc.detail)
+        return JSONResponse(
+            status_code=exc.status_code,
+            content=error_response.model_dump(),
+            headers=exc.headers,
+        )
+
     # Special handlers for specific status codes
     @app.exception_handler(status.HTTP_404_NOT_FOUND)
     async def not_found_handler(request: Request, exc) -> JSONResponse:
@@ -67,7 +82,7 @@ def setup_exception_handlers(app: FastAPI) -> None:
         )
         return JSONResponse(
             status_code=status.HTTP_404_NOT_FOUND,
-            content=error_response.dict()
+            content=error_response.model_dump()
         )
 
     @app.exception_handler(status.HTTP_405_METHOD_NOT_ALLOWED)
@@ -77,5 +92,5 @@ def setup_exception_handlers(app: FastAPI) -> None:
         )
         return JSONResponse(
             status_code=status.HTTP_405_METHOD_NOT_ALLOWED,
-            content=error_response.dict()
+            content=error_response.model_dump()
         )

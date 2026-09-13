@@ -21,6 +21,9 @@ class Container(containers.DeclarativeContainer):
     # Database settings
     config.database_url.from_value(settings.database_url)
 
+    # Engine log ayari
+    config.db_echo.from_value(settings.db_echo)
+
     # JWT settings
     config.jwt_secret_key.from_value(settings.secret_key)
     config.jwt_algorithm.from_value(settings.algorithm)
@@ -30,7 +33,7 @@ class Container(containers.DeclarativeContainer):
     engine = providers.Singleton(
         create_async_engine,
         config.database_url,
-        echo=True,
+        echo=config.db_echo,
         future=True
     )
 

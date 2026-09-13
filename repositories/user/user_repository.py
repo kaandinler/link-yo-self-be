@@ -2,6 +2,7 @@ from typing import Optional, Sequence, Awaitable
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from core.base_repository import BaseRepository
 from models import User
@@ -25,7 +26,12 @@ class UserRepository(BaseRepository[User]):
 
         async def _get_by_username(session: AsyncSession, username_: str) -> Optional[User]:
             result = await session.execute(
-                select(User).where(User.username == username_)
+                # links eager yuklenmeli: User.profile_completion_percentage bu
+                # iliskiye eriseyor ve session kapandiktan sonra lazy load
+                # DetachedInstanceError firlatir.
+                select(User)
+                .options(selectinload(User.links))
+                .where(User.username == username_)
             )
             return result.scalars().first()
 
@@ -37,7 +43,9 @@ class UserRepository(BaseRepository[User]):
 
         async def _get_by_email(session: AsyncSession, email_: str) -> Optional[User]:
             result = await session.execute(
-                select(User).where(User.email == email_)
+                select(User)
+                .options(selectinload(User.links))
+                .where(User.email == email_)
             )
             return result.scalars().first()
 
