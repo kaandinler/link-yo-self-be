@@ -8,7 +8,12 @@ from core.exceptions import NotFoundException
 from core.schemas.response import BaseResponseModel, PaginatedResponseModel
 from deps import get_current_admin_user, get_current_user
 from di.container import Container
-from services.user.user_service_dto import UserCreateAdmin, UserRead, UserUpdateAdmin
+from services.user.user_service_dto import (
+    AccountDeleteRequest,
+    UserCreateAdmin,
+    UserRead,
+    UserUpdateAdmin,
+)
 
 router = APIRouter(tags=["users"])
 
@@ -85,6 +90,23 @@ async def read_users_me(current_user=Depends(get_current_user)):
         data=user_data,
         message="User profile retrieved successfully"
     )
+
+
+# NOT: /me DELETE'i de /{user_id}'den ÖNCE tanımlanmalı; aksi halde FastAPI
+# "me" değerini user_id olarak yorumlayıp 422 döner.
+@router.delete("/me", status_code=status.HTTP_204_NO_CONTENT)
+@inject
+async def delete_my_account(
+    request: AccountDeleteRequest,
+    current_user=Depends(get_current_user),
+    service=Depends(Provide[Container.user_service])
+):
+    """Kullanicinin kendi hesabini kapatmasi.
+
+    Sifre onayi ister; hesabi soft delete eder ve acik oturumlari kapatir.
+    Kullanici adi serbest kalmaz: kayit tabloda duruyor ve UNIQUE.
+    """
+    await service.delete_own_account(current_user, request.password)
 
 
 @router.get("/{user_id}", response_model=BaseResponseModel[UserRead])

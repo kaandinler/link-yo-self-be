@@ -85,6 +85,16 @@ class UserUpdateAdmin(BaseModel):
         return validate_username(username)
 
 
+class AccountDeleteRequest(BaseModel):
+    """Kullanicinin kendi hesabini kapatmasi icin sifre onayi.
+
+    Silme geri alinamayan bir islem; calinmis bir oturum ya da acik birakilmis
+    bir tarayici tek basina hesabi kapatabilmemeli.
+    """
+
+    password: str = Field(..., min_length=1, description="Mevcut sifre")
+
+
 class ProfileCompletionStep1(BaseModel):
     """Step 1: Basic Profile Info"""
     first_name: str | None = Field(None, max_length=50, description="First name")
