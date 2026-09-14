@@ -162,6 +162,11 @@ class UserRead(BaseModel):
     profile_completed: bool = False
     onboarding_completed: bool = False
 
+    # Frontend'in admin sayfalarini gizleyebilmesi icin. Yetki kontrolu asil
+    # olarak backend'de yapiliyor (deps.get_current_admin_user); bu alan
+    # yalnizca arayuzu dogru cizmek icin.
+    is_admin: bool = False
+
     # DateTime fields as strings
     created_at: datetime | None = None
     updated_at: datetime | None = None

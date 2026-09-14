@@ -62,3 +62,21 @@ class TestListUsers:
 
         assert response.status_code == 200
         assert len(response.json()["data"]) == 1
+
+
+class TestAdminBayragi:
+    async def test_is_admin_yanitta_doner(self, auth_client):
+        """Frontend admin sayfalarini gizleyebilmek icin bu alani okuyor."""
+        response = await auth_client.get("/api/v1/users/me")
+
+        assert response.status_code == 200
+        assert response.json()["data"]["is_admin"] is False
+
+    async def test_admin_kullanicida_true(self, client, app):
+        await register_user(client)
+        await make_admin(app, DEFAULT_USER["username"])
+        token = await login(client)
+
+        response = await client.get("/api/v1/users/me", headers=auth_header(token))
+
+        assert response.json()["data"]["is_admin"] is True
