@@ -1,10 +1,11 @@
 from collections.abc import Sequence
 
-from core.auth.password import hash_password
+from core.auth.password import hash_password, verify_password
 from core.base_service import BaseService
 from core.exceptions import (
     AlreadyExistsException,
     NotFoundException,
+    PermissionDeniedException,
     ValidationException,
 )
 from models import User
@@ -125,8 +126,31 @@ class UserService(BaseService):
             raise NotFoundException(f"User not found: {user_id}")
 
         if user.id == acting_user.id:
+            # Admin kendi hesabini buradan degil, hesap ayarlarindan
+            # (DELETE /users/me) sifre onayiyla kapatir.
             raise ValidationException(detail="You cannot delete your own account")
 
+        await self._soft_delete(user)
+
+    async def delete_own_account(self, user: User, password: str) -> None:
+        """Kullanicinin kendi hesabini kapatmasi.
+
+        Sifre dogrulamasi sart: geri alinamayan bir islem, calinmis bir oturum
+        tek basina hesabi kapatabilmemeli.
+        """
+        if not verify_password(password, user.hashed_password):
+            raise PermissionDeniedException(detail="Password is incorrect")
+
+        # Son admin cikarsa yonetim paneline bir daha kimse giremez.
+        if user.is_admin and await self.repository.count_admins() <= 1:
+            raise ValidationException(
+                detail="The last admin account cannot be deleted"
+            )
+
+        await self._soft_delete(user)
+
+    async def _soft_delete(self, user: User) -> None:
+        """Kaydi isaretler ve acik oturumlari kapatir."""
         await self.repository.soft_delete_user(user)
 
         # Silinen kullanicinin elindeki refresh token hala gecerli olsaydi

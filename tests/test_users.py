@@ -478,3 +478,126 @@ class TestKullaniciListesiSayfalama:
     async def test_limit_ustu_422(self, admin_client):
         response = await admin_client.get("/api/v1/users/?limit=1000")
         assert response.status_code == 422
+
+
+class TestHesabimiKapat:
+    """DELETE /users/me - kullanicinin kendi hesabini kapatmasi."""
+
+    async def test_tokensiz_401(self, client):
+        response = await client.request(
+            "DELETE", "/api/v1/users/me", json={"password": "secret123"}
+        )
+        assert response.status_code == 401
+
+    async def test_me_user_id_olarak_yorumlanmaz(self, auth_client):
+        """Regresyon: /me rotasi /{user_id}'den once tanimli olmali."""
+        response = await auth_client.request(
+            "DELETE", "/api/v1/users/me", json={"password": "yanlis"}
+        )
+        assert response.status_code != 422
+
+    async def test_yanlis_sifre_403_ve_hesap_durur(self, auth_client):
+        response = await auth_client.request(
+            "DELETE", "/api/v1/users/me", json={"password": "yanlissifre"}
+        )
+
+        assert response.status_code == 403
+        assert (await auth_client.get("/api/v1/users/me")).status_code == 200
+
+    async def test_sifre_alani_zorunlu(self, auth_client):
+        response = await auth_client.request("DELETE", "/api/v1/users/me", json={})
+        assert response.status_code == 422
+
+    async def test_hesap_kapanir_ve_giris_yapilamaz(self, auth_client, client):
+        response = await auth_client.request(
+            "DELETE", "/api/v1/users/me", json={"password": DEFAULT_USER["password"]}
+        )
+        assert response.status_code == 204
+
+        giris = await client.post(
+            "/api/v1/auth/token",
+            data={
+                "username": DEFAULT_USER["email"],
+                "password": DEFAULT_USER["password"],
+            },
+        )
+        assert giris.status_code == 401
+
+    async def test_acik_oturum_gecersizlesir(self, client):
+        await register_user(client)
+        giris = await client.post(
+            "/api/v1/auth/token",
+            data={
+                "username": DEFAULT_USER["email"],
+                "password": DEFAULT_USER["password"],
+            },
+        )
+        tokenlar = giris.json()["data"]
+
+        await client.request(
+            "DELETE",
+            "/api/v1/users/me",
+            json={"password": DEFAULT_USER["password"]},
+            headers=auth_header(tokenlar["access_token"]),
+        )
+
+        # Access token imzasi hala gecerli ama kullanici artik yok.
+        me = await client.get(
+            "/api/v1/users/me", headers=auth_header(tokenlar["access_token"])
+        )
+        assert me.status_code == 401
+
+        yenile = await client.post(
+            "/api/v1/auth/refresh", json={"refresh_token": tokenlar["refresh_token"]}
+        )
+        assert yenile.status_code == 401
+
+    async def test_public_profil_404(self, auth_client, client):
+        await auth_client.request(
+            "DELETE", "/api/v1/users/me", json={"password": DEFAULT_USER["password"]}
+        )
+
+        response = await client.get(f"/api/v1/p/{DEFAULT_USER['username']}")
+        assert response.status_code == 404
+
+    async def test_son_admin_hesabini_kapatamaz(self, admin_client):
+        """Son admin cikarsa yonetim paneline bir daha kimse giremez."""
+        response = await admin_client.request(
+            "DELETE", "/api/v1/users/me", json={"password": DEFAULT_USER["password"]}
+        )
+
+        assert response.status_code == 422
+        assert (await admin_client.get("/api/v1/users/me")).status_code == 200
+
+    async def test_baska_admin_varsa_kapatabilir(self, admin_client, app):
+        await admin_client.post(
+            "/api/v1/users/",
+            json={
+                "username": "ikinci",
+                "email": "ikinci@example.com",
+                "password": "secret123",
+                "is_admin": True,
+            },
+        )
+
+        response = await admin_client.request(
+            "DELETE", "/api/v1/users/me", json={"password": DEFAULT_USER["password"]}
+        )
+
+        assert response.status_code == 204, response.text
+
+    async def test_kullanici_adi_serbest_kalmaz(self, auth_client, client):
+        """Satir tabloda kaliyor ve username UNIQUE; kayit 409 vermeli."""
+        await auth_client.request(
+            "DELETE", "/api/v1/users/me", json={"password": DEFAULT_USER["password"]}
+        )
+
+        response = await client.post(
+            "/api/v1/auth/register",
+            json={
+                "username": DEFAULT_USER["username"],
+                "email": "yeni@example.com",
+                "password": "secret123",
+            },
+        )
+        assert response.status_code == 409

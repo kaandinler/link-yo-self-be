@@ -168,6 +168,19 @@ class UserRepository(BaseRepository[User]):
             _get_public_profile, username, transactional=transactional
         )
 
+    async def count_admins(self, transactional: bool = False) -> int:
+        """Silinmemis admin sayisi."""
+
+        async def _count_admins(session: AsyncSession) -> int:
+            toplam = await session.scalar(
+                select(func.count())
+                .select_from(User)
+                .where(User.is_admin.is_(True), User.is_deleted.is_(False))
+            )
+            return toplam or 0
+
+        return await self.execute_query(_count_admins, transactional=transactional)
+
     async def increment_profile_view(self, user_id: int) -> None:
         """Profil goruntulenme sayacini bir artirir.
 
