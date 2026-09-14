@@ -79,7 +79,8 @@ class Container(containers.DeclarativeContainer):
     # Services
     user_service = providers.Factory(
         UserService,
-        user_repo=user_repository
+        user_repo=user_repository,
+        refresh_token_repo=refresh_token_repository
     )
 
     auth_service = providers.Factory(
