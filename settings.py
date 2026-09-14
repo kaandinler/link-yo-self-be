@@ -18,6 +18,19 @@ class Settings(BaseSettings):
     # (Onceden kodda sabit True idi; production'da ve testlerde istenmiyor.)
     db_echo: bool = False
 
+    # E-posta (SMTP). smtp_host bos birakilirsa e-posta gonderilmez,
+    # icerik log'a yazilir - gelistirme ve test icin.
+    smtp_host: str | None = None
+    smtp_port: int = 587
+    smtp_username: str | None = None
+    smtp_password: str | None = None
+    smtp_from: str = "no-reply@linkyoself.local"
+    smtp_use_tls: bool = True
+
+    # Sifre sifirlama baglantisinin isaret ettigi frontend adresi.
+    frontend_url: str = "http://localhost:3000"
+    password_reset_token_expire_minutes: int = 60
+
     # Ortam değişkeni
     environment: str = "development"
 

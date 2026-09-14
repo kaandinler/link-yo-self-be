@@ -31,6 +31,20 @@ pytest
 Testler SQLite (aiosqlite) uzerinde calisir, ayri bir veritabani kurulumu
 gerektirmez. Her test sifirdan olusturulan bos bir semada calisir.
 
+## Sifre sifirlama
+
+`POST /auth/forgot-password` tek kullanimlik bir token uretip kullaniciya
+e-posta ile `FRONTEND_URL/password-change?token=...` baglantisini gonderir.
+
+- Token'in veritabaninda yalnizca SHA-256 ozeti saklanir.
+- E-posta kayitli olmasa bile uc 204 doner; farkli yanit vermek bir adresin
+  sistemde olup olmadigini ogrenmeye yarardi.
+- Yeni talep, bekleyen eski token'lari gecersiz kilar.
+- Sifre degisince kullanicinin tum refresh token'lari da iptal edilir.
+
+`SMTP_HOST` bos birakilirsa e-posta gonderilmez, icerigi log'a yazilir; akis
+bir SMTP saglayicisi secilmeden de uctan uca calisir.
+
 ## Mimari
 
 ```
@@ -60,6 +74,8 @@ Tum yollar `/api/v1` onekiyle servis edilir.
 | POST | `/auth/token` | Giris — `username` alanina e-posta veya kullanici adi |
 | POST | `/auth/refresh` | Refresh token ile yeni access token |
 | POST | `/auth/logout` | Kullanicinin tum refresh token'larini iptal eder |
+| POST | `/auth/forgot-password` | Sifirlama baglantisi gonderir (her zaman 204) |
+| POST | `/auth/reset-password` | Token ile yeni sifreyi kaydeder |
 
 ### Kullanici
 | Method | Yol | Aciklama |

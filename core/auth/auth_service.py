@@ -1,3 +1,5 @@
+import hashlib
+import secrets
 import uuid
 from datetime import timedelta
 from typing import Any
@@ -7,8 +9,14 @@ from fastapi import HTTPException, status
 from passlib.context import CryptContext
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.exceptions import InvalidCredentialsException, UnauthorizedException
-from models import RefreshToken, User
+from core.email.sender import EmailSender
+from core.exceptions import (
+    InvalidCredentialsException,
+    InvalidResetTokenException,
+    UnauthorizedException,
+)
+from models import PasswordResetToken, RefreshToken, User
+from repositories.auth.password_reset_repository import PasswordResetRepository
 from repositories.auth.refresh_token_repository import RefreshTokenRepository
 from repositories.user.user_repository import UserRepository
 from services.user.user_service import UserService
@@ -24,15 +32,23 @@ class AuthService:
             user_service: UserService,
             user_repository: UserRepository,
             refresh_token_repository: RefreshTokenRepository,
+            password_reset_repository: PasswordResetRepository,
+            email_sender: EmailSender,
             secret_key: str,
             algorithm: str,
             expire_minutes: int,
+            frontend_url: str,
+            reset_expire_minutes: int = 60,
             refresh_expire_days: int = 7,
             db_session: AsyncSession = None,
     ):
         self.user_service = user_service
         self.user_repository = user_repository
         self.refresh_token_repository = refresh_token_repository
+        self.password_reset_repository = password_reset_repository
+        self.email_sender = email_sender
+        self.frontend_url = frontend_url
+        self.reset_expire_minutes = reset_expire_minutes
         self.secret_key = secret_key
         self.algorithm = algorithm
         self.expire_minutes = expire_minutes
@@ -144,6 +160,72 @@ class AuthService:
     async def revoke_refresh_token(self, refresh_token_value: str) -> None:
         """Refresh token'ı geçersiz kılar (logout işlemi için)"""
         await self.refresh_token_repository.revoke_token(refresh_token_value)
+
+    @staticmethod
+    def _hash_reset_token(token: str) -> str:
+        """Token'in veritabaninda saklanacak ozeti.
+
+        Ham token yalnizca e-postadaki baglantida bulunuyor; veritabaninda
+        ozeti duruyor ki DB'yi okuyabilen biri sifre sifirlayamasin.
+        """
+        return hashlib.sha256(token.encode()).hexdigest()
+
+    async def request_password_reset(self, email: str) -> None:
+        """Sifre sifirlama baglantisi gonderir.
+
+        DIKKAT: Kullanici bulunamasa bile sessizce doner ve cagiran uc ayni
+        yaniti verir. Aksi halde bu uc, bir e-postanin sistemde kayitli olup
+        olmadigini ogrenmek icin kullanilabilirdi (kullanici numaralandirma).
+        """
+        user = await self.user_service.get_by_email(email)
+        if not user:
+            return
+
+        # Onceki talepler gecersiz kilinliyor: ayni anda birden fazla gecerli
+        # baglanti dolasmasin.
+        await self.password_reset_repository.invalidate_user_tokens(user.id)
+
+        raw_token = secrets.token_urlsafe(32)
+        reset_token = PasswordResetToken(
+            token_hash=self._hash_reset_token(raw_token),
+            user_id=user.id,
+            expires_at=utcnow() + timedelta(minutes=self.reset_expire_minutes),
+        )
+        await self.password_reset_repository.create_token(reset_token)
+
+        link = f"{self.frontend_url.rstrip('/')}/password-change?token={raw_token}"
+        self.email_sender.send(
+            to=str(user.email),
+            subject="Reset your LinkYoSelf password",
+            body=(
+                f"Hi {user.username},\n\n"
+                "We received a request to reset your LinkYoSelf password.\n"
+                f"Use the link below within {self.reset_expire_minutes} minutes:\n\n"
+                f"{link}\n\n"
+                "If you did not request this, you can ignore this email; "
+                "your password will stay the same.\n"
+            ),
+        )
+
+    async def reset_password(self, token: str, new_password: str) -> None:
+        """Token ile sifreyi degistirir ve acik oturumlari kapatir."""
+        record = await self.password_reset_repository.get_valid_by_hash(
+            self._hash_reset_token(token)
+        )
+        if not record:
+            raise InvalidResetTokenException
+
+        user = await self.user_repository.get_by_id(record.user_id)
+        if not user:
+            raise InvalidResetTokenException
+
+        user.hashed_password = self.hash_password(new_password)
+        await self.user_repository.update(user)
+
+        # Token tek kullanimlik; ayrica sifre degistigi icin mevcut refresh
+        # token'lar da gecersiz kilinliyor (baska cihazlardaki oturumlar).
+        await self.password_reset_repository.mark_used(record.token_hash)
+        await self.refresh_token_repository.revoke_all_user_tokens(user.id)
 
     async def revoke_all_user_tokens(self, user_id: int) -> None:
         """Kullanıcının tüm refresh token'larını geçersiz kılar (şifre değişikliği, vb.)"""

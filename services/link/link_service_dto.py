@@ -1,6 +1,6 @@
 import re
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class LinkCreate(BaseModel):
@@ -105,8 +105,7 @@ class LinkRead(BaseModel):
     click_count: int = 0
     order_index: int = 0
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class LinkReorderRequest(BaseModel):
@@ -130,5 +129,4 @@ class LinkAnalytics(BaseModel):
     url: str
     click_count: int
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)

@@ -1,4 +1,5 @@
 import logging
+from contextlib import asynccontextmanager
 
 from fastapi import APIRouter, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -27,12 +28,25 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Uygulama yasam dongusu.
+
+    @app.on_event("startup"/"shutdown") FastAPI'de deprecated; lifespan
+    context manager'i hem baslangici hem kapanisi tek yerde tutuyor.
+    """
+    logger.info("Starting LinkYoSelf API")
+    yield
+    logger.info("Shutting down LinkYoSelf API")
+
+
 def create_app() -> FastAPI:
     # Create FastAPI instance
     app = FastAPI(
         title="LinkYoSelf API",
         description="API for managing social media links",
-        version="0.1.0"
+        version="0.1.0",
+        lifespan=lifespan,
     )
 
     # Configure security for production
@@ -153,14 +167,4 @@ app = create_app()
 async def root():
     """Health check endpoint"""
     return {"status": "online", "message": "LinkYoSelf API is running"}
-
-
-@app.on_event("startup")
-async def startup_event():
-    logger.info("Starting LinkYoSelf API")
-
-
-@app.on_event("shutdown")
-async def shutdown_event():
-    logger.info("Shutting down LinkYoSelf API")
 

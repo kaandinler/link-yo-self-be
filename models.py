@@ -172,6 +172,23 @@ class RefreshToken(BaseModel):
     user = relationship('User')
 
 
+class PasswordResetToken(BaseModel):
+    """Sifre sifirlama baglantisindaki tek kullanimlik token.
+
+    Token'in kendisi degil, SHA-256 ozeti saklaniyor: veritabanini okuyabilen
+    biri (log, yedek, sizinti) ele gecirdigi kayitla sifre sifirlayamamali.
+    """
+
+    __tablename__ = 'password_reset_tokens'
+
+    token_hash = Column(String(64), nullable=False, unique=True, index=True)
+    user_id = Column(Integer, ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
+    expires_at = Column(DateTime(timezone=True), nullable=False)
+    used_at = Column(DateTime(timezone=True), nullable=True)
+
+    user = relationship('User')
+
+
 # Link modeli - EKLENDI
 class Link(BaseModel):
     __tablename__ = 'links'

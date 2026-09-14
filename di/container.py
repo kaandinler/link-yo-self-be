@@ -2,6 +2,8 @@ from dependency_injector import containers, providers
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from core.auth.auth_service import AuthService
+from core.email.sender import build_email_sender
+from repositories.auth.password_reset_repository import PasswordResetRepository
 from repositories.auth.refresh_token_repository import RefreshTokenRepository
 from repositories.link.link_repository import LinkRepository  # EKLENDI
 from repositories.user.user_repository import UserRepository
@@ -20,6 +22,12 @@ class Container(containers.DeclarativeContainer):
 
     # Database settings
     config.database_url.from_value(settings.database_url)
+
+    # Sifre sifirlama / e-posta ayarlari
+    config.frontend_url.from_value(settings.frontend_url)
+    config.password_reset_expire_minutes.from_value(
+        settings.password_reset_token_expire_minutes
+    )
 
     # Engine log ayari
     config.db_echo.from_value(settings.db_echo)
@@ -55,6 +63,13 @@ class Container(containers.DeclarativeContainer):
         session_factory=async_session_factory
     )
 
+    password_reset_repository = providers.Factory(
+        PasswordResetRepository,
+        session_factory=async_session_factory
+    )
+
+    email_sender = providers.Singleton(build_email_sender)
+
     # Link repository EKLENDI
     link_repository = providers.Factory(
         LinkRepository,
@@ -72,9 +87,13 @@ class Container(containers.DeclarativeContainer):
         user_service=user_service,
         user_repository=user_repository,
         refresh_token_repository=refresh_token_repository,
+        password_reset_repository=password_reset_repository,
+        email_sender=email_sender,
         secret_key=config.jwt_secret_key,
         algorithm=config.jwt_algorithm,
         expire_minutes=config.jwt_expire_minutes,
+        frontend_url=config.frontend_url,
+        reset_expire_minutes=config.password_reset_expire_minutes,
     )
 
     # Link service EKLENDI
