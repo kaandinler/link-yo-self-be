@@ -63,6 +63,9 @@ class User(BaseModel):
     # Yetkilendirme
     is_admin = Column(Boolean, default=False, nullable=False)
 
+    # Analytics: public profil sayfasi her goruntulendiginde artar.
+    profile_view_count = Column(Integer, default=0, nullable=False)
+
     # İlişkiler
     social_accounts = relationship(
         'SocialAccount', back_populates='user', cascade='all, delete-orphan'

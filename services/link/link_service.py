@@ -95,29 +95,6 @@ class LinkService(BaseService):
         link.click_count += 1
         return await self.repository.update_link(link)
 
-    async def get_user_analytics(self, user_id: int) -> dict:
-        """Kullanıcının link analytics verilerini getirir"""
-        links = await self.repository.get_links_by_user(user_id, include_inactive=True)
-
-        total_clicks = sum(link.click_count for link in links)
-        active_links = len([link for link in links if link.is_active])
-
-        return {
-            "total_links": len(links),
-            "active_links": active_links,
-            "total_clicks": total_clicks,
-            "links": [
-                {
-                    "id": link.id,
-                    "title": link.title,
-                    "url": link.url,
-                    "click_count": link.click_count,
-                    "is_active": link.is_active
-                }
-                for link in sorted(links, key=lambda x: x.click_count, reverse=True)
-            ]
-        }
-
     async def toggle_link_status(self, link_id: int, user_id: int) -> Link:
         """Link'in aktif/pasif durumunu değiştirir"""
         link = await self.get_link_by_id(link_id, user_id)
