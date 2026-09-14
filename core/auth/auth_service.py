@@ -6,9 +6,9 @@ from typing import Any
 
 import jwt
 from fastapi import HTTPException, status
-from passlib.context import CryptContext
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from core.auth.password import hash_password, verify_password
 from core.email.sender import EmailSender
 from core.exceptions import (
     InvalidCredentialsException,
@@ -25,7 +25,6 @@ from utils.time_utils import utcnow
 
 
 class AuthService:
-    pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
     def __init__(
             self,
@@ -56,10 +55,10 @@ class AuthService:
         self.db_session = db_session
 
     def verify_password(self, plain_password: str, hashed_password: str) -> bool:
-        return self.pwd_context.verify(plain_password, hashed_password)
+        return verify_password(plain_password, hashed_password)
 
     def hash_password(self, password: str) -> str:
-        return self.pwd_context.hash(password)
+        return hash_password(password)
 
     async def authenticate_user(self, identifier: str, password: str) -> User | None:
         """Kullaniciyi e-posta VEYA kullanici adi ile dogrular.

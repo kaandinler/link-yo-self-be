@@ -107,6 +107,16 @@ async def auth_client(client):
     yield client
 
 
+@pytest_asyncio.fixture
+async def admin_client(client, app):
+    """Admin yetkili, giris yapmis bir kullanicinin token'ini tasiyan istemci."""
+    await register_user(client)
+    await make_admin(app, DEFAULT_USER["username"])
+    token = await login(client)
+    client.headers.update(auth_header(token))
+    yield client
+
+
 async def request_reset_token(client: AsyncClient, app) -> str:
     """Sifre sifirlama talep eder ve e-postaya giden ham token'i doner.
 

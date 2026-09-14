@@ -74,12 +74,14 @@ async def register(
         auth_service: AuthService = Depends(Provide[Container.auth_service,]),
         user_service: UserService = Depends(Provide[Container.user_service]),
 ):
-    existing_username = await user_service.get_by_username(user_in.username)
-    if existing_username:
+    # DIKKAT: get_by_username/get_by_email silinmis kayitlari filtreliyor
+    # (silinmis kullanici giris yapamasin diye). Musaitlik kontrolu ise
+    # silinmis kayitlari da gormeli: satir tabloda duruyor ve username/email
+    # UNIQUE, aksi halde INSERT 500 ile patlardi.
+    if not await user_service.check_username_availability(user_in.username):
         raise AlreadyExistsException(detail=f"This username already exists: {user_in.username}")
 
-    existing_email = await user_service.get_by_email(str(user_in.email))
-    if existing_email:
+    if not await user_service.check_email_availability(str(user_in.email)):
         raise AlreadyExistsException(detail=f"This email already exists: {user_in.email}")
 
     user = await auth_service.register_user(user_in)

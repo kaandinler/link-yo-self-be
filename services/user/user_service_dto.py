@@ -41,6 +41,50 @@ class UserCreateMinimal(BaseModel):
         return password
 
 
+class UserCreateAdmin(BaseModel):
+    """Admin panelinden kullanici olusturma.
+
+    Kayit formundan (UserCreateMinimal) farki: admin ad/soyad da girebiliyor
+    ve yeni kullaniciyi dogrudan admin yapabiliyor. is_admin'in self-servis
+    kayit ucunda ADA OLMAMASI bilincli -- orada herkes kendini admin yapardi.
+    """
+
+    username: str = Field(..., min_length=3, max_length=30)
+    email: EmailStr
+    password: str = Field(..., min_length=6, max_length=50)
+    first_name: str | None = Field(None, max_length=50)
+    last_name: str | None = Field(None, max_length=50)
+    is_admin: bool = False
+
+    @field_validator("username", mode="before")
+    @classmethod
+    def check_username(cls, username: str) -> str:
+        return validate_username(username)
+
+
+class UserUpdateAdmin(BaseModel):
+    """Admin panelinden kullanici guncelleme; tum alanlar opsiyonel.
+
+    Gonderilmeyen alan degistirilmez (PATCH semantigi). Bu yuzden
+    model_dump(exclude_unset=True) ile okunmali: None gonderilen alan
+    "temizle" demektir, hic gonderilmeyen alan "dokunma".
+    """
+
+    username: str | None = Field(None, min_length=3, max_length=30)
+    email: EmailStr | None = None
+    password: str | None = Field(None, min_length=6, max_length=50)
+    first_name: str | None = Field(None, max_length=50)
+    last_name: str | None = Field(None, max_length=50)
+    is_admin: bool | None = None
+
+    @field_validator("username", mode="before")
+    @classmethod
+    def check_username(cls, username: str | None) -> str | None:
+        if username is None:
+            return None
+        return validate_username(username)
+
+
 class ProfileCompletionStep1(BaseModel):
     """Step 1: Basic Profile Info"""
     first_name: str | None = Field(None, max_length=50, description="First name")
