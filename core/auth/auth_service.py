@@ -11,8 +11,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from core.auth.password import hash_password, verify_password
 from core.email.sender import EmailSender
 from core.exceptions import (
+    AlreadyExistsException,
     InvalidCredentialsException,
     InvalidResetTokenException,
+    PermissionDeniedException,
     UnauthorizedException,
 )
 from models import PasswordResetToken, RefreshToken, User
@@ -225,6 +227,52 @@ class AuthService:
         # token'lar da gecersiz kilinliyor (baska cihazlardaki oturumlar).
         await self.password_reset_repository.mark_used(record.token_hash)
         await self.refresh_token_repository.revoke_all_user_tokens(user.id)
+
+    async def change_password(
+        self, user: User, current_password: str, new_password: str
+    ) -> tuple[str, str]:
+        """Kullanicinin kendi sifresini degistirir.
+
+        Mevcut sifre dogrulanmadan degisiklik yapilmaz: acik birakilmis bir
+        oturum tek basina sifreyi degistirip hesabi ele gecirememeli.
+
+        Sifre degistiginde tum refresh token'lar iptal ediliyor (diger
+        cihazlardaki oturumlar kapansin), ardindan istegi yapan kullaniciya
+        yeni bir cift uretiliyor; boylece bu oturum devam edebiliyor.
+        """
+        if not verify_password(current_password, user.hashed_password):
+            raise PermissionDeniedException(detail="Current password is incorrect")
+
+        user.hashed_password = hash_password(new_password)
+        await self.user_repository.update(user)
+
+        await self.refresh_token_repository.revoke_all_user_tokens(user.id)
+        return await self.create_tokens(user)
+
+    async def change_email(self, user: User, password: str, new_email: str) -> User:
+        """Kullanicinin e-posta adresini degistirir.
+
+        NOT: Yeni adrese dogrulama e-postasi gonderilmiyor; e-posta dogrulama
+        akisi urun karari olarak ertelendi. Yanlis yazilan bir adres sifre
+        sifirlamayi kullanilamaz hale getirir.
+        """
+        if not verify_password(password, user.hashed_password):
+            raise PermissionDeniedException(detail="Password is incorrect")
+
+        new_email = new_email.lower()
+        if new_email != user.email:
+            # include_deleted: silinen kayit tabloda kaliyor ve email UNIQUE;
+            # gormezden gelirsek UPDATE unique ihlaliyle 500 olurdu.
+            mevcut = await self.user_repository.get_by_email(
+                new_email, include_deleted=True
+            )
+            if mevcut:
+                raise AlreadyExistsException(
+                    detail=f"This email already exists: {new_email}"
+                )
+
+        user.email = new_email
+        return await self.user_repository.update(user)
 
     async def revoke_all_user_tokens(self, user_id: int) -> None:
         """Kullanıcının tüm refresh token'larını geçersiz kılar (şifre değişikliği, vb.)"""
