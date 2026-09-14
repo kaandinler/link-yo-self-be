@@ -7,6 +7,7 @@ from repositories.auth.password_reset_repository import PasswordResetRepository
 from repositories.auth.refresh_token_repository import RefreshTokenRepository
 from repositories.link.link_repository import LinkRepository  # EKLENDI
 from repositories.user.user_repository import UserRepository
+from services.analytics.analytics_service import AnalyticsService
 from services.link.link_service import LinkService  # EKLENDI
 from services.user.user_service import UserService
 from settings import settings
@@ -100,5 +101,10 @@ class Container(containers.DeclarativeContainer):
     # Link service EKLENDI
     link_service = providers.Factory(
         LinkService,
+        link_repo=link_repository
+    )
+
+    analytics_service = providers.Factory(
+        AnalyticsService,
         link_repo=link_repository
     )

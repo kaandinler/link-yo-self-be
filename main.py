@@ -20,7 +20,14 @@ from core.middleware.error_handler import setup_exception_handlers
 from core.schemas.response import ErrorResponse
 from core.utils.response_wrapper import add_response_model
 from di.container import Container
-from routers import auth_router, link_router, profile_router, public_router, user_router
+from routers import (
+    analytics_router,
+    auth_router,
+    link_router,
+    profile_router,
+    public_router,
+    user_router,
+)
 from settings import settings
 
 # Configure logging
@@ -132,6 +139,8 @@ def create_app() -> FastAPI:
             "routers.v1.profile_router",  # EKLENDI
             "routers.public_router",
             "routers.v1.public_router",
+            "routers.analytics_router",
+            "routers.v1.analytics_router",
             "deps"
         ]
     )
@@ -142,6 +151,7 @@ def create_app() -> FastAPI:
     wrapped_link_router = add_response_model(link_router.router)
     wrapped_profile_router = add_response_model(profile_router.router)
     wrapped_public_router = add_response_model(public_router.router)
+    wrapped_analytics_router = add_response_model(analytics_router.router)
 
     # V1 API router'ı oluştur
     api_v1_router = APIRouter(prefix="/api/v1")
@@ -152,6 +162,7 @@ def create_app() -> FastAPI:
     api_v1_router.include_router(wrapped_link_router)
     api_v1_router.include_router(wrapped_profile_router)
     api_v1_router.include_router(wrapped_public_router)
+    api_v1_router.include_router(wrapped_analytics_router)
 
     # API v1 router'ı uygulamaya ekle
     app.include_router(api_v1_router)

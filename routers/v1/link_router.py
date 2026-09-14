@@ -125,18 +125,9 @@ async def toggle_link_status(
     )
 
 
-@router.get("/analytics/summary", response_model=SuccessResponse[dict])
-@inject
-async def get_link_analytics(
-    current_user: User = Depends(get_current_user),
-    link_service: LinkService = Depends(Provide[Container.link_service])
-):
-    """Kullanıcının link analytics verilerini getirir"""
-    analytics = await link_service.get_user_analytics(current_user.id)
-    return SuccessResponse.create(
-        data=analytics,
-        message="Analytics retrieved successfully"
-    )
+# NOT: GET /links/analytics/summary buradan kaldirildi. Tipsiz bir dict
+# donuyordu ve profil goruntulenmesi gibi link disi metrikleri barindiramazdi.
+# Yerine GET /analytics/summary geldi (routers/v1/analytics_router.py).
 
 
 # Public endpoint - Link tıklandığında click count artırır

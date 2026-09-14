@@ -1,4 +1,4 @@
-"""Link CRUD, siralama, toggle ve analytics testleri."""
+"""Link CRUD, siralama, toggle ve tiklama testleri."""
 import pytest
 
 from core.exceptions import NotFoundException
@@ -208,20 +208,6 @@ class TestReorderToggleClick:
         assert guncel["click_count"] == 1
 
 
-class TestAnalytics:
-    async def test_analytics_ozeti(self, auth_client):
-        bir = await create_link(auth_client, title="Bir")
-        iki = await create_link(auth_client, title="Iki")
-        await auth_client.patch(f"/api/v1/links/{iki['id']}/toggle")
-        await auth_client.post(f"/api/v1/links/{bir['id']}/click")
-        await auth_client.post(f"/api/v1/links/{bir['id']}/click")
-
-        response = await auth_client.get("/api/v1/links/analytics/summary")
-
-        assert response.status_code == 200
-        data = response.json()["data"]
-        assert data["total_links"] == 2
-        assert data["active_links"] == 1
-        assert data["total_clicks"] == 2
-        # En cok tiklanan basta
-        assert data["links"][0]["title"] == "Bir"
+# NOT: Analytics testleri tests/test_analytics.py'ye tasindi. Uc artik
+# /api/v1/analytics/summary; linklere ait olmayan metrikleri de (profil
+# goruntulenme) tasidigi icin links router'inin altindan cikti.

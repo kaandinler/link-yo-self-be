@@ -1,6 +1,6 @@
 from collections.abc import Awaitable, Sequence
 
-from sqlalchemy import func, or_, select
+from sqlalchemy import func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -167,6 +167,22 @@ class UserRepository(BaseRepository[User]):
         return await self.execute_query(
             _get_public_profile, username, transactional=transactional
         )
+
+    async def increment_profile_view(self, user_id: int) -> None:
+        """Profil goruntulenme sayacini bir artirir.
+
+        Oku-degistir-yaz yerine tek UPDATE kullaniliyor: ayni profile ayni
+        anda gelen istekler birbirinin artisini ezmesin.
+        """
+
+        async def _increment(session: AsyncSession, user_id_: int) -> None:
+            await session.execute(
+                update(User)
+                .where(User.id == user_id_)
+                .values(profile_view_count=User.profile_view_count + 1)
+            )
+
+        await self.execute_query(_increment, user_id, transactional=True)
 
     async def create_user(self, user: User) -> User:
         """Create a new user (always transactional)"""

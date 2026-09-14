@@ -161,14 +161,23 @@ class UserService(BaseService):
         """Update user information"""
         return await self.repository.update(user)
 
-    async def get_public_profile(self, username: str) -> PublicProfile:
+    async def get_public_profile(
+        self, username: str, record_view: bool = True
+    ) -> PublicProfile:
         """Kullanicinin herkese acik link sayfasini olusturur.
 
         Sadece aktif ve silinmemis linkler, order_index sirasiyla doner.
+
+        record_view=True iken bu cagri ayni zamanda bir "goruntulenme"
+        sayiliyor; sayac panoda gosteriliyor. Profil bulunamazsa sayac
+        artmaz.
         """
         user = await self.repository.get_public_profile(username.lower())
         if not user:
             raise NotFoundException(f"Profile not found: {username}")
+
+        if record_view:
+            await self.repository.increment_profile_view(user.id)
 
         visible_links = sorted(
             (link for link in user.links if link.is_active and not link.is_deleted),
