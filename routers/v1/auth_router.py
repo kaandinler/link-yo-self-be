@@ -7,7 +7,12 @@ from core.exceptions import AlreadyExistsException
 from core.schemas.response import BaseResponseModel
 from deps import get_current_user
 from di.container import Container
-from services.auth.auth_service_dto import TokenRefreshRequest, TokenResponse
+from services.auth.auth_service_dto import (
+    ForgotPasswordRequest,
+    ResetPasswordRequest,
+    TokenRefreshRequest,
+    TokenResponse,
+)
 from services.user.user_service import UserService
 from services.user.user_service_dto import UserCreateMinimal, UserRead
 
@@ -83,3 +88,27 @@ async def register(
         message="User successfully registered"
     )
 
+
+
+@router.post('/forgot-password', status_code=status.HTTP_204_NO_CONTENT)
+@inject
+async def forgot_password(
+        request: ForgotPasswordRequest,
+        auth_service: AuthService = Depends(Provide[Container.auth_service])
+):
+    """Sifre sifirlama baglantisi gonderir.
+
+    E-posta kayitli olmasa bile 204 doner. Farkli yanit vermek, bir adresin
+    sistemde kayitli olup olmadigini ogrenmeye yarardi.
+    """
+    await auth_service.request_password_reset(str(request.email))
+
+
+@router.post('/reset-password', status_code=status.HTTP_204_NO_CONTENT)
+@inject
+async def reset_password(
+        request: ResetPasswordRequest,
+        auth_service: AuthService = Depends(Provide[Container.auth_service])
+):
+    """Token ile yeni sifreyi kaydeder ve acik oturumlari kapatir."""
+    await auth_service.reset_password(request.token, request.password)

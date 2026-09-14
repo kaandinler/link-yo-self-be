@@ -6,6 +6,7 @@ degerleri import aninda okuyor.
 """
 import os
 import pathlib
+import re
 import tempfile
 
 TEST_DB_PATH = pathlib.Path(tempfile.gettempdir()) / "linkyoself_test.db"
@@ -104,3 +105,31 @@ async def auth_client(client):
     token = await login(client)
     client.headers.update(auth_header(token))
     yield client
+
+
+async def request_reset_token(client: AsyncClient, app) -> str:
+    """Sifre sifirlama talep eder ve e-postaya giden ham token'i doner.
+
+    Ham token yalnizca e-postada bulunuyor (veritabaninda ozeti saklaniyor),
+    bu yuzden testte EmailSender.send ciktisini yakaliyoruz.
+    """
+    gonderilen: list[str] = []
+    sender = app.container.email_sender()
+    orijinal = sender.send
+
+    def yakala(to, subject, body):
+        gonderilen.append(body)
+
+    sender.send = yakala
+    try:
+        response = await client.post(
+            "/api/v1/auth/forgot-password", json={"email": DEFAULT_USER["email"]}
+        )
+        assert response.status_code == 204, response.text
+    finally:
+        sender.send = orijinal
+
+    assert gonderilen, "sifirlama e-postasi gonderilmedi"
+    match = re.search(r"token=([\w\-]+)", gonderilen[-1])
+    assert match, f"token bulunamadi: {gonderilen[-1]}"
+    return match.group(1)

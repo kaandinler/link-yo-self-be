@@ -1,7 +1,13 @@
 """Auth akisi testleri: kayit, giris, token yenileme, cikis."""
 import pytest
 
-from tests.conftest import DEFAULT_USER, auth_header, login, register_user
+from tests.conftest import (
+    DEFAULT_USER,
+    auth_header,
+    login,
+    register_user,
+    request_reset_token,
+)
 
 
 class TestRegister:
@@ -211,3 +217,123 @@ class TestKorumaliEndpointler:
         response = await client.get("/api/v1/users/me", headers=auth_header(token))
 
         assert response.status_code == 200
+
+
+class TestSifreSifirlama:
+    """POST /auth/forgot-password ve /auth/reset-password."""
+
+    async def test_talep_204_doner(self, client):
+        await register_user(client)
+
+        response = await client.post(
+            "/api/v1/auth/forgot-password", json={"email": DEFAULT_USER["email"]}
+        )
+
+        assert response.status_code == 204
+
+    async def test_olmayan_eposta_da_204_doner(self, client):
+        """Kullanici numaralandirmayi onlemek icin yanit ayni olmali."""
+        response = await client.post(
+            "/api/v1/auth/forgot-password", json={"email": "yok@example.com"}
+        )
+
+        assert response.status_code == 204
+
+    async def test_token_ile_sifre_degisir(self, client, app):
+        await register_user(client)
+        token = await request_reset_token(client, app)
+
+        response = await client.post(
+            "/api/v1/auth/reset-password",
+            json={"token": token, "password": "yenisifre123"},
+        )
+        assert response.status_code == 204
+
+        # Eski sifre calismamali, yenisi calismali
+        eski = await client.post(
+            "/api/v1/auth/token",
+            data={
+                "username": DEFAULT_USER["email"],
+                "password": DEFAULT_USER["password"],
+            },
+        )
+        assert eski.status_code == 401
+
+        yeni = await client.post(
+            "/api/v1/auth/token",
+            data={"username": DEFAULT_USER["email"], "password": "yenisifre123"},
+        )
+        assert yeni.status_code == 200
+
+    async def test_token_tek_kullanimlik(self, client, app):
+        await register_user(client)
+        token = await request_reset_token(client, app)
+
+        ilk = await client.post(
+            "/api/v1/auth/reset-password",
+            json={"token": token, "password": "yenisifre123"},
+        )
+        assert ilk.status_code == 204
+
+        ikinci = await client.post(
+            "/api/v1/auth/reset-password",
+            json={"token": token, "password": "baskasifre123"},
+        )
+        assert ikinci.status_code == 400
+
+    async def test_gecersiz_token_400(self, client):
+        await register_user(client)
+
+        response = await client.post(
+            "/api/v1/auth/reset-password",
+            json={"token": "boyle-bir-token-yok", "password": "yenisifre123"},
+        )
+
+        assert response.status_code == 400
+        assert response.json()["status"] == "error"
+
+    async def test_yeni_talep_eskisini_gecersiz_kilar(self, client, app):
+        await register_user(client)
+        eski_token = await request_reset_token(client, app)
+        yeni_token = await request_reset_token(client, app)
+
+        assert eski_token != yeni_token
+
+        response = await client.post(
+            "/api/v1/auth/reset-password",
+            json={"token": eski_token, "password": "yenisifre123"},
+        )
+        assert response.status_code == 400
+
+    async def test_sifre_degisince_oturumlar_kapanir(self, client, app):
+        """Sifre sifirlandiginda diger cihazlardaki refresh token'lar da gecersiz."""
+        await register_user(client)
+        giris = await client.post(
+            "/api/v1/auth/token",
+            data={
+                "username": DEFAULT_USER["email"],
+                "password": DEFAULT_USER["password"],
+            },
+        )
+        refresh_token = giris.json()["data"]["refresh_token"]
+
+        token = await request_reset_token(client, app)
+        await client.post(
+            "/api/v1/auth/reset-password",
+            json={"token": token, "password": "yenisifre123"},
+        )
+
+        response = await client.post(
+            "/api/v1/auth/refresh", json={"refresh_token": refresh_token}
+        )
+        assert response.status_code == 401
+
+    async def test_kisa_sifre_422(self, client, app):
+        await register_user(client)
+        token = await request_reset_token(client, app)
+
+        response = await client.post(
+            "/api/v1/auth/reset-password", json={"token": token, "password": "123"}
+        )
+
+        assert response.status_code == 422

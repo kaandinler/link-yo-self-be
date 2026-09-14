@@ -68,6 +68,12 @@ class AlreadyExistsException(BaseAppException):
     detail ="Resource already exists"
 
 
+class InvalidResetTokenException(BaseAppException):
+    """Sifre sifirlama token'i gecersiz, suresi dolmus veya kullanilmis"""
+    status_code = status.HTTP_400_BAD_REQUEST
+    detail = "Invalid or expired password reset token"
+
+
 class ValidationException(BaseAppException):
     """Data validation error"""
     status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
