@@ -86,6 +86,66 @@ class TestProfileSteps:
         assert response.status_code == 422
 
 
+class TestProfileUpdateNormalizasyon:
+    """Regresyon: PUT /profile/update, onboarding adimlarindaki normalizasyonu
+    uygulamiyordu. Normalize edilmemis website degeri frontend'de goreli yol
+    sayilip linki kiriyordu.
+    """
+
+    async def test_website_https_ile_tamamlanir(self, auth_client):
+        response = await auth_client.put(
+            "/api/v1/profile/update", json={"website": "kaandinler.dev"}
+        )
+
+        assert response.status_code == 200
+        assert response.json()["data"]["website"] == "https://kaandinler.dev"
+
+    async def test_sosyal_medya_at_isareti_temizlenir(self, auth_client):
+        response = await auth_client.put(
+            "/api/v1/profile/update",
+            json={
+                "twitter_username": "@kaandinler",
+                "instagram_username": "  @kaan  ",
+            },
+        )
+
+        assert response.status_code == 200
+        data = response.json()["data"]
+        assert data["twitter_username"] == "kaandinler"
+        assert data["instagram_username"] == "kaan"
+
+    async def test_gecersiz_website_422(self, auth_client):
+        response = await auth_client.put(
+            "/api/v1/profile/update", json={"website": "bu bir adres degil"}
+        )
+        assert response.status_code == 422
+
+    async def test_gecersiz_tema_rengi_422(self, auth_client):
+        response = await auth_client.put(
+            "/api/v1/profile/update", json={"theme_color": "kirmizi"}
+        )
+        assert response.status_code == 422
+
+    async def test_gecersiz_background_type_422(self, auth_client):
+        response = await auth_client.put(
+            "/api/v1/profile/update", json={"background_type": "video"}
+        )
+        assert response.status_code == 422
+
+    async def test_dokunulmayan_alanlar_varsayilana_dusmez(self, auth_client):
+        """Adim DTO'larindan farkli olarak burada bos alan varsayilana dusmemeli."""
+        await auth_client.put(
+            "/api/v1/profile/update", json={"theme_color": "#FF5733"}
+        )
+
+        response = await auth_client.put(
+            "/api/v1/profile/update", json={"bio": "Merhaba"}
+        )
+
+        assert response.status_code == 200
+        assert response.json()["data"]["theme_color"] == "#FF5733"
+
+
 class TestProfileUpdate:
     async def test_profil_guncellenir(self, auth_client):
         response = await auth_client.put(

@@ -49,6 +49,7 @@ class TestRegister:
             ("username", "ab"),             # min 3 karakter
             ("username", "admin"),          # rezerve kelime
             ("email", "gecersiz-eposta"),   # format hatasi
+            ("username", "kaan!!!"),        # gecersiz karakter (bkz. asagidaki not)
         ],
     )
     async def test_gecersiz_kayit_verisi(self, client, alan, deger):
@@ -56,6 +57,33 @@ class TestRegister:
             "/api/v1/auth/register", json={**DEFAULT_USER, alan: deger}
         )
         assert response.status_code == 422
+
+
+class TestRezerveKullaniciAdlari:
+    """Profil sayfasi /{username} adresinde yayinlandigi icin frontend
+    rotalariyla cakisan adlar alinamamali; aksi halde o kullanicinin sayfasina
+    hicbir zaman ulasilamaz.
+    """
+
+    @pytest.mark.parametrize(
+        "username",
+        ["dashboard", "settings", "links", "sign-in", "profile", "admin-panel"],
+    )
+    async def test_frontend_rotalari_rezerve(self, client, username):
+        response = await client.post(
+            "/api/v1/auth/register",
+            json={**DEFAULT_USER, "username": username},
+        )
+
+        assert response.status_code == 422
+
+    async def test_normal_kullanici_adi_kabul_edilir(self, client):
+        response = await client.post(
+            "/api/v1/auth/register",
+            json={**DEFAULT_USER, "username": "kaandinler"},
+        )
+
+        assert response.status_code == 201
 
 
 class TestLogin:

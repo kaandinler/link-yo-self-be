@@ -9,6 +9,14 @@ from pydantic import (
     field_validator,
 )
 
+from core.validators import (
+    clean_social_handle,
+    normalize_website,
+    validate_background_type,
+    validate_hex_color,
+    validate_username,
+)
+
 
 class UserCreateMinimal(BaseModel):
     """Minimal registration - sadece gerekli alanlar"""
@@ -18,20 +26,9 @@ class UserCreateMinimal(BaseModel):
 
     @field_validator("username", mode="before")
     @classmethod
-    def validate_username(cls, username: str) -> str:
-        """Username validation"""
-        import re
-
-        # Only alphanumeric, dots, hyphens, underscores allowed
-        if not re.match(r'^[a-zA-Z0-9_.-]+', username):
-            raise ValueError("Username can only contain letters, numbers, dots, hyphens, and underscores")
-
-        # Reserved usernames
-        reserved = ['admin', 'api', 'www', 'mail', 'support', 'help', 'about', 'contact', 'blog', 'news']
-        if username.lower() in reserved:
-            raise ValueError("This username is reserved")
-
-        return username.lower()
+    def check_username(cls, username: str) -> str:
+        """Username validation - kurallar core.validators icinde."""
+        return validate_username(username)
 
     @field_validator("password", mode="before")
     @classmethod
@@ -61,26 +58,8 @@ class ProfileCompletionStep2(BaseModel):
 
     @field_validator("website", mode="before")
     @classmethod
-    def validate_website(cls, website: str | None) -> str | None:
-        if not website:
-            return website
-
-        if not website.startswith(('http://', 'https://')):
-            website = 'https://' + website
-
-        import re
-        url_pattern = re.compile(
-            r'^https?://'
-            r'(?:(?:[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?\.)+[A-Z]{2,6}\.?|'
-            r'localhost|'
-            r'\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})'
-            r'(?::\d+)?'
-            r'(?:/?|[/?]\S+)', re.IGNORECASE)
-
-        if not url_pattern.match(website):
-            raise ValueError("Invalid website URL")
-
-        return website
+    def check_website(cls, website: str | None) -> str | None:
+        return normalize_website(website)
 
 
 class ProfileCompletionStep3(BaseModel):
@@ -91,11 +70,8 @@ class ProfileCompletionStep3(BaseModel):
 
     @field_validator("twitter_username", "instagram_username", "linkedin_username", mode="before")
     @classmethod
-    def clean_username(cls, username: str | None) -> str | None:
-        if not username:
-            return username
-        # Remove @ symbol if present
-        return username.lstrip('@').strip()
+    def check_social_handle(cls, username: str | None) -> str | None:
+        return clean_social_handle(username)
 
 
 class ProfileCompletionStep4(BaseModel):
@@ -106,27 +82,14 @@ class ProfileCompletionStep4(BaseModel):
 
     @field_validator("theme_color", mode="before")
     @classmethod
-    def validate_color(cls, color: str | None) -> str | None:
-        if not color:
-            return "#1383eb"  # Default color
-
-        import re
-        if not re.match(r'^#[0-9A-Fa-f]{6}', color):
-            raise ValueError("Color must be a valid hex code (e.g., #FF5733)")
-
-        return color
+    def check_color(cls, color: str | None) -> str | None:
+        # Onboarding adiminda bos birakilan alan varsayilana duser.
+        return validate_hex_color(color) or "#1383eb"
 
     @field_validator("background_type", mode="before")
     @classmethod
-    def validate_background_type(cls, bg_type: str | None) -> str | None:
-        if not bg_type:
-            return "color"
-
-        valid_types = ["color", "gradient", "image"]
-        if bg_type not in valid_types:
-            raise ValueError(f"Background type must be one of: {valid_types}")
-
-        return bg_type
+    def check_background_type(cls, bg_type: str | None) -> str | None:
+        return validate_background_type(bg_type) or "color"
 
 
 class UserProfileUpdate(BaseModel):
@@ -145,6 +108,36 @@ class UserProfileUpdate(BaseModel):
     theme_color: str | None = Field(None, max_length=20)
     background_type: str | None = Field(None)
     background_value: str | None = Field(None, max_length=500)
+
+    # NOT: Bu DTO'da hic validator yoktu. Adim adim onboarding uclari degeri
+    # normalize ederken PUT /profile/update etmiyordu; sonucta semasiz website
+    # ("ornek.com") ve bastaki @ ile sosyal medya adi kaydedilebiliyor, renk
+    # ve arka plan tipi hic dogrulanmiyordu. Artik ayni kurallar gecerli.
+    #
+    # Adim DTO'larindan farki: burada bos birakilan alan varsayilana dusmez,
+    # None olarak kalir - kismi guncellemede dokunulmayan alanlar bozulmasin.
+
+    @field_validator("website", mode="before")
+    @classmethod
+    def check_website(cls, website: str | None) -> str | None:
+        return normalize_website(website)
+
+    @field_validator(
+        "twitter_username", "instagram_username", "linkedin_username", mode="before"
+    )
+    @classmethod
+    def check_social_handle(cls, username: str | None) -> str | None:
+        return clean_social_handle(username)
+
+    @field_validator("theme_color", mode="before")
+    @classmethod
+    def check_color(cls, color: str | None) -> str | None:
+        return validate_hex_color(color)
+
+    @field_validator("background_type", mode="before")
+    @classmethod
+    def check_background_type(cls, bg_type: str | None) -> str | None:
+        return validate_background_type(bg_type)
 
 
 class UserRead(BaseModel):
