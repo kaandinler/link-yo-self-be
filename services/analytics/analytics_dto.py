@@ -64,3 +64,43 @@ class AnalyticsTimeseries(BaseModel):
     total_clicks: int
     total_profile_views: int
     points: list[AnalyticsDayPoint]
+
+
+class LinkDayPoint(BaseModel):
+    """Bir linkin bir gunku tiklanma sayisi."""
+
+    date: date
+    clicks: int
+
+
+class LinkTimeseries(BaseModel):
+    """Tek bir linkin secili aralikteki gunluk egrisi."""
+
+    id: int
+    title: str
+    url: str
+    is_active: bool
+
+    # Yalnizca secili araligi kapsiyor; LinkClickStat.click_count ise linkin
+    # tum gecmisini. Ikisi ayni sayi degil.
+    total_clicks: int
+    points: list[LinkDayPoint]
+
+
+class LinkTimeseriesResponse(BaseModel):
+    """Kullanicinin butun linkleri, secili aralikteki egrileriyle.
+
+    Aralikta hic tiklanmayan linkler de listede: "bu link ise yaramadi"
+    bilgisi de bir bilgi ve liste herkese acik sayfadakiyle ayni linkleri
+    gostermeli.
+
+    DIKKAT: Silinmis bir linke ait tiklamalar burada gorunmuyor (olay satiri
+    duruyor ama artik bir linke baglanamiyor); genel zaman serisinde
+    sayilmaya devam ediyorlar. Bu yuzden buradaki toplamlarin toplami,
+    AnalyticsTimeseries.total_clicks'ten kucuk olabilir.
+    """
+
+    days: int
+    start_date: date
+    end_date: date
+    links: list[LinkTimeseries]

@@ -191,3 +191,120 @@ class TestAnalyticsZamanSerisi:
         # Olay link_id'si bosa duser ama satir kalir: gecmis bir gunun
         # toplami bugun yapilan bir silme yuzunden degismemeli.
         assert data["total_clicks"] == 1
+
+
+class TestLinkZamanSerisi:
+    async def test_tokensiz_401(self, client):
+        response = await client.get("/api/v1/analytics/timeseries/by-link")
+        assert response.status_code == 401
+
+    async def test_linki_olmayan_hesapta_bos_liste(self, auth_client):
+        response = await auth_client.get("/api/v1/analytics/timeseries/by-link")
+
+        assert response.status_code == 200, response.text
+        data = response.json()["data"]
+        assert data["days"] == 7
+        assert data["links"] == []
+
+    async def test_tiklanmayan_link_de_listede(self, auth_client):
+        await create_link(auth_client, title="Sessiz")
+
+        data = (
+            await auth_client.get("/api/v1/analytics/timeseries/by-link")
+        ).json()["data"]
+
+        assert len(data["links"]) == 1
+        seri = data["links"][0]
+        assert seri["title"] == "Sessiz"
+        assert seri["total_clicks"] == 0
+        assert len(seri["points"]) == 7
+        assert all(nokta["clicks"] == 0 for nokta in seri["points"])
+
+    async def test_tiklamalar_dogru_linke_yaziliyor(self, auth_client):
+        bir = await create_link(auth_client, title="Bir")
+        iki = await create_link(auth_client, title="Iki")
+        await auth_client.post(f"/api/v1/links/{bir['id']}/click")
+        await auth_client.post(f"/api/v1/links/{bir['id']}/click")
+        await auth_client.post(f"/api/v1/links/{iki['id']}/click")
+
+        data = (
+            await auth_client.get("/api/v1/analytics/timeseries/by-link?days=3")
+        ).json()["data"]
+
+        seriler = {seri["title"]: seri for seri in data["links"]}
+        assert seriler["Bir"]["total_clicks"] == 2
+        assert seriler["Iki"]["total_clicks"] == 1
+        # Bugun son gun.
+        assert seriler["Bir"]["points"][-1]["clicks"] == 2
+        assert all(
+            nokta["clicks"] == 0 for nokta in seriler["Bir"]["points"][:-1]
+        )
+
+    async def test_en_cok_tiklanan_basta(self, auth_client):
+        az = await create_link(auth_client, title="Az")
+        cok = await create_link(auth_client, title="Cok")
+        await auth_client.post(f"/api/v1/links/{az['id']}/click")
+        for _ in range(3):
+            await auth_client.post(f"/api/v1/links/{cok['id']}/click")
+
+        data = (
+            await auth_client.get("/api/v1/analytics/timeseries/by-link")
+        ).json()["data"]
+
+        assert [seri["title"] for seri in data["links"]] == ["Cok", "Az"]
+
+    async def test_pasif_link_de_listede(self, auth_client):
+        link = await create_link(auth_client, title="Pasif")
+        await auth_client.patch(f"/api/v1/links/{link['id']}/toggle")
+
+        data = (
+            await auth_client.get("/api/v1/analytics/timeseries/by-link")
+        ).json()["data"]
+
+        assert data["links"][0]["title"] == "Pasif"
+        assert data["links"][0]["is_active"] is False
+
+    async def test_silinen_linkin_tiklamalari_kirilimda_yok(self, auth_client):
+        kalan = await create_link(auth_client, title="Kalan")
+        silinecek = await create_link(auth_client, title="Silinecek")
+        await auth_client.post(f"/api/v1/links/{silinecek['id']}/click")
+        await auth_client.post(f"/api/v1/links/{kalan['id']}/click")
+        await auth_client.delete(f"/api/v1/links/{silinecek['id']}")
+
+        kirilim = (
+            await auth_client.get("/api/v1/analytics/timeseries/by-link")
+        ).json()["data"]
+        genel = (
+            await auth_client.get("/api/v1/analytics/timeseries")
+        ).json()["data"]
+
+        basliklar = [seri["title"] for seri in kirilim["links"]]
+        assert basliklar == ["Kalan"]
+        # Olay satiri duruyor: genel seride iki tiklama da sayiliyor.
+        assert genel["total_clicks"] == 2
+        assert sum(seri["total_clicks"] for seri in kirilim["links"]) == 1
+
+    async def test_baska_kullanicinin_linkleri_gorunmez(self, auth_client):
+        await create_link(auth_client, title="Benim")
+
+        await register_user(
+            auth_client, username="baska", email="baska@example.com"
+        )
+        baska_token = await login(auth_client, "baska@example.com")
+
+        data = (
+            await auth_client.get(
+                "/api/v1/analytics/timeseries/by-link",
+                headers=auth_header(baska_token),
+            )
+        ).json()["data"]
+
+        assert data["links"] == []
+
+    async def test_gecersiz_gun_sayisi_422(self, auth_client):
+        assert (
+            await auth_client.get("/api/v1/analytics/timeseries/by-link?days=0")
+        ).status_code == 422
+        assert (
+            await auth_client.get("/api/v1/analytics/timeseries/by-link?days=91")
+        ).status_code == 422
