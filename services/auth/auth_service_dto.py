@@ -1,5 +1,11 @@
 # Refresh token şeması
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, field_validator
+
+from core.validators import (
+    PASSWORD_MAX_LENGTH,
+    PASSWORD_MIN_LENGTH,
+    validate_password,
+)
 
 
 class TokenRefreshRequest(BaseModel):
@@ -16,14 +22,35 @@ class ForgotPasswordRequest(BaseModel):
 
 class ResetPasswordRequest(BaseModel):
     token: str = Field(..., min_length=1, description="Reset token from the email link")
-    password: str = Field(..., min_length=6, max_length=50, description="New password")
+    password: str = Field(
+        ...,
+        min_length=PASSWORD_MIN_LENGTH,
+        max_length=PASSWORD_MAX_LENGTH,
+        description="New password",
+    )
+
+    @field_validator("password")
+    @classmethod
+    def check_password(cls, password: str) -> str:
+        """Sifre kurallari - tek kaynak core.validators."""
+        return validate_password(password)
 
 
 class ChangePasswordRequest(BaseModel):
     """Giris yapmis kullanicinin kendi sifresini degistirmesi."""
 
     current_password: str = Field(..., min_length=1, description="Current password")
-    new_password: str = Field(..., min_length=6, max_length=50, description="New password")
+    new_password: str = Field(
+        ...,
+        min_length=PASSWORD_MIN_LENGTH,
+        max_length=PASSWORD_MAX_LENGTH,
+        description="New password",
+    )
+
+    @field_validator("new_password")
+    @classmethod
+    def check_password(cls, password: str) -> str:
+        return validate_password(password)
 
 
 class ChangeEmailRequest(BaseModel):

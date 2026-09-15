@@ -50,7 +50,7 @@ async def client(app):
 DEFAULT_USER = {
     "username": "kaan",
     "email": "kaan@example.com",
-    "password": "secret123",
+    "password": "Secret123",
 }
 
 

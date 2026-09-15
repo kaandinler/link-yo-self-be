@@ -140,7 +140,7 @@ class TestLogin:
     async def test_olmayan_kullanici_401(self, client):
         response = await client.post(
             "/api/v1/auth/token",
-            data={"username": "yok@example.com", "password": "secret123"},
+            data={"username": "yok@example.com", "password": "Secret123"},
         )
 
         assert response.status_code == 401
@@ -247,7 +247,7 @@ class TestSifreSifirlama:
 
         response = await client.post(
             "/api/v1/auth/reset-password",
-            json={"token": token, "password": "yenisifre123"},
+            json={"token": token, "password": "YeniSifre123"},
         )
         assert response.status_code == 204
 
@@ -263,7 +263,7 @@ class TestSifreSifirlama:
 
         yeni = await client.post(
             "/api/v1/auth/token",
-            data={"username": DEFAULT_USER["email"], "password": "yenisifre123"},
+            data={"username": DEFAULT_USER["email"], "password": "YeniSifre123"},
         )
         assert yeni.status_code == 200
 
@@ -273,13 +273,13 @@ class TestSifreSifirlama:
 
         ilk = await client.post(
             "/api/v1/auth/reset-password",
-            json={"token": token, "password": "yenisifre123"},
+            json={"token": token, "password": "YeniSifre123"},
         )
         assert ilk.status_code == 204
 
         ikinci = await client.post(
             "/api/v1/auth/reset-password",
-            json={"token": token, "password": "baskasifre123"},
+            json={"token": token, "password": "BaskaSifre123"},
         )
         assert ikinci.status_code == 400
 
@@ -288,7 +288,7 @@ class TestSifreSifirlama:
 
         response = await client.post(
             "/api/v1/auth/reset-password",
-            json={"token": "boyle-bir-token-yok", "password": "yenisifre123"},
+            json={"token": "boyle-bir-token-yok", "password": "YeniSifre123"},
         )
 
         assert response.status_code == 400
@@ -303,7 +303,7 @@ class TestSifreSifirlama:
 
         response = await client.post(
             "/api/v1/auth/reset-password",
-            json={"token": eski_token, "password": "yenisifre123"},
+            json={"token": eski_token, "password": "YeniSifre123"},
         )
         assert response.status_code == 400
 
@@ -322,7 +322,7 @@ class TestSifreSifirlama:
         token = await request_reset_token(client, app)
         await client.post(
             "/api/v1/auth/reset-password",
-            json={"token": token, "password": "yenisifre123"},
+            json={"token": token, "password": "YeniSifre123"},
         )
 
         response = await client.post(
@@ -347,14 +347,14 @@ class TestSifreDegistir:
     async def test_tokensiz_401(self, client):
         response = await client.post(
             "/api/v1/auth/change-password",
-            json={"current_password": "secret123", "new_password": "yenisifre1"},
+            json={"current_password": "Secret123", "new_password": "YeniSifre1"},
         )
         assert response.status_code == 401
 
     async def test_yanlis_mevcut_sifre_403(self, auth_client):
         response = await auth_client.post(
             "/api/v1/auth/change-password",
-            json={"current_password": "yanlis", "new_password": "yenisifre1"},
+            json={"current_password": "yanlis", "new_password": "YeniSifre1"},
         )
 
         assert response.status_code == 403
@@ -380,7 +380,7 @@ class TestSifreDegistir:
             "/api/v1/auth/change-password",
             json={
                 "current_password": DEFAULT_USER["password"],
-                "new_password": "yenisifre1",
+                "new_password": "YeniSifre1",
             },
         )
 
@@ -388,7 +388,7 @@ class TestSifreDegistir:
 
         yeni = await client.post(
             "/api/v1/auth/token",
-            data={"username": DEFAULT_USER["email"], "password": "yenisifre1"},
+            data={"username": DEFAULT_USER["email"], "password": "YeniSifre1"},
         )
         assert yeni.status_code == 200
 
@@ -407,7 +407,7 @@ class TestSifreDegistir:
             "/api/v1/auth/change-password",
             json={
                 "current_password": DEFAULT_USER["password"],
-                "new_password": "yenisifre1",
+                "new_password": "YeniSifre1",
             },
         )
 
@@ -438,7 +438,7 @@ class TestSifreDegistir:
             "/api/v1/auth/change-password",
             json={
                 "current_password": DEFAULT_USER["password"],
-                "new_password": "yenisifre1",
+                "new_password": "YeniSifre1",
             },
             headers=auth_header(token),
         )
@@ -456,7 +456,7 @@ class TestEpostaDegistirTalebi:
     async def test_tokensiz_401(self, client):
         response = await client.post(
             "/api/v1/auth/change-email",
-            json={"password": "secret123", "new_email": "yeni@example.com"},
+            json={"password": "Secret123", "new_email": "yeni@example.com"},
         )
         assert response.status_code == 401
 
@@ -743,3 +743,124 @@ class TestEpostaDogrulama:
             "/api/v1/auth/verify-email", json={"token": token}
         )
         assert response.status_code == 400
+
+
+# (aciklama, kurala uymayan sifre)
+GECERSIZ_SIFRELER = [
+    ("kisa", "Abc123"),
+    ("buyuk harf yok", "secret123"),
+    ("kucuk harf yok", "SECRET123"),
+    ("rakam yok", "SecretPass"),
+]
+
+
+class TestSifreKurali:
+    """Sifre kurali TEK kaynaktan (core.validators) gelmeli.
+
+    ONCEDEN AYRISMISTI: her DTO kendi min_length=6 degerini tasiyordu, kayit
+    formu ise 8 karakter + buyuk/kucuk harf + rakam istiyordu. Kullanici
+    formda reddedilen bir sifreyi baska bir uctan sorunsuz belirleyebiliyordu.
+    """
+
+    @pytest.mark.parametrize("aciklama,sifre", GECERSIZ_SIFRELER)
+    async def test_kayit_reddeder(self, client, aciklama, sifre):
+        response = await client.post(
+            "/api/v1/auth/register",
+            json={"username": "yeni", "email": "yeni@example.com", "password": sifre},
+        )
+        assert response.status_code == 422, aciklama
+
+    @pytest.mark.parametrize("aciklama,sifre", GECERSIZ_SIFRELER)
+    async def test_sifre_degistirme_reddeder(self, auth_client, aciklama, sifre):
+        response = await auth_client.post(
+            "/api/v1/auth/change-password",
+            json={
+                "current_password": DEFAULT_USER["password"],
+                "new_password": sifre,
+            },
+        )
+        assert response.status_code == 422, aciklama
+
+    @pytest.mark.parametrize("aciklama,sifre", GECERSIZ_SIFRELER)
+    async def test_sifre_sifirlama_reddeder(self, client, app, aciklama, sifre):
+        await register_user(client)
+        token = await request_reset_token(client, app)
+
+        response = await client.post(
+            "/api/v1/auth/reset-password", json={"token": token, "password": sifre}
+        )
+        assert response.status_code == 422, aciklama
+
+    @pytest.mark.parametrize("aciklama,sifre", GECERSIZ_SIFRELER)
+    async def test_admin_olusturma_reddeder(self, admin_client, aciklama, sifre):
+        response = await admin_client.post(
+            "/api/v1/users/",
+            json={"username": "yeni", "email": "yeni@example.com", "password": sifre},
+        )
+        assert response.status_code == 422, aciklama
+
+    @pytest.mark.parametrize("aciklama,sifre", GECERSIZ_SIFRELER)
+    async def test_admin_guncelleme_reddeder(self, admin_client, aciklama, sifre):
+        me = (await admin_client.get("/api/v1/users/me")).json()["data"]
+
+        response = await admin_client.patch(
+            f"/api/v1/users/{me['id']}", json={"password": sifre}
+        )
+        assert response.status_code == 422, aciklama
+
+    async def test_uzun_sifre_reddeder(self, client):
+        response = await client.post(
+            "/api/v1/auth/register",
+            json={
+                "username": "yeni",
+                "email": "yeni@example.com",
+                "password": "Aa1" + "x" * 60,
+            },
+        )
+        assert response.status_code == 422
+
+    async def test_gecerli_sifre_kabul_edilir(self, client):
+        response = await client.post(
+            "/api/v1/auth/register",
+            json={
+                "username": "yeni",
+                "email": "yeni@example.com",
+                "password": "Gecerli1",
+            },
+        )
+        assert response.status_code == 201, response.text
+
+    async def test_eski_kullanicilar_giris_yapabilir(self, client, app):
+        """Kural sikilastiginda mevcut kullanicilar disarida kalmamali.
+
+        Giris sirasinda sifre yeniden dogrulanmiyor; yalnizca YENI sifreler
+        kuraldan geciyor.
+        """
+        from sqlalchemy import insert
+
+        from core.auth.password import hash_password
+        from models import User
+
+        session_factory = app.container.async_session_factory()
+        async with session_factory() as session:
+            await session.execute(
+                insert(User).values(
+                    username="eski",
+                    email="eski@example.com",
+                    # Yeni kurala uymayan, migration oncesinden kalma sifre
+                    hashed_password=hash_password("zayif"),
+                    is_deleted=False,
+                    profile_completed=False,
+                    onboarding_completed=False,
+                    is_admin=False,
+                    profile_view_count=0,
+                    email_verified=False,
+                )
+            )
+            await session.commit()
+
+        response = await client.post(
+            "/api/v1/auth/token",
+            data={"username": "eski@example.com", "password": "zayif"},
+        )
+        assert response.status_code == 200

@@ -24,6 +24,16 @@ _HEX_COLOR_PATTERN = re.compile(r"^#[0-9A-Fa-f]{6}$")
 
 _USERNAME_PATTERN = re.compile(r"^[a-zA-Z0-9_.-]+$")
 
+# Sifre kurallari. TEK KAYNAK burasi: kayit, admin panelinden olusturma/
+# guncelleme, sifre sifirlama ve sifre degistirme ayni kuraldan geciyor.
+#
+# ONCEDEN AYRISMISTI: her DTO kendi min_length=6 degerini tasiyordu, kayit
+# formu ise 8 karakter + buyuk/kucuk harf + rakam istiyordu. Kullanici
+# formda reddedilen bir sifreyi baska bir uctan (orn. sifre sifirlama)
+# sorunsuz belirleyebiliyordu.
+PASSWORD_MIN_LENGTH = 8
+PASSWORD_MAX_LENGTH = 50
+
 VALID_BACKGROUND_TYPES = ("color", "gradient", "image")
 
 # Profil sayfasi /{username} adresinde yayinlandigi icin frontend'in kendi
@@ -135,3 +145,29 @@ def validate_background_type(background_type: str | None) -> str | None:
         )
 
     return background_type
+
+
+def validate_password(password: str) -> str:
+    """Sifre kurallarini uygular.
+
+    Kurallar yalnizca YENI sifreler icin gecerli; giris sirasinda mevcut
+    sifreler yeniden dogrulanmiyor, yani kural sikilastiginda eski
+    kullanicilar disarida kalmiyor.
+    """
+    if len(password) < PASSWORD_MIN_LENGTH:
+        raise ValueError(
+            f"Password must be at least {PASSWORD_MIN_LENGTH} characters long"
+        )
+    if len(password) > PASSWORD_MAX_LENGTH:
+        raise ValueError(
+            f"Password must be at most {PASSWORD_MAX_LENGTH} characters long"
+        )
+
+    if not any(c.islower() for c in password):
+        raise ValueError("Password must contain at least one lowercase letter")
+    if not any(c.isupper() for c in password):
+        raise ValueError("Password must contain at least one uppercase letter")
+    if not any(c.isdigit() for c in password):
+        raise ValueError("Password must contain at least one number")
+
+    return password
