@@ -1,6 +1,6 @@
 """Pano ve analytics sayfasinin verisini hazirlar."""
 
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 
 from models import EVENT_LINK_CLICK, EVENT_PROFILE_VIEW, User
 from repositories.analytics.analytics_event_repository import (
@@ -12,6 +12,9 @@ from services.analytics.analytics_dto import (
     AnalyticsSummary,
     AnalyticsTimeseries,
     LinkClickStat,
+    LinkDayPoint,
+    LinkTimeseries,
+    LinkTimeseriesResponse,
 )
 from utils.time_utils import utcnow
 
@@ -54,11 +57,11 @@ class AnalyticsService:
             ],
         )
 
-    async def get_timeseries(self, user: User, days: int) -> AnalyticsTimeseries:
-        """Son `days` gunun gunluk tiklama ve profil goruntulenme sayilari.
+    @staticmethod
+    def _aralik(days: int) -> tuple[int, date, date, datetime]:
+        """Gun sayisindan araligi hesaplar: (gun_sayisi, ilk_gun, son_gun, baslangic).
 
-        Gunler UTC'ye gore ayriliyor ve bugun dahil. Olay olmayan gunler de
-        sifir degerlerle donuyor.
+        Gunler UTC'ye gore ayriliyor ve bugun araliga dahil.
         """
         days = max(1, min(days, MAX_DAYS))
 
@@ -68,6 +71,16 @@ class AnalyticsService:
         baslangic = datetime.combine(
             baslangic_gun, datetime.min.time(), tzinfo=UTC
         )
+
+        return days, baslangic_gun, bugun, baslangic
+
+    async def get_timeseries(self, user: User, days: int) -> AnalyticsTimeseries:
+        """Son `days` gunun gunluk tiklama ve profil goruntulenme sayilari.
+
+        Gunler UTC'ye gore ayriliyor ve bugun dahil. Olay olmayan gunler de
+        sifir degerlerle donuyor.
+        """
+        days, baslangic_gun, bugun, baslangic = self._aralik(days)
 
         satirlar = (
             await self.event_repository.daily_counts(user.id, baslangic)
@@ -102,4 +115,69 @@ class AnalyticsService:
             total_clicks=sum(nokta.clicks for nokta in noktalar),
             total_profile_views=sum(nokta.profile_views for nokta in noktalar),
             points=noktalar,
+        )
+
+    async def get_link_timeseries(
+        self, user: User, days: int
+    ) -> LinkTimeseriesResponse:
+        """Her linkin secili aralikteki gunluk tiklama egrisi.
+
+        Aralikta hic tiklanmayan linkler de listede, sifir degerlerle.
+        Siralama: aralik icindeki tiklamaya gore azalan, esitlikte linkin
+        kendi sirasina (order_index) gore -- boylece hicbir tiklama
+        yokken liste herkese acik sayfadaki sirayi izliyor.
+        """
+        days, baslangic_gun, bugun, baslangic = self._aralik(days)
+
+        links = await self.link_repository.get_links_by_user(
+            user.id, include_inactive=True
+        )
+
+        satirlar = (
+            await self.event_repository.daily_link_click_counts(
+                user.id, baslangic
+            )
+            if self.event_repository
+            else []
+        )
+
+        # link_id -> gun -> adet
+        sayaclar: dict[int, dict[str, int]] = {}
+        for gun, link_id, adet in satirlar:
+            sayaclar.setdefault(link_id, {})[gun] = (
+                sayaclar.setdefault(link_id, {}).get(gun, 0) + adet
+            )
+
+        gunler = [
+            baslangic_gun + timedelta(days=gecen) for gecen in range(days)
+        ]
+
+        seriler = []
+        for link in links:
+            link_sayaclari = sayaclar.get(link.id, {})
+            noktalar = [
+                LinkDayPoint(
+                    date=gun, clicks=link_sayaclari.get(gun.isoformat(), 0)
+                )
+                for gun in gunler
+            ]
+            seriler.append(
+                LinkTimeseries(
+                    id=link.id,
+                    title=link.title,
+                    url=link.url,
+                    is_active=link.is_active,
+                    total_clicks=sum(nokta.clicks for nokta in noktalar),
+                    points=noktalar,
+                )
+            )
+
+        sira = {link.id: index for index, link in enumerate(links)}
+        seriler.sort(key=lambda seri: (-seri.total_clicks, sira[seri.id]))
+
+        return LinkTimeseriesResponse(
+            days=days,
+            start_date=baslangic_gun,
+            end_date=bugun,
+            links=seriler,
         )

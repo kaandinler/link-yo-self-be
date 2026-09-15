@@ -7,7 +7,11 @@ from core.schemas.response import SuccessResponse
 from deps import get_current_user
 from di.container import Container
 from models import User
-from services.analytics.analytics_dto import AnalyticsSummary, AnalyticsTimeseries
+from services.analytics.analytics_dto import (
+    AnalyticsSummary,
+    AnalyticsTimeseries,
+    LinkTimeseriesResponse,
+)
 from services.analytics.analytics_service import MAX_DAYS, AnalyticsService
 
 # Prefix disaridaki routers/analytics_router.py tarafindan veriliyor.
@@ -58,4 +62,34 @@ async def get_analytics_timeseries(
     return SuccessResponse.create(
         data=series,
         message="Analytics timeseries retrieved successfully",
+    )
+
+
+@router.get(
+    "/timeseries/by-link", response_model=SuccessResponse[LinkTimeseriesResponse]
+)
+@inject
+async def get_link_timeseries(
+    days: int = Query(
+        7,
+        ge=1,
+        le=MAX_DAYS,
+        description="Kac gunluk aralik dondurulecek (bugun dahil).",
+    ),
+    current_user: User = Depends(get_current_user),
+    analytics_service: AnalyticsService = Depends(Provide[Container.analytics_service]),
+):
+    """Her linkin gunluk tiklama egrisi.
+
+    Aralikta hic tiklanmayan linkler de sifir degerlerle listede: "bu link
+    ise yaramadi" da bir bilgi.
+
+    DIKKAT: Silinmis bir linke ait tiklamalar burada gorunmuyor (olay satiri
+    duruyor ama artik bir linke baglanamiyor); /timeseries'te sayilmaya
+    devam ediyorlar.
+    """
+    series = await analytics_service.get_link_timeseries(current_user, days)
+    return SuccessResponse.create(
+        data=series,
+        message="Link timeseries retrieved successfully",
     )
