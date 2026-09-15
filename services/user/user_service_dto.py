@@ -7,6 +7,7 @@ from pydantic import (
     Field,
     computed_field,
     field_validator,
+    model_validator,
 )
 
 from core.validators import (
@@ -15,6 +16,7 @@ from core.validators import (
     clean_social_handle,
     normalize_website,
     validate_background_type,
+    validate_background_value,
     validate_hex_color,
     validate_password,
     validate_username,
@@ -165,6 +167,11 @@ class ProfileCompletionStep4(BaseModel):
     def check_background_type(cls, bg_type: str | None) -> str | None:
         return validate_background_type(bg_type) or "color"
 
+    @model_validator(mode="after")
+    def check_background_value(self) -> "ProfileCompletionStep4":
+        validate_background_value(self.background_type, self.background_value)
+        return self
+
 
 class UserProfileUpdate(BaseModel):
     """Complete profile update - all optional"""
@@ -212,6 +219,13 @@ class UserProfileUpdate(BaseModel):
     @classmethod
     def check_background_type(cls, bg_type: str | None) -> str | None:
         return validate_background_type(bg_type)
+
+    @model_validator(mode="after")
+    def check_background_value(self) -> "UserProfileUpdate":
+        # Yalnizca ikisi birlikte gonderildiginde dogrulanabiliyor; bkz.
+        # core.validators.validate_background_value.
+        validate_background_value(self.background_type, self.background_value)
+        return self
 
 
 class UserRead(BaseModel):
