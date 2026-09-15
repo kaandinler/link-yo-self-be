@@ -24,6 +24,9 @@ _HEX_COLOR_PATTERN = re.compile(r"^#[0-9A-Fa-f]{6}$")
 
 _USERNAME_PATTERN = re.compile(r"^[a-zA-Z0-9_.-]+$")
 
+_IMAGE_URL_PATTERN = re.compile(r"^https?://", re.IGNORECASE)
+_CSS_UNSAFE_PATTERN = re.compile(r"[\"'()\\]")
+
 # Sifre kurallari. TEK KAYNAK burasi: kayit, admin panelinden olusturma/
 # guncelleme, sifre sifirlama ve sifre degistirme ayni kuraldan geciyor.
 #
@@ -145,6 +148,49 @@ def validate_background_type(background_type: str | None) -> str | None:
         )
 
     return background_type
+
+
+def validate_background_value(
+    background_type: str | None, background_value: str | None
+) -> str | None:
+    """Arka plan degeri, tipiyle uyumlu mu?
+
+    Kurallar public profil sayfasinin GERCEKTEN cizebildigi degerleri
+    yansitiyor (link-yo-self-fe .../[username]/page-content.tsx):
+      - color / gradient: hex renk
+      - image: http(s) adresi; tirnak, parantez ve ters bolu yasak, cunku
+        deger CSS'e `url(...)` icinde giriyor ve stil enjeksiyonuna acik olur
+
+    Sayfa zaten kendini koruyup gecersiz degerde varsayilana dusuyordu; ama
+    bu sessizce oluyordu: kullanici "kaydedildi" mesajini aliyor, sonra
+    sayfasinda hicbir sey degismedigini goruyordu. Kural artik kayit
+    sirasinda uygulaniyor.
+
+    Ikisinden biri gonderilmemisse dogrulama yapilmiyor: kismi guncellemede
+    (PUT /profile/update) yalnizca bir alan degistirilmis olabilir ve diger
+    alanin kayitli degeri burada bilinmiyor.
+    """
+    if not background_type or not background_value:
+        return background_value
+
+    if background_type == "image":
+        if not _IMAGE_URL_PATTERN.match(background_value):
+            raise ValueError(
+                "Background image must be an http(s) URL"
+            )
+        if _CSS_UNSAFE_PATTERN.search(background_value):
+            raise ValueError(
+                "Background image URL cannot contain quotes, parentheses "
+                "or backslashes"
+            )
+        return background_value
+
+    # color ve gradient duz renk bekliyor (gradient'te ikinci renk
+    # theme_color'dan geliyor).
+    if not _HEX_COLOR_PATTERN.fullmatch(background_value):
+        raise ValueError("Background value must be a valid hex code (e.g., #FF5733)")
+
+    return background_value
 
 
 def validate_password(password: str) -> str:

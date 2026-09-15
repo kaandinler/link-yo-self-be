@@ -203,3 +203,101 @@ class TestProfileYetkilendirme:
         ]:
             response = await getattr(client, method)(path)
             assert response.status_code == 401, f"{method} {path}"
+
+
+class TestArkaPlanDegeri:
+    """Arka plan degeri tipiyle uyumlu olmali.
+
+    Public profil sayfasi gecersiz degerde varsayilana dusuyordu ama bu
+    sessizce oluyordu: kullanici "kaydedildi" mesajini aliyor, sonra
+    sayfasinda hicbir sey degismedigini goruyordu.
+    """
+
+    async def test_renk_tipinde_hex_kabul(self, auth_client):
+        response = await auth_client.put(
+            "/api/v1/profile/update",
+            json={"background_type": "color", "background_value": "#ff0000"},
+        )
+
+        assert response.status_code == 200, response.text
+        assert response.json()["data"]["background_value"] == "#ff0000"
+
+    async def test_renk_tipinde_hex_olmayan_422(self, auth_client):
+        response = await auth_client.put(
+            "/api/v1/profile/update",
+            json={"background_type": "color", "background_value": "kirmizi"},
+        )
+        assert response.status_code == 422
+
+    async def test_gradient_tipinde_hex_olmayan_422(self, auth_client):
+        response = await auth_client.put(
+            "/api/v1/profile/update",
+            json={"background_type": "gradient", "background_value": "sol-sag"},
+        )
+        assert response.status_code == 422
+
+    async def test_gorsel_tipinde_url_kabul(self, auth_client):
+        response = await auth_client.put(
+            "/api/v1/profile/update",
+            json={
+                "background_type": "image",
+                "background_value": "https://ornek.com/arka-plan.png",
+            },
+        )
+
+        assert response.status_code == 200, response.text
+        assert (
+            response.json()["data"]["background_value"]
+            == "https://ornek.com/arka-plan.png"
+        )
+
+    async def test_gorsel_tipinde_hex_422(self, auth_client):
+        response = await auth_client.put(
+            "/api/v1/profile/update",
+            json={"background_type": "image", "background_value": "#ff0000"},
+        )
+        assert response.status_code == 422
+
+    async def test_gorsel_tipinde_http_olmayan_422(self, auth_client):
+        response = await auth_client.put(
+            "/api/v1/profile/update",
+            json={
+                "background_type": "image",
+                "background_value": "javascript:alert(1)",
+            },
+        )
+        assert response.status_code == 422
+
+    async def test_gorsel_urlinde_parantez_422(self, auth_client):
+        """Deger CSS'e url(...) icinde giriyor; stil enjeksiyonuna acik olurdu."""
+        response = await auth_client.put(
+            "/api/v1/profile/update",
+            json={
+                "background_type": "image",
+                "background_value": "https://ornek.com/a(1).png",
+            },
+        )
+        assert response.status_code == 422
+
+    async def test_tip_gonderilmezse_dogrulanmaz(self, auth_client):
+        """Kismi guncellemede diger alanin kayitli degeri burada bilinmiyor."""
+        response = await auth_client.put(
+            "/api/v1/profile/update",
+            json={"background_value": "#00ff00"},
+        )
+        assert response.status_code == 200, response.text
+
+    async def test_onboarding_adiminda_da_gecerli(self, auth_client):
+        response = await auth_client.post(
+            "/api/v1/profile/complete-step-4",
+            json={"background_type": "image", "background_value": "#ff0000"},
+        )
+        assert response.status_code == 422
+
+    async def test_onboarding_varsayilanlari_gecerli(self, auth_client):
+        """Yalnizca renk gonderildiginde varsayilanlar (color/#ffffff) uyumlu."""
+        response = await auth_client.post(
+            "/api/v1/profile/complete-step-4",
+            json={"theme_color": "#123456"},
+        )
+        assert response.status_code == 200, response.text
