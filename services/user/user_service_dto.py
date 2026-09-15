@@ -10,10 +10,13 @@ from pydantic import (
 )
 
 from core.validators import (
+    PASSWORD_MAX_LENGTH,
+    PASSWORD_MIN_LENGTH,
     clean_social_handle,
     normalize_website,
     validate_background_type,
     validate_hex_color,
+    validate_password,
     validate_username,
 )
 
@@ -22,7 +25,12 @@ class UserCreateMinimal(BaseModel):
     """Minimal registration - sadece gerekli alanlar"""
     username: str = Field(..., min_length=3, max_length=30, description="Unique username for profile URL")
     email: EmailStr = Field(..., description="User email address")
-    password: str = Field(..., min_length=6, max_length=50, description="User password")
+    password: str = Field(
+        ...,
+        min_length=PASSWORD_MIN_LENGTH,
+        max_length=PASSWORD_MAX_LENGTH,
+        description="User password",
+    )
 
     @field_validator("username", mode="before")
     @classmethod
@@ -30,15 +38,11 @@ class UserCreateMinimal(BaseModel):
         """Username validation - kurallar core.validators icinde."""
         return validate_username(username)
 
-    @field_validator("password", mode="before")
+    @field_validator("password")
     @classmethod
-    def validate_password(cls, password: str) -> str:
-        """Basic password validation"""
-        if len(password) < 6:
-            raise ValueError("Password must be at least 6 characters long")
-        if len(password) > 50:
-            raise ValueError("Password must be at most 50 characters long")
-        return password
+    def check_password(cls, password: str) -> str:
+        """Sifre kurallari - tek kaynak core.validators."""
+        return validate_password(password)
 
 
 class UserCreateAdmin(BaseModel):
@@ -51,7 +55,9 @@ class UserCreateAdmin(BaseModel):
 
     username: str = Field(..., min_length=3, max_length=30)
     email: EmailStr
-    password: str = Field(..., min_length=6, max_length=50)
+    password: str = Field(
+        ..., min_length=PASSWORD_MIN_LENGTH, max_length=PASSWORD_MAX_LENGTH
+    )
     first_name: str | None = Field(None, max_length=50)
     last_name: str | None = Field(None, max_length=50)
     is_admin: bool = False
@@ -60,6 +66,11 @@ class UserCreateAdmin(BaseModel):
     @classmethod
     def check_username(cls, username: str) -> str:
         return validate_username(username)
+
+    @field_validator("password")
+    @classmethod
+    def check_password(cls, password: str) -> str:
+        return validate_password(password)
 
 
 class UserUpdateAdmin(BaseModel):
@@ -72,7 +83,9 @@ class UserUpdateAdmin(BaseModel):
 
     username: str | None = Field(None, min_length=3, max_length=30)
     email: EmailStr | None = None
-    password: str | None = Field(None, min_length=6, max_length=50)
+    password: str | None = Field(
+        None, min_length=PASSWORD_MIN_LENGTH, max_length=PASSWORD_MAX_LENGTH
+    )
     first_name: str | None = Field(None, max_length=50)
     last_name: str | None = Field(None, max_length=50)
     is_admin: bool | None = None
@@ -83,6 +96,13 @@ class UserUpdateAdmin(BaseModel):
         if username is None:
             return None
         return validate_username(username)
+
+    @field_validator("password")
+    @classmethod
+    def check_password(cls, password: str | None) -> str | None:
+        if password is None:
+            return None
+        return validate_password(password)
 
 
 class AccountDeleteRequest(BaseModel):
