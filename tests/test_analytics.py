@@ -95,3 +95,99 @@ class TestProfilGoruntulenme:
 
         assert benim["profile_view_count"] == 1
         assert baska["profile_view_count"] == 0
+
+
+class TestAnalyticsZamanSerisi:
+    async def test_tokensiz_401(self, client):
+        response = await client.get("/api/v1/analytics/timeseries")
+        assert response.status_code == 401
+
+    async def test_varsayilan_yedi_gun(self, auth_client):
+        response = await auth_client.get("/api/v1/analytics/timeseries")
+
+        assert response.status_code == 200, response.text
+        data = response.json()["data"]
+        assert data["days"] == 7
+        assert len(data["points"]) == 7
+
+    async def test_olaysiz_gunler_sifirla_doluyor(self, auth_client):
+        data = (
+            await auth_client.get("/api/v1/analytics/timeseries?days=30")
+        ).json()["data"]
+
+        assert len(data["points"]) == 30
+        assert data["total_clicks"] == 0
+        assert data["total_profile_views"] == 0
+        assert all(nokta["clicks"] == 0 for nokta in data["points"])
+
+    async def test_gunler_artan_sirada_ve_bugunle_bitiyor(self, auth_client):
+        data = (
+            await auth_client.get("/api/v1/analytics/timeseries?days=3")
+        ).json()["data"]
+
+        gunler = [nokta["date"] for nokta in data["points"]]
+        assert gunler == sorted(gunler)
+        assert gunler[0] == data["start_date"]
+        assert gunler[-1] == data["end_date"]
+
+    async def test_tiklama_bugune_yaziliyor(self, auth_client):
+        link = await create_link(auth_client, title="Olculen")
+        await auth_client.post(f"/api/v1/links/{link['id']}/click")
+        await auth_client.post(f"/api/v1/links/{link['id']}/click")
+
+        data = (
+            await auth_client.get("/api/v1/analytics/timeseries?days=7")
+        ).json()["data"]
+
+        assert data["total_clicks"] == 2
+        assert data["points"][-1]["clicks"] == 2
+        # Onceki gunlere yazilmamali.
+        assert all(nokta["clicks"] == 0 for nokta in data["points"][:-1])
+
+    async def test_profil_goruntulemesi_sayiliyor(self, auth_client):
+        await auth_client.get(f"/api/v1/p/{DEFAULT_USER['username']}")
+
+        data = (
+            await auth_client.get("/api/v1/analytics/timeseries?days=7")
+        ).json()["data"]
+
+        assert data["total_profile_views"] == 1
+        assert data["points"][-1]["profile_views"] == 1
+
+    async def test_baska_kullanicinin_olaylari_sizmaz(self, auth_client):
+        link = await create_link(auth_client, title="Benim")
+        await auth_client.post(f"/api/v1/links/{link['id']}/click")
+
+        await register_user(
+            auth_client, username="baska", email="baska@example.com"
+        )
+        baska_token = await login(auth_client, "baska@example.com")
+
+        data = (
+            await auth_client.get(
+                "/api/v1/analytics/timeseries", headers=auth_header(baska_token)
+            )
+        ).json()["data"]
+
+        assert data["total_clicks"] == 0
+
+    async def test_gecersiz_gun_sayisi_422(self, auth_client):
+        assert (
+            await auth_client.get("/api/v1/analytics/timeseries?days=0")
+        ).status_code == 422
+        assert (
+            await auth_client.get("/api/v1/analytics/timeseries?days=91")
+        ).status_code == 422
+
+    async def test_silinen_link_gecmis_tiklamayi_goturmez(self, auth_client):
+        link = await create_link(auth_client, title="Silinecek")
+        await auth_client.post(f"/api/v1/links/{link['id']}/click")
+        await auth_client.delete(f"/api/v1/links/{link['id']}")
+
+        data = (
+            await auth_client.get("/api/v1/analytics/timeseries?days=7")
+        ).json()["data"]
+
+        # Olay link_id'si bosa duser ama satir kalir: gecmis bir gunun
+        # toplami bugun yapilan bir silme yuzunden degismemeli.
+        assert data["total_clicks"] == 1

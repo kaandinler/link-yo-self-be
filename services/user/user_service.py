@@ -8,7 +8,10 @@ from core.exceptions import (
     PermissionDeniedException,
     ValidationException,
 )
-from models import User
+from models import EVENT_PROFILE_VIEW, User
+from repositories.analytics.analytics_event_repository import (
+    AnalyticsEventRepository,
+)
 from repositories.auth.refresh_token_repository import RefreshTokenRepository
 from repositories.user.user_repository import UserRepository
 from services.public.public_profile_dto import PublicLink, PublicProfile
@@ -20,6 +23,7 @@ class UserService(BaseService):
         self,
         user_repo: UserRepository,
         refresh_token_repo: RefreshTokenRepository | None = None,
+        event_repo: AnalyticsEventRepository | None = None,
     ):
         super().__init__(user_repo)
         self.repository = user_repo
@@ -27,6 +31,8 @@ class UserService(BaseService):
         # kapanmasi gerekiyor; access token kisa omurlu olsa da refresh token
         # gunlerce gecerli kaliyor.
         self.refresh_token_repository = refresh_token_repo
+        # Opsiyonel: profil goruntuleme olayini kaydetmek icin.
+        self.event_repository = event_repo
 
     async def list_users(self):
         return await self.list(User)
@@ -202,6 +208,10 @@ class UserService(BaseService):
 
         if record_view:
             await self.repository.increment_profile_view(user.id)
+            if self.event_repository:
+                await self.event_repository.record(
+                    user_id=user.id, event_type=EVENT_PROFILE_VIEW
+                )
 
         visible_links = sorted(
             (link for link in user.links if link.is_active and not link.is_deleted),
