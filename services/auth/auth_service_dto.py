@@ -27,7 +27,7 @@ class ChangePasswordRequest(BaseModel):
 
 
 class ChangeEmailRequest(BaseModel):
-    """Giris yapmis kullanicinin e-posta adresini degistirmesi.
+    """Giris yapmis kullanicinin e-posta adresi degistirme talebi.
 
     Sifre onayi sart: e-posta, sifre sifirlama baglantisinin gittigi adres.
     Acik birakilmis bir oturum bunu tek basina degistirebilseydi hesabi ele
@@ -36,3 +36,16 @@ class ChangeEmailRequest(BaseModel):
 
     password: str = Field(..., min_length=1, description="Current password")
     new_email: EmailStr = Field(..., description="New email address")
+
+
+class EmailChangeRequested(BaseModel):
+    """Adres degisikligi talebinin yaniti.
+
+    Adres henuz degismedi; yalnizca bu adrese dogrulama baglantisi gonderildi.
+    """
+
+    pending_email: EmailStr
+
+
+class VerifyEmailRequest(BaseModel):
+    token: str = Field(..., min_length=1, description="Token from the email link")

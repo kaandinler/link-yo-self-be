@@ -4,6 +4,7 @@ DIKKAT: Ortam degiskenleri, uygulama modulleri import edilmeden ONCE
 ayarlanmali. `settings` modul seviyesinde olusturuluyor ve `di/container.py`
 degerleri import aninda okuyor.
 """
+import contextlib
 import os
 import pathlib
 import re
@@ -117,29 +118,40 @@ async def admin_client(client, app):
     yield client
 
 
-async def request_reset_token(client: AsyncClient, app) -> str:
-    """Sifre sifirlama talep eder ve e-postaya giden ham token'i doner.
+@contextlib.contextmanager
+def yakala_epostalar(app):
+    """Gonderilen e-postalari toplar.
 
-    Ham token yalnizca e-postada bulunuyor (veritabaninda ozeti saklaniyor),
-    bu yuzden testte EmailSender.send ciktisini yakaliyoruz.
+    Baglantilardaki ham token yalnizca e-postada bulunuyor (veritabaninda
+    ozeti saklaniyor), bu yuzden testte EmailSender.send ciktisini
+    yakaliyoruz.
     """
-    gonderilen: list[str] = []
+    gonderilen: list[dict] = []
     sender = app.container.email_sender()
     orijinal = sender.send
-
-    def yakala(to, subject, body):
-        gonderilen.append(body)
-
-    sender.send = yakala
+    sender.send = lambda to, subject, body: gonderilen.append(
+        {"to": to, "subject": subject, "body": body}
+    )
     try:
+        yield gonderilen
+    finally:
+        sender.send = orijinal
+
+
+def token_cikar(body: str) -> str:
+    """E-posta govdesindeki baglantidan ham token'i alir."""
+    match = re.search(r"token=([\w\-]+)", body)
+    assert match, f"token bulunamadi: {body}"
+    return match.group(1)
+
+
+async def request_reset_token(client: AsyncClient, app) -> str:
+    """Sifre sifirlama talep eder ve e-postaya giden ham token'i doner."""
+    with yakala_epostalar(app) as gonderilen:
         response = await client.post(
             "/api/v1/auth/forgot-password", json={"email": DEFAULT_USER["email"]}
         )
         assert response.status_code == 204, response.text
-    finally:
-        sender.send = orijinal
 
     assert gonderilen, "sifirlama e-postasi gonderilmedi"
-    match = re.search(r"token=([\w\-]+)", gonderilen[-1])
-    assert match, f"token bulunamadi: {gonderilen[-1]}"
-    return match.group(1)
+    return token_cikar(gonderilen[-1]["body"])

@@ -216,6 +216,10 @@ class UserRead(BaseModel):
     profile_completed: bool = False
     onboarding_completed: bool = False
 
+    # Arayuz dogrulanmamis adres icin uyari gosteriyor; sifre sifirlama
+    # baglantisi bu adrese gittigi icin onemli.
+    email_verified: bool = False
+
     # Frontend'in admin sayfalarini gizleyebilmesi icin. Yetki kontrolu asil
     # olarak backend'de yapiliyor (deps.get_current_admin_user); bu alan
     # yalnizca arayuzu dogru cizmek icin.

@@ -14,10 +14,14 @@ from core.exceptions import (
     AlreadyExistsException,
     InvalidCredentialsException,
     InvalidResetTokenException,
+    InvalidVerificationTokenException,
     PermissionDeniedException,
     UnauthorizedException,
 )
-from models import PasswordResetToken, RefreshToken, User
+from models import EmailVerificationToken, PasswordResetToken, RefreshToken, User
+from repositories.auth.email_verification_repository import (
+    EmailVerificationRepository,
+)
 from repositories.auth.password_reset_repository import PasswordResetRepository
 from repositories.auth.refresh_token_repository import RefreshTokenRepository
 from repositories.user.user_repository import UserRepository
@@ -34,12 +38,14 @@ class AuthService:
             user_repository: UserRepository,
             refresh_token_repository: RefreshTokenRepository,
             password_reset_repository: PasswordResetRepository,
+            email_verification_repository: EmailVerificationRepository,
             email_sender: EmailSender,
             secret_key: str,
             algorithm: str,
             expire_minutes: int,
             frontend_url: str,
             reset_expire_minutes: int = 60,
+            verification_expire_minutes: int = 60 * 24,
             refresh_expire_days: int = 7,
             db_session: AsyncSession = None,
     ):
@@ -47,9 +53,11 @@ class AuthService:
         self.user_repository = user_repository
         self.refresh_token_repository = refresh_token_repository
         self.password_reset_repository = password_reset_repository
+        self.email_verification_repository = email_verification_repository
         self.email_sender = email_sender
         self.frontend_url = frontend_url
         self.reset_expire_minutes = reset_expire_minutes
+        self.verification_expire_minutes = verification_expire_minutes
         self.secret_key = secret_key
         self.algorithm = algorithm
         self.expire_minutes = expire_minutes
@@ -117,7 +125,13 @@ class AuthService:
         )
 
         # Pass the User object to create_user
-        return await self.user_service.create_user(new_user)
+        created = await self.user_service.create_user(new_user)
+
+        # Adres sahipligi dogrulanana kadar email_verified False kaliyor.
+        # Giris engellenmiyor: dogrulama, sifre sifirlamanin calisir kalmasi
+        # icin; kullaniciyi kapida bekletmek ayri bir urun karari olurdu.
+        await self.send_verification_email(created)
+        return created
 
     async def create_tokens(self, user: User) -> tuple[str, str]:
         """Kullanıcı için access token ve refresh token oluşturur"""
@@ -163,11 +177,12 @@ class AuthService:
         await self.refresh_token_repository.revoke_token(refresh_token_value)
 
     @staticmethod
-    def _hash_reset_token(token: str) -> str:
-        """Token'in veritabaninda saklanacak ozeti.
+    def _hash_token(token: str) -> str:
+        """E-postayla gonderilen token'in veritabaninda saklanacak ozeti.
 
         Ham token yalnizca e-postadaki baglantida bulunuyor; veritabaninda
-        ozeti duruyor ki DB'yi okuyabilen biri sifre sifirlayamasin.
+        ozeti duruyor ki DB'yi okuyabilen biri (log, yedek, sizinti) sifre
+        sifirlayamasin ya da baskasinin adresini dogrulayamasin.
         """
         return hashlib.sha256(token.encode()).hexdigest()
 
@@ -188,7 +203,7 @@ class AuthService:
 
         raw_token = secrets.token_urlsafe(32)
         reset_token = PasswordResetToken(
-            token_hash=self._hash_reset_token(raw_token),
+            token_hash=self._hash_token(raw_token),
             user_id=user.id,
             expires_at=utcnow() + timedelta(minutes=self.reset_expire_minutes),
         )
@@ -211,7 +226,7 @@ class AuthService:
     async def reset_password(self, token: str, new_password: str) -> None:
         """Token ile sifreyi degistirir ve acik oturumlari kapatir."""
         record = await self.password_reset_repository.get_valid_by_hash(
-            self._hash_reset_token(token)
+            self._hash_token(token)
         )
         if not record:
             raise InvalidResetTokenException
@@ -249,30 +264,118 @@ class AuthService:
         await self.refresh_token_repository.revoke_all_user_tokens(user.id)
         return await self.create_tokens(user)
 
-    async def change_email(self, user: User, password: str, new_email: str) -> User:
-        """Kullanicinin e-posta adresini degistirir.
+    async def request_email_change(
+        self, user: User, password: str, new_email: str
+    ) -> str:
+        """Adres degisikligi talebi: yeni adrese dogrulama baglantisi gonderir.
 
-        NOT: Yeni adrese dogrulama e-postasi gonderilmiyor; e-posta dogrulama
-        akisi urun karari olarak ertelendi. Yanlis yazilan bir adres sifre
-        sifirlamayi kullanilamaz hale getirir.
+        DIKKAT: Adres BURADA degismiyor. Onceki hali dogrudan yaziyordu ve
+        yanlis yazilan bir adres kullaniciyi sifre sifirlamadan -- yani tek
+        kurtarma yolundan -- ediyordu. Degisiklik ancak kullanici yeni adrese
+        gelen baglantiya tikladiginda uygulaniyor (bkz. verify_email).
+
+        Talep edilen adresi doner; arayuz "su adrese baglanti gonderildi"
+        diyebilsin.
         """
         if not verify_password(password, user.hashed_password):
             raise PermissionDeniedException(detail="Password is incorrect")
 
         new_email = new_email.lower()
-        if new_email != user.email:
-            # include_deleted: silinen kayit tabloda kaliyor ve email UNIQUE;
-            # gormezden gelirsek UPDATE unique ihlaliyle 500 olurdu.
-            mevcut = await self.user_repository.get_by_email(
-                new_email, include_deleted=True
-            )
-            if mevcut:
-                raise AlreadyExistsException(
-                    detail=f"This email already exists: {new_email}"
-                )
+        await self._ensure_email_available(new_email, user)
 
-        user.email = new_email
-        return await self.user_repository.update(user)
+        await self.send_verification_email(user, new_email)
+        return new_email
+
+    async def _ensure_email_available(self, email: str, user: User) -> None:
+        """Adres baskasinda mi? Kendi adresi catisma sayilmaz."""
+        if email == user.email:
+            return
+
+        # include_deleted: silinen kayit tabloda kaliyor ve email UNIQUE;
+        # gormezden gelirsek UPDATE unique ihlaliyle 500 olurdu.
+        mevcut = await self.user_repository.get_by_email(email, include_deleted=True)
+        if mevcut:
+            raise AlreadyExistsException(detail=f"This email already exists: {email}")
+
+    async def send_verification_email(
+        self, user: User, email: str | None = None
+    ) -> None:
+        """Dogrulama baglantisi uretir ve gonderir.
+
+        email verilmezse kullanicinin mevcut adresi dogrulanir (kayit ve
+        "yeniden gonder"); verilirse henuz uygulanmamis yeni adres
+        dogrulanir ve baglantiya tiklanmasi adresi degistirir.
+        """
+        hedef = (email or user.email).lower()
+
+        # Onceki talepler gecersiz kilinliyor: ayni anda birden fazla gecerli
+        # baglanti dolasmasin. Adres degistirmede kritik -- vazgecilen bir
+        # adrese ait eski baglanti sonradan gecis yapabilirdi.
+        await self.email_verification_repository.invalidate_user_tokens(user.id)
+
+        raw_token = secrets.token_urlsafe(32)
+        await self.email_verification_repository.create_token(
+            EmailVerificationToken(
+                token_hash=self._hash_token(raw_token),
+                user_id=user.id,
+                email=hedef,
+                expires_at=utcnow()
+                + timedelta(minutes=self.verification_expire_minutes),
+            )
+        )
+
+        link = f"{self.frontend_url.rstrip('/')}/confirm-email?token={raw_token}"
+        saat = max(1, self.verification_expire_minutes // 60)
+        self.email_sender.send(
+            to=hedef,
+            subject="Confirm your LinkYoSelf email address",
+            body=(
+                f"Hi {user.username},\n\n"
+                "Please confirm this email address for your LinkYoSelf account.\n"
+                f"Use the link below within {saat} hours:\n\n"
+                f"{link}\n\n"
+                "If you did not request this, you can ignore this email.\n"
+            ),
+        )
+
+    async def verify_email(self, token: str) -> User:
+        """Dogrulama baglantisini isler.
+
+        Token bir adres degisikligine aitse adres burada uygulaniyor;
+        benzersizlik yeniden kontrol ediliyor, cunku talep ile onay arasinda
+        adresi baskasi almis olabilir.
+        """
+        record = await self.email_verification_repository.get_valid_by_hash(
+            self._hash_token(token)
+        )
+        if not record:
+            raise InvalidVerificationTokenException
+
+        user = await self.user_repository.get_by_id(record.user_id)
+        if not user or user.is_deleted:
+            raise InvalidVerificationTokenException
+
+        if record.email != user.email:
+            await self._ensure_email_available(record.email, user)
+            user.email = record.email
+
+        user.email_verified = True
+        user = await self.user_repository.update(user)
+
+        await self.email_verification_repository.mark_used(record.token_hash)
+        return user
+
+    async def resend_verification_email(self, user: User) -> str:
+        """Bekleyen dogrulamayi yeniden gonderir.
+
+        Onay bekleyen bir adres degisikligi varsa baglanti yine o adrese
+        gider; yoksa kullanicinin mevcut adresine.
+        """
+        bekleyen = await self.email_verification_repository.get_pending_email(user.id)
+        hedef = bekleyen or user.email
+
+        await self.send_verification_email(user, hedef)
+        return hedef
 
     async def revoke_all_user_tokens(self, user_id: int) -> None:
         """Kullanıcının tüm refresh token'larını geçersiz kılar (şifre değişikliği, vb.)"""

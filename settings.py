@@ -31,6 +31,10 @@ class Settings(BaseSettings):
     frontend_url: str = "http://localhost:3000"
     password_reset_token_expire_minutes: int = 60
 
+    # Dogrulama baglantisi sifirlamadan uzun yasiyor: kullanicinin e-postasini
+    # hemen kontrol etmesi gerekmiyor, acil bir islem degil.
+    email_verification_token_expire_minutes: int = 60 * 24
+
     # Ortam değişkeni
     environment: str = "development"
 

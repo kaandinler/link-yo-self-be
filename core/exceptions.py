@@ -74,6 +74,12 @@ class InvalidResetTokenException(BaseAppException):
     detail = "Invalid or expired password reset token"
 
 
+class InvalidVerificationTokenException(BaseAppException):
+    """E-posta dogrulama token'i gecersiz, suresi dolmus veya kullanilmis"""
+    status_code = status.HTTP_400_BAD_REQUEST
+    detail = "Invalid or expired email verification token"
+
+
 class ValidationException(BaseAppException):
     """Data validation error"""
     status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
