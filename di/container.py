@@ -3,6 +3,9 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 
 from core.auth.auth_service import AuthService
 from core.email.sender import build_email_sender
+from repositories.analytics.analytics_event_repository import (
+    AnalyticsEventRepository,
+)
 from repositories.auth.email_verification_repository import (
     EmailVerificationRepository,
 )
@@ -88,11 +91,17 @@ class Container(containers.DeclarativeContainer):
         session_factory=async_session_factory
     )
 
+    analytics_event_repository = providers.Factory(
+        AnalyticsEventRepository,
+        session_factory=async_session_factory
+    )
+
     # Services
     user_service = providers.Factory(
         UserService,
         user_repo=user_repository,
-        refresh_token_repo=refresh_token_repository
+        refresh_token_repo=refresh_token_repository,
+        event_repo=analytics_event_repository,
     )
 
     auth_service = providers.Factory(
@@ -114,10 +123,12 @@ class Container(containers.DeclarativeContainer):
     # Link service EKLENDI
     link_service = providers.Factory(
         LinkService,
-        link_repo=link_repository
+        link_repo=link_repository,
+        event_repo=analytics_event_repository,
     )
 
     analytics_service = providers.Factory(
         AnalyticsService,
-        link_repo=link_repository
+        link_repo=link_repository,
+        event_repo=analytics_event_repository,
     )

@@ -5,6 +5,7 @@ from sqlalchemy import (
     Column,
     DateTime,
     ForeignKey,
+    Index,
     Integer,
     String,
     Text,
@@ -243,3 +244,44 @@ class Link(BaseModel):
 
     # İlişkiler
     user = relationship('User', back_populates='links')
+
+
+# Olay turleri. Sayaclar (Link.click_count, User.profile_view_count) toplami
+# tutmaya devam ediyor; buradaki satirlar "ne zaman" sorusunu cevapliyor.
+EVENT_LINK_CLICK = 'link_click'
+EVENT_PROFILE_VIEW = 'profile_view'
+
+
+class AnalyticsEvent(BaseModel):
+    """Tek bir tiklama ya da profil goruntulemesi.
+
+    NEDEN AYRI TABLO: link ve kullanici uzerindeki sayaclar yalnizca toplami
+    biliyor. "Son 7 gun" gibi bir grafik, olayin ne zaman gerceklestigini
+    gerektiriyor ve sayactan geriye dogru uretilemez.
+
+    Sayaclar kaldirilmadi: ozet uclari onlari tek satirdan okuyor ve bu
+    migration'dan onceki gecmisi yalnizca onlar biliyor.
+    """
+
+    __tablename__ = 'analytics_events'
+
+    user_id = Column(
+        Integer,
+        ForeignKey('users.id', ondelete='CASCADE'),
+        nullable=False,
+    )
+    event_type = Column(String(30), nullable=False)
+
+    # Link silinince olay kalmali: gecmis bir gunun toplami, bugun yapilan bir
+    # silme yuzunden degismemeli. Bu yuzden CASCADE degil SET NULL.
+    link_id = Column(
+        Integer,
+        ForeignKey('links.id', ondelete='SET NULL'),
+        nullable=True,
+    )
+
+    # Zaman serisi sorgusu her zaman "bir kullanicinin su tarihten sonraki
+    # olaylari" seklinde; bilesik indeks tam bu erisim icin.
+    __table_args__ = (
+        Index('ix_analytics_events_user_created', 'user_id', 'created_at'),
+    )

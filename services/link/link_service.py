@@ -3,15 +3,25 @@
 
 from core.base_service import BaseService
 from core.exceptions import NotFoundException, PermissionDeniedException
-from models import Link
+from models import EVENT_LINK_CLICK, Link
+from repositories.analytics.analytics_event_repository import (
+    AnalyticsEventRepository,
+)
 from repositories.link.link_repository import LinkRepository
 from services.link.link_service_dto import LinkCreate, LinkReorderRequest, LinkUpdate
 
 
 class LinkService(BaseService):
-    def __init__(self, link_repo: LinkRepository):
+    def __init__(
+        self,
+        link_repo: LinkRepository,
+        event_repo: AnalyticsEventRepository | None = None,
+    ):
         super().__init__(link_repo)
         self.repository = link_repo
+        # Opsiyonel: yalnizca tiklama kaydi icin gerekli, link CRUD'u
+        # olmadan da calisiyor (bkz. mevcut testler).
+        self.event_repository = event_repo
 
     async def create_link(self, user_id: int, link_data: LinkCreate) -> Link:
 
@@ -87,13 +97,26 @@ class LinkService(BaseService):
         return await self.repository.get_links_by_user(user_id, include_inactive=True)
 
     async def increment_click_count(self, link_id: int) -> Link:
-        """Link tıklanma sayısını artırır (Analytics için)"""
+        """Link tiklanma sayisini artirir ve olayi kaydeder.
+
+        Sayac toplami, olay ise zamani tutuyor: pano toplami sayactan,
+        "son N gun" grafigi olaylardan okuyor.
+        """
         link = await self.repository.get_by_id(link_id)
         if not link:
             raise NotFoundException(f"Link not found: {link_id}")
 
         link.click_count += 1
-        return await self.repository.update_link(link)
+        guncel = await self.repository.update_link(link)
+
+        if self.event_repository:
+            await self.event_repository.record(
+                user_id=link.user_id,
+                event_type=EVENT_LINK_CLICK,
+                link_id=link.id,
+            )
+
+        return guncel
 
     async def toggle_link_status(self, link_id: int, user_id: int) -> Link:
         """Link'in aktif/pasif durumunu değiştirir"""
