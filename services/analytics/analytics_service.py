@@ -1,6 +1,6 @@
 """Pano ve analytics sayfasinin verisini hazirlar."""
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from models import EVENT_LINK_CLICK, EVENT_PROFILE_VIEW, User
 from repositories.analytics.analytics_event_repository import (
@@ -13,6 +13,7 @@ from services.analytics.analytics_dto import (
     AnalyticsTimeseries,
     LinkClickStat,
 )
+from utils.time_utils import utcnow
 
 # Ucun kabul ettigi araligin ust siniri. Uzun araliklar hem sorguyu hem de
 # grafigi anlamsiz derecede yogunlastiriyor; gerekirse aylik bir uc eklenir.
@@ -61,11 +62,11 @@ class AnalyticsService:
         """
         days = max(1, min(days, MAX_DAYS))
 
-        bugun = datetime.now(timezone.utc).date()
+        bugun = utcnow().date()
         baslangic_gun = bugun - timedelta(days=days - 1)
         # Gun basindan itibaren: sorgu gunun tamamini kapsamali.
         baslangic = datetime.combine(
-            baslangic_gun, datetime.min.time(), tzinfo=timezone.utc
+            baslangic_gun, datetime.min.time(), tzinfo=UTC
         )
 
         satirlar = (
