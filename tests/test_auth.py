@@ -7,6 +7,8 @@ from tests.conftest import (
     login,
     register_user,
     request_reset_token,
+    token_cikar,
+    yakala_epostalar,
 )
 
 
@@ -448,8 +450,8 @@ class TestSifreDegistir:
         assert yenile.status_code == 401
 
 
-class TestEpostaDegistir:
-    """POST /auth/change-email"""
+class TestEpostaDegistirTalebi:
+    """POST /auth/change-email - adres BURADA degismiyor, talep aciliyor."""
 
     async def test_tokensiz_401(self, client):
         response = await client.post(
@@ -476,29 +478,29 @@ class TestEpostaDegistir:
         )
         assert response.status_code == 422
 
-    async def test_eposta_degisir_ve_yeni_adresle_giris_yapilir(
-        self, auth_client, client
-    ):
-        response = await auth_client.post(
-            "/api/v1/auth/change-email",
-            json={
-                "password": DEFAULT_USER["password"],
-                "new_email": "yeni@example.com",
-            },
-        )
+    async def test_talep_adresi_hemen_degistirmez(self, auth_client, app, client):
+        """Regresyon: onceki hali adresi dogrudan yaziyordu.
 
-        assert response.status_code == 200, response.text
-        assert response.json()["data"]["email"] == "yeni@example.com"
+        Yanlis yazilan bir adres kullaniciyi sifre sifirlamadan -- tek kurtarma
+        yolundan -- ederdi.
+        """
+        with yakala_epostalar(app) as gonderilen:
+            response = await auth_client.post(
+                "/api/v1/auth/change-email",
+                json={
+                    "password": DEFAULT_USER["password"],
+                    "new_email": "yeni@example.com",
+                },
+            )
 
-        yeni = await client.post(
-            "/api/v1/auth/token",
-            data={
-                "username": "yeni@example.com",
-                "password": DEFAULT_USER["password"],
-            },
-        )
-        assert yeni.status_code == 200
+        assert response.status_code == 202, response.text
+        assert response.json()["data"]["pending_email"] == "yeni@example.com"
 
+        # Adres hala eski
+        me = (await auth_client.get("/api/v1/users/me")).json()["data"]
+        assert me["email"] == DEFAULT_USER["email"]
+
+        # Eski adresle giris calismaya devam ediyor
         eski = await client.post(
             "/api/v1/auth/token",
             data={
@@ -506,18 +508,23 @@ class TestEpostaDegistir:
                 "password": DEFAULT_USER["password"],
             },
         )
-        assert eski.status_code == 401
+        assert eski.status_code == 200
 
-    async def test_buyuk_harfli_adres_kucultulur(self, auth_client):
-        response = await auth_client.post(
-            "/api/v1/auth/change-email",
-            json={
-                "password": DEFAULT_USER["password"],
-                "new_email": "Yeni@Example.COM",
-            },
-        )
+        # Baglanti YENI adrese gitti
+        assert gonderilen[-1]["to"] == "yeni@example.com"
 
-        assert response.json()["data"]["email"] == "yeni@example.com"
+    async def test_buyuk_harfli_adres_kucultulur(self, auth_client, app):
+        with yakala_epostalar(app) as gonderilen:
+            response = await auth_client.post(
+                "/api/v1/auth/change-email",
+                json={
+                    "password": DEFAULT_USER["password"],
+                    "new_email": "Yeni@Example.COM",
+                },
+            )
+
+        assert response.json()["data"]["pending_email"] == "yeni@example.com"
+        assert gonderilen[-1]["to"] == "yeni@example.com"
 
     async def test_baskasinin_epostasi_409(self, auth_client):
         await register_user(
@@ -544,10 +551,166 @@ class TestEpostaDegistir:
             },
         )
 
-        assert response.status_code == 200, response.text
+        assert response.status_code == 202, response.text
 
-    async def test_sifre_sifirlama_yeni_adrese_gider(self, auth_client, app):
-        """E-posta degistikten sonra sifirlama yeni adres uzerinden calismali."""
+
+class TestEpostaDogrulama:
+    """POST /auth/verify-email ve /auth/resend-verification"""
+
+    async def test_kayit_dogrulama_maili_gonderir(self, client, app):
+        with yakala_epostalar(app) as gonderilen:
+            await register_user(client)
+
+        assert gonderilen, "dogrulama e-postasi gonderilmedi"
+        assert gonderilen[-1]["to"] == DEFAULT_USER["email"]
+        assert "confirm-email?token=" in gonderilen[-1]["body"]
+
+    async def test_yeni_kullanici_dogrulanmamis(self, auth_client):
+        me = (await auth_client.get("/api/v1/users/me")).json()["data"]
+        assert me["email_verified"] is False
+
+    async def test_baglanti_adresi_dogrular(self, client, app):
+        with yakala_epostalar(app) as gonderilen:
+            await register_user(client)
+        token = token_cikar(gonderilen[-1]["body"])
+
+        response = await client.post(
+            "/api/v1/auth/verify-email", json={"token": token}
+        )
+
+        assert response.status_code == 200, response.text
+        assert response.json()["data"]["email_verified"] is True
+
+    async def test_uc_token_istemez(self, client, app):
+        """Kullanici baglantiya baska bir cihazdan tiklamis olabilir."""
+        with yakala_epostalar(app) as gonderilen:
+            await register_user(client)
+        token = token_cikar(gonderilen[-1]["body"])
+
+        # Authorization basligi olmadan
+        response = await client.post(
+            "/api/v1/auth/verify-email", json={"token": token}
+        )
+        assert response.status_code == 200
+
+    async def test_gecersiz_token_400(self, client):
+        response = await client.post(
+            "/api/v1/auth/verify-email", json={"token": "uydurma-token"}
+        )
+        assert response.status_code == 400
+
+    async def test_token_tek_kullanimlik(self, client, app):
+        with yakala_epostalar(app) as gonderilen:
+            await register_user(client)
+        token = token_cikar(gonderilen[-1]["body"])
+
+        await client.post("/api/v1/auth/verify-email", json={"token": token})
+        ikinci = await client.post(
+            "/api/v1/auth/verify-email", json={"token": token}
+        )
+
+        assert ikinci.status_code == 400
+
+    async def test_onay_adresi_degistirir(self, auth_client, app, client):
+        """Adres degisikligi ancak baglantiya tiklandiginda uygulaniyor."""
+        with yakala_epostalar(app) as gonderilen:
+            await auth_client.post(
+                "/api/v1/auth/change-email",
+                json={
+                    "password": DEFAULT_USER["password"],
+                    "new_email": "yeni@example.com",
+                },
+            )
+        token = token_cikar(gonderilen[-1]["body"])
+
+        response = await client.post(
+            "/api/v1/auth/verify-email", json={"token": token}
+        )
+
+        assert response.status_code == 200, response.text
+        data = response.json()["data"]
+        assert data["email"] == "yeni@example.com"
+        assert data["email_verified"] is True
+
+        yeni_giris = await client.post(
+            "/api/v1/auth/token",
+            data={
+                "username": "yeni@example.com",
+                "password": DEFAULT_USER["password"],
+            },
+        )
+        assert yeni_giris.status_code == 200
+
+        eski_giris = await client.post(
+            "/api/v1/auth/token",
+            data={
+                "username": DEFAULT_USER["email"],
+                "password": DEFAULT_USER["password"],
+            },
+        )
+        assert eski_giris.status_code == 401
+
+    async def test_arada_kapilan_adres_409(self, auth_client, app, client):
+        """Talep ile onay arasinda adresi baskasi almis olabilir."""
+        with yakala_epostalar(app) as gonderilen:
+            await auth_client.post(
+                "/api/v1/auth/change-email",
+                json={
+                    "password": DEFAULT_USER["password"],
+                    "new_email": "yeni@example.com",
+                },
+            )
+        token = token_cikar(gonderilen[-1]["body"])
+
+        await register_user(auth_client, username="rakip", email="yeni@example.com")
+
+        response = await client.post(
+            "/api/v1/auth/verify-email", json={"token": token}
+        )
+
+        assert response.status_code == 409
+
+    async def test_yeni_talep_eskisini_gecersiz_kilar(self, auth_client, app, client):
+        """Vazgecilen bir adrese ait eski baglanti sonradan gecis yapmamali."""
+        with yakala_epostalar(app) as gonderilen:
+            await auth_client.post(
+                "/api/v1/auth/change-email",
+                json={
+                    "password": DEFAULT_USER["password"],
+                    "new_email": "ilk@example.com",
+                },
+            )
+            ilk_token = token_cikar(gonderilen[-1]["body"])
+
+            await auth_client.post(
+                "/api/v1/auth/change-email",
+                json={
+                    "password": DEFAULT_USER["password"],
+                    "new_email": "ikinci@example.com",
+                },
+            )
+            ikinci_token = token_cikar(gonderilen[-1]["body"])
+
+        eski = await client.post(
+            "/api/v1/auth/verify-email", json={"token": ilk_token}
+        )
+        assert eski.status_code == 400
+
+        yeni = await client.post(
+            "/api/v1/auth/verify-email", json={"token": ikinci_token}
+        )
+        assert yeni.json()["data"]["email"] == "ikinci@example.com"
+
+    async def test_yeniden_gonder_mevcut_adrese(self, auth_client, app):
+        with yakala_epostalar(app) as gonderilen:
+            response = await auth_client.post("/api/v1/auth/resend-verification")
+
+        assert response.status_code == 200, response.text
+        assert response.json()["data"]["pending_email"] == DEFAULT_USER["email"]
+        assert gonderilen[-1]["to"] == DEFAULT_USER["email"]
+
+    async def test_yeniden_gonder_bekleyen_adrese(self, auth_client, app):
+        """Onay bekleyen bir degisiklik varsa baglanti yine o adrese gitmeli."""
         await auth_client.post(
             "/api/v1/auth/change-email",
             json={
@@ -556,16 +719,27 @@ class TestEpostaDegistir:
             },
         )
 
-        gonderilen: list[str] = []
-        sender = app.container.email_sender()
-        orijinal = sender.send
-        sender.send = lambda to, subject, body: gonderilen.append(to)
-        try:
-            response = await auth_client.post(
-                "/api/v1/auth/forgot-password", json={"email": "yeni@example.com"}
-            )
-        finally:
-            sender.send = orijinal
+        with yakala_epostalar(app) as gonderilen:
+            response = await auth_client.post("/api/v1/auth/resend-verification")
 
-        assert response.status_code == 204
-        assert gonderilen == ["yeni@example.com"]
+        assert response.json()["data"]["pending_email"] == "yeni@example.com"
+        assert gonderilen[-1]["to"] == "yeni@example.com"
+
+    async def test_yeniden_gonder_tokensiz_401(self, client):
+        response = await client.post("/api/v1/auth/resend-verification")
+        assert response.status_code == 401
+
+    async def test_silinen_kullanici_dogrulanamaz(self, auth_client, app, client):
+        with yakala_epostalar(app) as gonderilen:
+            response = await auth_client.post("/api/v1/auth/resend-verification")
+            assert response.status_code == 200
+        token = token_cikar(gonderilen[-1]["body"])
+
+        await auth_client.request(
+            "DELETE", "/api/v1/users/me", json={"password": DEFAULT_USER["password"]}
+        )
+
+        response = await client.post(
+            "/api/v1/auth/verify-email", json={"token": token}
+        )
+        assert response.status_code == 400

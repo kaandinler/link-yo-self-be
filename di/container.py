@@ -3,6 +3,9 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 
 from core.auth.auth_service import AuthService
 from core.email.sender import build_email_sender
+from repositories.auth.email_verification_repository import (
+    EmailVerificationRepository,
+)
 from repositories.auth.password_reset_repository import PasswordResetRepository
 from repositories.auth.refresh_token_repository import RefreshTokenRepository
 from repositories.link.link_repository import LinkRepository  # EKLENDI
@@ -28,6 +31,9 @@ class Container(containers.DeclarativeContainer):
     config.frontend_url.from_value(settings.frontend_url)
     config.password_reset_expire_minutes.from_value(
         settings.password_reset_token_expire_minutes
+    )
+    config.email_verification_expire_minutes.from_value(
+        settings.email_verification_token_expire_minutes
     )
 
     # Engine log ayari
@@ -69,6 +75,11 @@ class Container(containers.DeclarativeContainer):
         session_factory=async_session_factory
     )
 
+    email_verification_repository = providers.Factory(
+        EmailVerificationRepository,
+        session_factory=async_session_factory
+    )
+
     email_sender = providers.Singleton(build_email_sender)
 
     # Link repository EKLENDI
@@ -90,12 +101,14 @@ class Container(containers.DeclarativeContainer):
         user_repository=user_repository,
         refresh_token_repository=refresh_token_repository,
         password_reset_repository=password_reset_repository,
+        email_verification_repository=email_verification_repository,
         email_sender=email_sender,
         secret_key=config.jwt_secret_key,
         algorithm=config.jwt_algorithm,
         expire_minutes=config.jwt_expire_minutes,
         frontend_url=config.frontend_url,
         reset_expire_minutes=config.password_reset_expire_minutes,
+        verification_expire_minutes=config.email_verification_expire_minutes,
     )
 
     # Link service EKLENDI

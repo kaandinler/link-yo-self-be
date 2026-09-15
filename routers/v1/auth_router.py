@@ -10,10 +10,12 @@ from di.container import Container
 from services.auth.auth_service_dto import (
     ChangeEmailRequest,
     ChangePasswordRequest,
+    EmailChangeRequested,
     ForgotPasswordRequest,
     ResetPasswordRequest,
     TokenRefreshRequest,
     TokenResponse,
+    VerifyEmailRequest,
 )
 from services.user.user_service import UserService
 from services.user.user_service_dto import UserCreateMinimal, UserRead
@@ -144,22 +146,68 @@ async def change_password(
     )
 
 
-@router.post('/change-email', response_model=BaseResponseModel[UserRead])
+@router.post(
+    '/change-email',
+    response_model=BaseResponseModel[EmailChangeRequested],
+    status_code=status.HTTP_202_ACCEPTED,
+)
 @inject
 async def change_email(
         request: ChangeEmailRequest,
         current_user=Depends(get_current_user),
         auth_service: AuthService = Depends(Provide[Container.auth_service])
 ):
-    """Giris yapmis kullanicinin e-posta adresini degistirmesi.
+    """E-posta adresi degistirme TALEBI.
 
-    Sifre onayi ister; e-posta sifre sifirlama baglantisinin gittigi adres.
+    DIKKAT: Adres burada degismiyor (bu yuzden 202). Yeni adrese dogrulama
+    baglantisi gonderiliyor; degisiklik ancak kullanici o baglantiya
+    tikladiginda uygulaniyor. Aksi halde yanlis yazilan bir adres kullaniciyi
+    sifre sifirlamadan -- tek kurtarma yolundan -- ederdi.
     """
-    user = await auth_service.change_email(
+    pending = await auth_service.request_email_change(
         current_user, request.password, str(request.new_email)
     )
 
     return BaseResponseModel(
+        data=EmailChangeRequested(pending_email=pending),
+        message="Confirmation link sent to the new address"
+    )
+
+
+@router.post('/verify-email', response_model=BaseResponseModel[UserRead])
+@inject
+async def verify_email(
+        request: VerifyEmailRequest,
+        auth_service: AuthService = Depends(Provide[Container.auth_service])
+):
+    """E-postadaki dogrulama baglantisini isler.
+
+    Token bir adres degisikligine aitse adres burada uygulaniyor. Uc token
+    istemiyor: kullanici baglantiya baska bir cihazdan/tarayicidan tiklamis
+    olabilir.
+    """
+    user = await auth_service.verify_email(request.token)
+
+    return BaseResponseModel(
         data=UserRead.model_validate(user),
-        message="Email successfully changed"
+        message="Email successfully verified"
+    )
+
+
+@router.post('/resend-verification', response_model=BaseResponseModel[EmailChangeRequested])
+@inject
+async def resend_verification(
+        current_user=Depends(get_current_user),
+        auth_service: AuthService = Depends(Provide[Container.auth_service])
+):
+    """Dogrulama baglantisini yeniden gonderir.
+
+    Onay bekleyen bir adres degisikligi varsa baglanti yine o adrese gider;
+    yoksa kullanicinin mevcut adresine.
+    """
+    hedef = await auth_service.resend_verification_email(current_user)
+
+    return BaseResponseModel(
+        data=EmailChangeRequested(pending_email=hedef),
+        message="Confirmation link sent"
     )

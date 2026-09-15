@@ -66,6 +66,11 @@ class User(BaseModel):
     # Analytics: public profil sayfasi her goruntulendiginde artar.
     profile_view_count = Column(Integer, default=0, nullable=False)
 
+    # E-posta adresinin sahipligi dogrulandi mi? Sifre sifirlama baglantisi
+    # bu adrese gittigi icin, dogrulanmamis adres kurtarma yolunu calismaz
+    # hale getirir.
+    email_verified = Column(Boolean, default=False, nullable=False)
+
     # İlişkiler
     social_accounts = relationship(
         'SocialAccount', back_populates='user', cascade='all, delete-orphan'
@@ -186,6 +191,30 @@ class PasswordResetToken(BaseModel):
 
     token_hash = Column(String(64), nullable=False, unique=True, index=True)
     user_id = Column(Integer, ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
+    expires_at = Column(DateTime(timezone=True), nullable=False)
+    used_at = Column(DateTime(timezone=True), nullable=True)
+
+    user = relationship('User')
+
+
+class EmailVerificationToken(BaseModel):
+    """E-posta adresi dogrulama baglantisindaki tek kullanimlik token.
+
+    PasswordResetToken gibi ham token degil SHA-256 ozeti saklaniyor:
+    veritabanini okuyabilen biri (log, yedek, sizinti) baskasinin adresini
+    dogrulayamamali.
+
+    `email` kolonu dogrulanmakta olan adresi tutuyor. Kayit sirasinda bu
+    kullanicinin mevcut adresi; adres degistirmede ise HENUZ uygulanmamis
+    yeni adres -- degisiklik ancak kullanici yeni adrese gelen baglantiya
+    tikladiginda gerceklesiyor.
+    """
+
+    __tablename__ = 'email_verification_tokens'
+
+    token_hash = Column(String(64), nullable=False, unique=True, index=True)
+    user_id = Column(Integer, ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
+    email = Column(String(255), nullable=False)
     expires_at = Column(DateTime(timezone=True), nullable=False)
     used_at = Column(DateTime(timezone=True), nullable=True)
 
