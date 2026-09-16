@@ -105,12 +105,14 @@ class AuthService:
                 algorithms=[self.algorithm]
             )
             return payload
-        except jwt.PyJWTError:
+        except jwt.PyJWTError as hata:
+            # "from hata": asil neden (sureli dolmus / imza tutmuyor / bozuk
+            # token) izlerde kalsin. Kullaniciya giden yanit yine sade 401.
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid authentication credentials",
                 headers={"WWW-Authenticate": "Bearer"},
-            )
+            ) from hata
 
     async def register_user(self, user_in = UserCreate) -> User:
         """Register a new user with hashed password"""

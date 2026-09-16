@@ -172,6 +172,9 @@ class TestProfileUpdate:
             "profile_completion_percentage"
         ]
         assert sonraki > onceki
+        # Kesin deger: yedi alandan ucu dolu.
+        assert onceki == 0
+        assert sonraki == int(3 / 7 * 100)
 
 
 class TestOnboardingTamamlama:

@@ -269,17 +269,20 @@ class UserRead(BaseModel):
     def profile_completion_percentage(self) -> int:
         """Calculate profile completion percentage without accessing relationships"""
         total_fields = 7  # Reduced from 8 since we can't access links
-        completed_fields = 0
-
-        # Check required completion fields
-        if self.display_name: completed_fields += 1
-        if self.bio: completed_fields += 1
-        if self.profile_image_url: completed_fields += 1
-        if self.website: completed_fields += 1
-        if self.twitter_username or self.instagram_username or self.linkedin_username: completed_fields += 1
-        if self.page_title: completed_fields += 1
-        if self.page_description: completed_fields += 1
-        # Note: Link sayısını burada kontrol edemiyoruz çünkü relationship'e erişemiyoruz
+        # Sayilan alanlar; toplam total_fields ile ayni olmali.
+        # NOT: Link sayisi burada yok, relationship'e erisemiyoruz.
+        doldurulmus = [
+            self.display_name,
+            self.bio,
+            self.profile_image_url,
+            self.website,
+            self.twitter_username
+            or self.instagram_username
+            or self.linkedin_username,
+            self.page_title,
+            self.page_description,
+        ]
+        completed_fields = sum(1 for alan in doldurulmus if alan)
 
         return int((completed_fields / total_fields) * 100)
 

@@ -102,17 +102,20 @@ class User(BaseModel):
     def profile_completion_percentage(self) -> int:
         """Calculate profile completion percentage"""
         total_fields = 8
-        completed_fields = 0
-
-        # Check required completion fields
-        if self.display_name: completed_fields += 1
-        if self.bio: completed_fields += 1
-        if self.profile_image_url: completed_fields += 1
-        if self.website: completed_fields += 1
-        if self.twitter_username or self.instagram_username or self.linkedin_username: completed_fields += 1
-        if self.page_title: completed_fields += 1
-        if self.page_description: completed_fields += 1
-        if len(self.links) > 0: completed_fields += 1  # En az bir link var mı
+        # Sayilan alanlar; toplam total_fields ile ayni olmali.
+        doldurulmus = [
+            self.display_name,
+            self.bio,
+            self.profile_image_url,
+            self.website,
+            self.twitter_username
+            or self.instagram_username
+            or self.linkedin_username,
+            self.page_title,
+            self.page_description,
+            len(self.links) > 0,
+        ]
+        completed_fields = sum(1 for alan in doldurulmus if alan)
 
         return int((completed_fields / total_fields) * 100)
 

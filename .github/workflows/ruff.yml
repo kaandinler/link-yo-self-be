@@ -5,4 +5,21 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: chartboost/ruff-action@v1
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.11'
+
+      # NEDEN UCUNCU PARTI ACTION DEGIL: Onceki hali chartboost/ruff-action@v1
+      # idi ve kendi getirdigi ruff surumunu, repo'nun pin'ini yok sayarak
+      # calistiriyordu. Sonuc: CI ile yerel farkli kural setleri uyguluyor,
+      # birinde gecen kod digerinde patliyordu. Surum artik tek yerde:
+      # requirements-dev.txt.
+      - name: Install ruff
+        run: pip install "$(grep -m1 '^ruff' requirements-dev.txt | sed 's/#.*//' | xargs)"
+
+      - name: Show ruff version
+        run: ruff --version
+
+      - name: Run ruff
+        run: ruff check .
