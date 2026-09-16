@@ -1,6 +1,7 @@
 """Pano ve analytics sayfasinin okudugu ozet modeller."""
 
 from datetime import date
+from enum import StrEnum
 
 from pydantic import BaseModel, ConfigDict
 
@@ -104,3 +105,42 @@ class LinkTimeseriesResponse(BaseModel):
     start_date: date
     end_date: date
     links: list[LinkTimeseries]
+
+
+class ReferrerKind(StrEnum):
+    """Bir kaynak satirinin turu."""
+
+    # Gercek bir dis site; `host` dolu.
+    HOST = "host"
+    # Dis bir referrer yok: adres cubuguna yazilmis, referrer'i gizleyen bir
+    # uygulamadan gelinmis ya da site ici gezinme olmus.
+    DIRECT = "direct"
+    # Listeye sigmayan kaynaklarin toplami.
+    OTHER = "other"
+
+
+class ReferrerSource(BaseModel):
+    """Tek bir trafik kaynagi ve bu araliktaki tiklama sayisi."""
+
+    kind: ReferrerKind
+    # Yalnizca kind == HOST iken dolu; "instagram.com" gibi.
+    host: str | None = None
+    clicks: int
+
+
+class ReferrerBreakdown(BaseModel):
+    """Secili aralikta tiklamalarin kaynaklara dagilimi.
+
+    Siralama tiklamaya gore azalan; OTHER varsa her zaman sonda.
+
+    DIKKAT: `total_clicks` yalnizca bu araligi ve yalnizca olay kaydi
+    baslatildiktan sonraki tiklamalari kapsiyor. Referrer kolonu olay
+    tablosundan da sonra eklendi: arada kalan tiklamalarin kaynagi hicbir
+    zaman bilinmeyecek ve DIRECT sayiliyorlar.
+    """
+
+    days: int
+    start_date: date
+    end_date: date
+    total_clicks: int
+    sources: list[ReferrerSource]

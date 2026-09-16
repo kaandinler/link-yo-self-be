@@ -102,8 +102,25 @@ Tum yollar `/api/v1` onekiyle servis edilir.
 | GET/PUT/DELETE | `/links/{link_id}` | Link detay / guncelle / sil |
 | POST | `/links/reorder` | Siralamayi degistir |
 | PATCH | `/links/{link_id}/toggle` | Aktif/pasif |
-| GET | `/links/analytics/summary` | Tiklanma ozeti |
 | POST | `/links/{link_id}/click` | **Public** — tiklanmayi kaydeder |
+
+Tiklama ucunun govdesi opsiyonel: `{"referrer": "<tam URL>"}` verilirse
+ziyaretcinin bu sayfaya hangi siteden geldigi kaydedilir. Istegin kendi
+`Referer` basligi bunun yerine gecemez — o her zaman kendi profil
+sayfamizi gosterir (bkz. `utils/referrer.py`). Sunucu yalnizca host'u
+saklar; yol ve sorgu kismi atilir.
+
+### Analytics
+| Method | Yol | Aciklama |
+|---|---|---|
+| GET | `/analytics/summary` | Tum zamanlarin toplamlari |
+| GET | `/analytics/timeseries` | Gunluk tiklama + profil goruntulenme (`?days=1..90`) |
+| GET | `/analytics/timeseries/by-link` | Ayni aralik, link kirilimiyla |
+| GET | `/analytics/referrers` | Tiklamalarin kaynak dagilimi |
+
+Zaman serisi uclari `analytics_events` tablosunu okuyor; toplamlar ise
+sayaclardan geliyor. Olay kaydi sonradan eklendigi icin bu iki grubun
+sayilari birbirini tutmayabilir.
 
 ### Public profil
 | Method | Yol | Aciklama |

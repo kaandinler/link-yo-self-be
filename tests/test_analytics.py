@@ -308,3 +308,184 @@ class TestLinkZamanSerisi:
         assert (
             await auth_client.get("/api/v1/analytics/timeseries/by-link?days=91")
         ).status_code == 422
+
+
+async def tikla(client, link_id: int, referrer: str | None = None):
+    """Tiklama ucunu cagirir; referrer verilirse govdede gonderir.
+
+    Govdesiz cagri bilincli olarak destekleniyor: referrer'i olmayan
+    ziyaretler ve eski istemciler icin.
+    """
+    govde = None if referrer is None else {"referrer": referrer}
+    response = await client.post(f"/api/v1/links/{link_id}/click", json=govde)
+    assert response.status_code == 200, response.text
+    return response
+
+
+def kaynak_sozlugu(data: dict) -> dict:
+    """Yanittaki kaynak listesini {etiket: tiklama} sozluguna cevirir."""
+    return {
+        kaynak["host"] or kaynak["kind"]: kaynak["clicks"]
+        for kaynak in data["sources"]
+    }
+
+
+class TestTrafikKaynaklari:
+    async def test_tokensiz_401(self, client):
+        response = await client.get("/api/v1/analytics/referrers")
+        assert response.status_code == 401
+
+    async def test_bos_hesapta_bos_liste(self, auth_client):
+        response = await auth_client.get("/api/v1/analytics/referrers")
+
+        assert response.status_code == 200, response.text
+        data = response.json()["data"]
+        assert data["days"] == 7
+        assert data["total_clicks"] == 0
+        assert data["sources"] == []
+
+    async def test_referrersiz_tiklama_dogrudan_sayiliyor(self, auth_client):
+        link = await create_link(auth_client)
+        await tikla(auth_client, link["id"])
+
+        data = (await auth_client.get("/api/v1/analytics/referrers")).json()["data"]
+
+        assert data["total_clicks"] == 1
+        assert data["sources"] == [{"kind": "direct", "host": None, "clicks": 1}]
+
+    async def test_dis_site_host_olarak_geliyor(self, auth_client):
+        link = await create_link(auth_client)
+        await tikla(auth_client, link["id"], "https://www.instagram.com/p/abc?x=1")
+
+        data = (await auth_client.get("/api/v1/analytics/referrers")).json()["data"]
+
+        assert data["sources"] == [
+            {"kind": "host", "host": "instagram.com", "clicks": 1}
+        ]
+
+    async def test_ayni_kaynak_tek_satirda_toplaniyor(self, auth_client):
+        link = await create_link(auth_client)
+        # Farkli yol, farkli sorgu, "www." var/yok: hepsi ayni kaynak.
+        await tikla(auth_client, link["id"], "https://instagram.com/p/bir")
+        await tikla(auth_client, link["id"], "https://www.instagram.com/p/iki?a=1")
+
+        data = (await auth_client.get("/api/v1/analytics/referrers")).json()["data"]
+
+        assert kaynak_sozlugu(data) == {"instagram.com": 2}
+
+    async def test_site_ici_gezinme_dogrudan_sayiliyor(self, auth_client):
+        # Testlerde frontend_url varsayilan: http://localhost:3000
+        link = await create_link(auth_client)
+        await tikla(auth_client, link["id"], "http://localhost:3000/en/kaan")
+
+        data = (await auth_client.get("/api/v1/analytics/referrers")).json()["data"]
+
+        assert kaynak_sozlugu(data) == {"direct": 1}
+
+    async def test_ayrastirilamayan_referrer_istegi_dusurmuyor(self, auth_client):
+        # Tiklama sayaci, kaynak bilgisinden onemli: cop bir referrer
+        # yuzunden tiklama kaybedilmemeli.
+        link = await create_link(auth_client)
+        await tikla(auth_client, link["id"], "hello world")
+
+        data = (await auth_client.get("/api/v1/analytics/referrers")).json()["data"]
+        assert kaynak_sozlugu(data) == {"direct": 1}
+
+        ozet = (await auth_client.get("/api/v1/analytics/summary")).json()["data"]
+        assert ozet["total_clicks"] == 1
+
+    async def test_cok_uzun_referrer_422(self, auth_client):
+        link = await create_link(auth_client)
+        response = await auth_client.post(
+            f"/api/v1/links/{link['id']}/click",
+            json={"referrer": "https://example.com/" + "a" * 3000},
+        )
+        assert response.status_code == 422
+
+    async def test_en_cok_getiren_kaynak_basta(self, auth_client):
+        link = await create_link(auth_client)
+        await tikla(auth_client, link["id"], "https://t.co/a")
+        for _ in range(3):
+            await tikla(auth_client, link["id"], "https://instagram.com/p/a")
+        await tikla(auth_client, link["id"])
+        await tikla(auth_client, link["id"])
+
+        data = (await auth_client.get("/api/v1/analytics/referrers")).json()["data"]
+
+        # Dogrudan satiri da siralamaya giriyor; en ustte kalmiyor diye
+        # gizlenmiyor.
+        assert [kaynak["clicks"] for kaynak in data["sources"]] == [3, 2, 1]
+        assert data["sources"][0]["host"] == "instagram.com"
+        assert data["sources"][1]["kind"] == "direct"
+        assert data["sources"][2]["host"] == "t.co"
+
+    async def test_toplam_kaynaklarin_toplamina_esit(self, auth_client):
+        link = await create_link(auth_client)
+        await tikla(auth_client, link["id"], "https://instagram.com/p/a")
+        await tikla(auth_client, link["id"], "https://t.co/a")
+        await tikla(auth_client, link["id"])
+
+        data = (await auth_client.get("/api/v1/analytics/referrers")).json()["data"]
+
+        assert data["total_clicks"] == sum(
+            kaynak["clicks"] for kaynak in data["sources"]
+        )
+
+    async def test_uzun_kuyruk_diger_satirinda_ve_sonda(self, auth_client):
+        from services.analytics.analytics_service import MAX_SOURCES
+
+        link = await create_link(auth_client)
+        # Listeye sigacak kadar kaynak, her biri iki tiklama.
+        for sira in range(MAX_SOURCES):
+            for _ in range(2):
+                await tikla(auth_client, link["id"], f"https://site{sira}.com/a")
+        # Sigmayacak iki kaynak, birer tiklama.
+        await tikla(auth_client, link["id"], "https://kuyruk-bir.com/a")
+        await tikla(auth_client, link["id"], "https://kuyruk-iki.com/a")
+
+        data = (await auth_client.get("/api/v1/analytics/referrers")).json()["data"]
+
+        assert len(data["sources"]) == MAX_SOURCES + 1
+        son = data["sources"][-1]
+        assert son["kind"] == "other"
+        assert son["clicks"] == 2
+        # Kuyruk gizlenmiyor, toplama dahil.
+        assert data["total_clicks"] == MAX_SOURCES * 2 + 2
+
+    async def test_profil_goruntulemesi_kaynak_listesine_girmiyor(self, auth_client):
+        # Profil goruntulemesi sunucuda kaydediliyor ve orada ziyaretcinin
+        # referrer'i elimizde olmuyor; listeye girseydi "Direct"i yapay
+        # olarak sisirirdi.
+        link = await create_link(auth_client)
+        await tikla(auth_client, link["id"], "https://instagram.com/p/a")
+        await auth_client.get(f"/api/v1/p/{DEFAULT_USER['username']}")
+
+        data = (await auth_client.get("/api/v1/analytics/referrers")).json()["data"]
+
+        assert data["total_clicks"] == 1
+        assert kaynak_sozlugu(data) == {"instagram.com": 1}
+
+    async def test_baska_kullanicinin_tiklamalari_sizmaz(self, auth_client):
+        link = await create_link(auth_client)
+        await tikla(auth_client, link["id"], "https://instagram.com/p/a")
+
+        await register_user(
+            auth_client, username="baska", email="baska@example.com"
+        )
+        baska_token = await login(auth_client, "baska@example.com")
+
+        data = (
+            await auth_client.get(
+                "/api/v1/analytics/referrers", headers=auth_header(baska_token)
+            )
+        ).json()["data"]
+
+        assert data["total_clicks"] == 0
+        assert data["sources"] == []
+
+    async def test_gecersiz_gun_sayisi_422(self, auth_client):
+        response = await auth_client.get("/api/v1/analytics/referrers?days=0")
+        assert response.status_code == 422
+
+        response = await auth_client.get("/api/v1/analytics/referrers?days=91")
+        assert response.status_code == 422

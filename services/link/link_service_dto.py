@@ -130,3 +130,22 @@ class LinkAnalytics(BaseModel):
     click_count: int
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class LinkClickRequest(BaseModel):
+    """Tiklama ucunun opsiyonel govdesi.
+
+    NEDEN GOVDEDE: tiklama kaydi, ziyaretci zaten profil sayfamizdayken
+    yapilan bir XHR. Tarayicinin o istege koydugu Referer basligi her zaman
+    kendi sayfamizi gosteriyor, yani "trafik nereden geldi" sorusunu
+    cevaplamiyor. Cevabi yalnizca sayfanin kendisi biliyor
+    (document.referrer) ve buradan acikca gonderiyor.
+
+    Govde tamamen opsiyonel: eski istemciler ve referrer'i olmayan
+    ziyaretler govdesiz POST atmaya devam edebiliyor.
+    """
+
+    # Tam URL bekleniyor; sunucu yalnizca host'unu saklıyor
+    # (bkz. utils/referrer.py). max_length tarayicilarin urettigi en uzun
+    # referrer'lari rahatca kapsiyor, uzunu zaten elenir.
+    referrer: str | None = Field(None, max_length=2048)
