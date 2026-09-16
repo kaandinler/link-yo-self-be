@@ -1,4 +1,4 @@
-from enum import Enum
+from enum import StrEnum
 from typing import Any, Generic, TypeVar, Union
 
 from pydantic import BaseModel, Field
@@ -7,8 +7,13 @@ from pydantic import BaseModel, Field
 T = TypeVar('T')
 
 
-class ResponseStatus(str, Enum):
-    """API yanıtı için durum enumu"""
+class ResponseStatus(StrEnum):
+    """API yanıtı için durum enumu.
+
+    StrEnum (py311+): (str, Enum) karisimindan farki, str(uye) ve f-string
+    ciktisinin "ResponseStatus.SUCCESS" degil "success" olmasi. Pydantic
+    zaten .value ile serilestirdigi icin JSON ciktisi degismiyor.
+    """
     SUCCESS = "success"
     ERROR = "error"
     WARNING = "warning"

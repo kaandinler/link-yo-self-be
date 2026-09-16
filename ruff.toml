@@ -1,9 +1,23 @@
 # Ruff yapilandirmasi
-# CI (.github/workflows/ruff.yml) bu dosyayi otomatik olarak kullanir.
+# CI (.github/workflows/ruff.yml) bu dosyayi ve requirements-dev.txt'teki
+# ruff surumunu kullanir.
 
 target-version = "py311"
 
 [lint]
+# KURAL SETI NEDEN ACIKCA YAZILI: Onceden select verilmiyordu, yani calisan
+# ruff surumunun o gunku varsayilanlari gecerliydi. CI ucuncu parti bir
+# action ile kendi getirdigi surumu calistirdigi icin yereldekinden farkli
+# kurallar uyguluyordu -- CI'da patlayip yerelde gecen (ve tersi) hatalar
+# cikiyordu. Artik kural seti de surum de repo'da sabit.
+#
+# E4/E7/E9 + F: ruff'in varsayilani.
+# I: import sirasi (zaten duzenliydi, boyle kalsin).
+# UP: py311 hedefliyoruz; eski deyimler (orn. timezone.utc yerine UTC)
+#     yakalansin. CI'in eski yapilandirmasi da bunu uyguluyordu.
+# B: bugbear; yakaladigi seyler gercek hata kaynagi.
+select = ["E4", "E7", "E9", "F", "I", "UP", "B"]
+
 ignore = [
     # FastAPI'de Depends()/Query()/Path()/Body() varsayilan degerde cagrilir;
     # framework'un idiyomatik kullanimi bu, ruff icin ise yanlis pozitif.
@@ -11,3 +25,10 @@ ignore = [
     # mevcut router'lar klasik stili kullaniyor.
     "B008",
 ]
+
+[lint.per-file-ignores]
+# Ortam degiskenleri uygulama modulleri import edilmeden ONCE ayarlanmali:
+# settings modul seviyesinde olusturuluyor ve di/container.py degerleri
+# import aninda okuyor. Bu yuzden import'lar dosyanin basinda olamiyor.
+# Gerekcenin tamami tests/conftest.py'nin modul docstring'inde.
+"tests/conftest.py" = ["E402"]

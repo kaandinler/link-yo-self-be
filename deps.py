@@ -35,12 +35,13 @@ async def get_current_user(
                 detail="Invalid authentication credentials",
                 headers={"WWW-Authenticate": "Bearer"},
             )
-    except Exception:  # noqa: BLE001 - token dogrulamada her hata 401'e cevrilir
+    except Exception as hata:  # noqa: BLE001 - token dogrulamada her hata 401'e cevrilir
+        # "from hata": asil neden izlerde kalsin; yanit yine sade 401.
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid authentication credentials",
             headers={"WWW-Authenticate": "Bearer"},
-        )
+        ) from hata
 
     # Get the user from the database
     user = await auth_service.user_service.get_by_username(username)
