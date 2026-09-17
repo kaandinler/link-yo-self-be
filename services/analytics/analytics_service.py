@@ -1,5 +1,6 @@
 """Pano ve analytics sayfasinin verisini hazirlar."""
 
+from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
@@ -28,6 +29,67 @@ from utils.time_utils import utcnow
 # Ucun kabul ettigi araligin ust siniri. Uzun araliklar hem sorguyu hem de
 # grafigi anlamsiz derecede yogunlastiriyor; gerekirse aylik bir uc eklenir.
 MAX_DAYS = 90
+
+
+@dataclass(frozen=True)
+class Aralik:
+    """Cozulmus tarih araligi; butun analytics uclari bunu kullaniyor.
+
+    NEDEN AYRI BIR NESNE: dort uc de ayni araligi hesapliyordu ve her biri
+    `days`i ayri ayri sinirliyordu. Serbest tarih araligi eklenince ayni
+    dogrulamayi dort yerde tekrarlamak, birinde unutuldugunda yalnizca o
+    ucun sinirsiz calismasi demekti. Aralik bir kez kuruluyor, dogrulama
+    tek yerde.
+    """
+
+    days: int
+    start_date: date
+    end_date: date
+    #: Ilk gunun basi (UTC), dahil.
+    baslangic: datetime
+    #: Son gunun ertesinin basi (UTC), HARIC. Gun sonunu 23:59:59 diye
+    #: yazmak mikrosaniyelik olaylari disarida birakirdi.
+    bitis: datetime
+
+
+def aralik_kur(
+    days: int | None = None,
+    start: date | None = None,
+    end: date | None = None,
+) -> Aralik:
+    """Ya son `days` gunu ya da verilen `start`-`end` araligini cozer.
+
+    Iki ucu da dahil. Gunler UTC'ye gore ayriliyor -- olaylar da UTC
+    saklaniyor, dolayisiyla gun sinirlari tutarli.
+
+    Gecersiz girdide ValueError atiyor; cagiran uc bunu 422'ye ceviriyor.
+    """
+    if (start is None) != (end is None):
+        # Tek basina bir ucun ne demek oldugu belirsiz: "start'tan bugune"
+        # mi, "end'e kadar days gun" mu? Tahmin etmek yerine reddediyoruz.
+        raise ValueError("start ve end birlikte verilmeli")
+
+    if start is not None and end is not None:
+        if start > end:
+            raise ValueError("start, end'den sonra olamaz")
+        gun_sayisi = (end - start).days + 1
+        if gun_sayisi > MAX_DAYS:
+            raise ValueError(f"Aralik en fazla {MAX_DAYS} gun olabilir")
+        ilk_gun, son_gun = start, end
+    else:
+        gun_sayisi = max(1, min(days or 7, MAX_DAYS))
+        son_gun = utcnow().date()
+        ilk_gun = son_gun - timedelta(days=gun_sayisi - 1)
+
+    return Aralik(
+        days=gun_sayisi,
+        start_date=ilk_gun,
+        end_date=son_gun,
+        baslangic=datetime.combine(ilk_gun, datetime.min.time(), tzinfo=UTC),
+        bitis=datetime.combine(
+            son_gun + timedelta(days=1), datetime.min.time(), tzinfo=UTC
+        ),
+    )
 
 # Kaynak listesinde ayri satir olarak gosterilecek en fazla host sayisi;
 # kalanlar tek bir "diger" satirinda toplaniyor. Uzun kuyruk panoda okunur
@@ -76,33 +138,18 @@ class AnalyticsService:
             ],
         )
 
-    @staticmethod
-    def _aralik(days: int) -> tuple[int, date, date, datetime]:
-        """Gun sayisindan araligi hesaplar: (gun_sayisi, ilk_gun, son_gun, baslangic).
-
-        Gunler UTC'ye gore ayriliyor ve bugun araliga dahil.
-        """
-        days = max(1, min(days, MAX_DAYS))
-
-        bugun = utcnow().date()
-        baslangic_gun = bugun - timedelta(days=days - 1)
-        # Gun basindan itibaren: sorgu gunun tamamini kapsamali.
-        baslangic = datetime.combine(
-            baslangic_gun, datetime.min.time(), tzinfo=UTC
-        )
-
-        return days, baslangic_gun, bugun, baslangic
-
-    async def get_timeseries(self, user: User, days: int) -> AnalyticsTimeseries:
+    async def get_timeseries(self, user: User, aralik: Aralik) -> AnalyticsTimeseries:
         """Son `days` gunun gunluk tiklama ve profil goruntulenme sayilari.
 
         Gunler UTC'ye gore ayriliyor ve bugun dahil. Olay olmayan gunler de
         sifir degerlerle donuyor.
         """
-        days, baslangic_gun, bugun, baslangic = self._aralik(days)
+        days, baslangic_gun, bugun = aralik.days, aralik.start_date, aralik.end_date
 
         satirlar = (
-            await self.event_repository.daily_counts(user.id, baslangic)
+            await self.event_repository.daily_counts(
+                user.id, aralik.baslangic, aralik.bitis
+            )
             if self.event_repository
             else []
         )
@@ -137,7 +184,7 @@ class AnalyticsService:
         )
 
     async def get_link_timeseries(
-        self, user: User, days: int
+        self, user: User, aralik: Aralik
     ) -> LinkTimeseriesResponse:
         """Her linkin secili aralikteki gunluk tiklama egrisi.
 
@@ -146,7 +193,7 @@ class AnalyticsService:
         kendi sirasina (order_index) gore -- boylece hicbir tiklama
         yokken liste herkese acik sayfadaki sirayi izliyor.
         """
-        days, baslangic_gun, bugun, baslangic = self._aralik(days)
+        days, baslangic_gun, bugun = aralik.days, aralik.start_date, aralik.end_date
 
         links = await self.link_repository.get_links_by_user(
             user.id, include_inactive=True
@@ -154,7 +201,7 @@ class AnalyticsService:
 
         satirlar = (
             await self.event_repository.daily_link_click_counts(
-                user.id, baslangic
+                user.id, aralik.baslangic, aralik.bitis
             )
             if self.event_repository
             else []
@@ -201,7 +248,7 @@ class AnalyticsService:
             links=seriler,
         )
 
-    async def get_referrers(self, user: User, days: int) -> ReferrerBreakdown:
+    async def get_referrers(self, user: User, aralik: Aralik) -> ReferrerBreakdown:
         """Secili aralikta tiklamalarin hangi siteden geldigi.
 
         Hicbir kaynagi olmayan bir aralik icin bos liste doner; cagiran taraf
@@ -211,10 +258,12 @@ class AnalyticsService:
         gizlemek toplami tutarsiz gosterirdi ve "trafigimin ucte ikisini
         nereden geldigini bilmiyorum" da bir bilgi.
         """
-        days, baslangic_gun, bugun, baslangic = self._aralik(days)
+        days, baslangic_gun, bugun = aralik.days, aralik.start_date, aralik.end_date
 
         satirlar = (
-            await self.event_repository.referrer_counts(user.id, baslangic)
+            await self.event_repository.referrer_counts(
+                user.id, aralik.baslangic, aralik.bitis
+            )
             if self.event_repository
             else []
         )
@@ -254,7 +303,7 @@ class AnalyticsService:
         )
 
     async def get_best_times(
-        self, user: User, days: int, tz_name: str = "UTC"
+        self, user: User, aralik: Aralik, tz_name: str = "UTC"
     ) -> BestTimes:
         """Tiklamalarin haftaguno ve saate dagilimi.
 
@@ -269,11 +318,13 @@ class AnalyticsService:
         saatin ileri alindigi gun, o gunun kutulari kaymis haliyle
         sayiliyor.
         """
-        days, baslangic_gun, bugun, baslangic = self._aralik(days)
+        days, baslangic_gun, bugun = aralik.days, aralik.start_date, aralik.end_date
         dilim = ZoneInfo(tz_name)
 
         satirlar = (
-            await self.event_repository.hourly_click_counts(user.id, baslangic)
+            await self.event_repository.hourly_click_counts(
+                user.id, aralik.baslangic, aralik.bitis
+            )
             if self.event_repository
             else []
         )

@@ -1,6 +1,9 @@
 """GET /analytics/summary - pano ve analytics sayfasinin okudugu ozet."""
+from datetime import UTC, datetime, time, timedelta
+
 from tests.conftest import DEFAULT_USER, auth_header, login, register_user
 from tests.test_links import create_link
+from utils.time_utils import utcnow
 
 
 class TestAnalyticsOzeti:
@@ -708,3 +711,214 @@ class TestEnIyiZamanlar:
         assert (
             await auth_client.get("/api/v1/analytics/best-times?days=91")
         ).status_code == 422
+
+
+class TestTarihAraligi:
+    """Serbest tarih araligi: `days` yerine `start`/`end`.
+
+    `days` yalnizca "son N gun" sorusunu cevapliyordu; belirli bir
+    kampanyanin penceresine bakmak mumkun degildi.
+    """
+
+    async def test_aralik_disindaki_olaylar_sayilmiyor(self, auth_client, app):
+        kid = await kullanici_id(auth_client)
+        bugun = utcnow().date()
+
+        # Aralik: 10 gun once - 8 gun once (uc gun).
+        await olay_yaz(app, kid, utcnow() - timedelta(days=12), adet=5)  # once
+        await olay_yaz(app, kid, utcnow() - timedelta(days=9), adet=3)   # icinde
+        await olay_yaz(app, kid, utcnow() - timedelta(days=6), adet=7)   # sonra
+
+        start = (bugun - timedelta(days=10)).isoformat()
+        end = (bugun - timedelta(days=8)).isoformat()
+        response = await auth_client.get(
+            f"/api/v1/analytics/timeseries?start={start}&end={end}"
+        )
+
+        assert response.status_code == 200, response.text
+        data = response.json()["data"]
+        assert data["total_clicks"] == 3
+        assert data["days"] == 3
+        assert data["start_date"] == start
+        assert data["end_date"] == end
+        assert len(data["points"]) == 3
+
+    async def test_iki_ucu_da_dahil(self, auth_client, app):
+        kid = await kullanici_id(auth_client)
+        bugun = utcnow().date()
+        start_gun = bugun - timedelta(days=5)
+        end_gun = bugun - timedelta(days=3)
+
+        # Tam sinirlarda, gunun basinda ve sonuna cok yakin.
+        await olay_yaz(
+            app, kid, datetime.combine(start_gun, time(0, 0), tzinfo=UTC)
+        )
+        await olay_yaz(
+            app,
+            kid,
+            datetime.combine(end_gun, time(23, 59, 59, 999999), tzinfo=UTC),
+        )
+
+        response = await auth_client.get(
+            "/api/v1/analytics/timeseries"
+            f"?start={start_gun.isoformat()}&end={end_gun.isoformat()}"
+        )
+
+        # Ust siniri "23:59:59" diye yazmak son mikrosaniyeyi disarida
+        # birakirdi; sinir ertesi gunun basi ve disarida.
+        assert response.json()["data"]["total_clicks"] == 2
+
+    async def test_dort_ucta_da_calisiyor(self, auth_client, app):
+        kid = await kullanici_id(auth_client)
+        bugun = utcnow().date()
+        await olay_yaz(app, kid, utcnow() - timedelta(days=20), adet=4)
+        await olay_yaz(app, kid, utcnow() - timedelta(days=2), adet=6)
+
+        start = (bugun - timedelta(days=25)).isoformat()
+        end = (bugun - timedelta(days=15)).isoformat()
+
+        for yol in (
+            "timeseries",
+            "timeseries/by-link",
+            "referrers",
+            "best-times",
+        ):
+            response = await auth_client.get(
+                f"/api/v1/analytics/{yol}?start={start}&end={end}"
+            )
+            assert response.status_code == 200, f"{yol}: {response.text}"
+            data = response.json()["data"]
+            assert data["start_date"] == start, yol
+            assert data["end_date"] == end, yol
+            assert data["days"] == 11, yol
+
+    async def test_referrers_araligin_disini_saymiyor(self, auth_client, app):
+        """Bu test SQL'deki ust siniri olcuyor.
+
+        /timeseries ve /timeseries/by-link araligin gunlerini zaten
+        Python'da geziyor, dolayisiyla aralik disi bir gun ciktiya hic
+        giremiyor -- oralarda ust sinir bir hizlandirma. /referrers ile
+        /best-times ise repository'den gelen butun satirlari topluyor;
+        ust sinir olmazsa "end"den sonraki tiklamalar da sayiliyor.
+        """
+        kid = await kullanici_id(auth_client)
+        bugun = utcnow().date()
+
+        await olay_yaz(app, kid, utcnow() - timedelta(days=9), adet=3)
+        await olay_yaz(app, kid, utcnow() - timedelta(days=2), adet=7)
+
+        start = (bugun - timedelta(days=10)).isoformat()
+        end = (bugun - timedelta(days=8)).isoformat()
+        response = await auth_client.get(
+            f"/api/v1/analytics/referrers?start={start}&end={end}"
+        )
+
+        assert response.status_code == 200, response.text
+        # Ust sinir olmadan 10 olurdu.
+        assert response.json()["data"]["total_clicks"] == 3
+
+    async def test_best_times_araligin_disini_saymiyor(self, auth_client, app):
+        kid = await kullanici_id(auth_client)
+        bugun = utcnow().date()
+
+        await olay_yaz(app, kid, utcnow() - timedelta(days=9), adet=3)
+        await olay_yaz(app, kid, utcnow() - timedelta(days=2), adet=7)
+
+        start = (bugun - timedelta(days=10)).isoformat()
+        end = (bugun - timedelta(days=8)).isoformat()
+        response = await auth_client.get(
+            f"/api/v1/analytics/best-times?start={start}&end={end}"
+        )
+
+        assert response.status_code == 200, response.text
+        assert response.json()["data"]["total_clicks"] == 3
+
+    async def test_tek_basina_start_reddediliyor(self, auth_client):
+        # "start'tan bugune" mi, "start'tan days gun" mu belirsiz.
+        bugun = utcnow().date().isoformat()
+        response = await auth_client.get(
+            f"/api/v1/analytics/timeseries?start={bugun}"
+        )
+
+        assert response.status_code == 422
+
+    async def test_tek_basina_end_reddediliyor(self, auth_client):
+        bugun = utcnow().date().isoformat()
+        response = await auth_client.get(
+            f"/api/v1/analytics/timeseries?end={bugun}"
+        )
+
+        assert response.status_code == 422
+
+    async def test_ters_aralik_reddediliyor(self, auth_client):
+        bugun = utcnow().date()
+        response = await auth_client.get(
+            "/api/v1/analytics/timeseries"
+            f"?start={bugun.isoformat()}"
+            f"&end={(bugun - timedelta(days=3)).isoformat()}"
+        )
+
+        assert response.status_code == 422
+
+    async def test_cok_uzun_aralik_reddediliyor(self, auth_client):
+        from services.analytics.analytics_service import MAX_DAYS
+
+        bugun = utcnow().date()
+        start = bugun - timedelta(days=MAX_DAYS)  # MAX_DAYS + 1 gun eder
+
+        response = await auth_client.get(
+            "/api/v1/analytics/timeseries"
+            f"?start={start.isoformat()}&end={bugun.isoformat()}"
+        )
+
+        assert response.status_code == 422
+
+    async def test_tam_sinirdaki_aralik_kabul_ediliyor(self, auth_client):
+        from services.analytics.analytics_service import MAX_DAYS
+
+        bugun = utcnow().date()
+        start = bugun - timedelta(days=MAX_DAYS - 1)
+
+        response = await auth_client.get(
+            "/api/v1/analytics/timeseries"
+            f"?start={start.isoformat()}&end={bugun.isoformat()}"
+        )
+
+        assert response.status_code == 200
+        assert response.json()["data"]["days"] == MAX_DAYS
+
+    async def test_bozuk_tarih_reddediliyor(self, auth_client):
+        response = await auth_client.get(
+            "/api/v1/analytics/timeseries?start=17-09-2026&end=2026-09-18"
+        )
+
+        assert response.status_code == 422
+
+    async def test_start_end_verilince_days_yok_sayiliyor(
+        self, auth_client, app
+    ):
+        kid = await kullanici_id(auth_client)
+        bugun = utcnow().date()
+        await olay_yaz(app, kid, utcnow() - timedelta(days=20), adet=2)
+
+        start = (bugun - timedelta(days=25)).isoformat()
+        end = (bugun - timedelta(days=15)).isoformat()
+        response = await auth_client.get(
+            f"/api/v1/analytics/timeseries?days=7&start={start}&end={end}"
+        )
+
+        # days=7 son yedi gunu verirdi ve bu olay orada degil.
+        assert response.json()["data"]["total_clicks"] == 2
+        assert response.json()["data"]["days"] == 11
+
+    async def test_days_hala_calisiyor(self, auth_client, app):
+        # Geriye donuk uyumluluk: arayuzun hazir araliklari days kullaniyor.
+        kid = await kullanici_id(auth_client)
+        await olay_yaz(app, kid, utcnow() - timedelta(days=2), adet=3)
+        await olay_yaz(app, kid, utcnow() - timedelta(days=20), adet=9)
+
+        response = await auth_client.get("/api/v1/analytics/timeseries?days=7")
+
+        assert response.status_code == 200
+        assert response.json()["data"]["total_clicks"] == 3
+        assert response.json()["data"]["days"] == 7

@@ -126,10 +126,24 @@ saklar; yol ve sorgu kismi atilir.
 | Method | Yol | Aciklama |
 |---|---|---|
 | GET | `/analytics/summary` | Tum zamanlarin toplamlari |
-| GET | `/analytics/timeseries` | Gunluk tiklama + profil goruntulenme (`?days=1..90`) |
+| GET | `/analytics/timeseries` | Gunluk tiklama + profil goruntulenme |
 | GET | `/analytics/timeseries/by-link` | Ayni aralik, link kirilimiyla |
 | GET | `/analytics/referrers` | Tiklamalarin kaynak dagilimi |
 | GET | `/analytics/best-times` | Tiklamalarin haftaguno ve saate dagilimi (`?tz=Europe/Istanbul`) |
+
+**Aralik.** Bu dort uc araligi iki sekilde aliyor:
+
+- `?days=1..90` — son N gun (bugun dahil). Varsayilan 7, `best-times`
+  icin 30.
+- `?start=YYYY-AA-GG&end=YYYY-AA-GG` — belirli bir aralik, iki ucu da
+  dahil, UTC gunlerine gore. Verilirse `days` yok sayilir.
+
+Ikisi birlikte verilmeli; tek basina `start` ya da `end` 422 doner
+("start'tan bugune" mi, "start'tan days gun" mu belirsiz). `start > end`
+ve `MAX_DAYS`i (90) asan aralik da 422.
+
+`end` gelecekte olabilir; o gunler bos doner. Kirpmak, kullanicinin
+istedigi araligi sessizce degistirmek olurdu.
 
 Zaman serisi uclari `analytics_events` tablosunu okuyor; toplamlar ise
 sayaclardan geliyor. Olay kaydi sonradan eklendigi icin bu iki grubun
