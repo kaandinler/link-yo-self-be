@@ -2,7 +2,7 @@
 
 from datetime import datetime
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, true
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.base_repository import BaseRepository
@@ -43,7 +43,7 @@ class AnalyticsEventRepository(BaseRepository[AnalyticsEvent]):
         await self.execute_query(_record, transactional=True)
 
     async def daily_counts(
-        self, user_id: int, since: datetime
+        self, user_id: int, since: datetime, until: datetime | None = None
     ) -> list[tuple[str, str, int]]:
         """Kullanicinin `since` tarihinden itibaren gunluk olay sayilari.
 
@@ -64,6 +64,7 @@ class AnalyticsEventRepository(BaseRepository[AnalyticsEvent]):
                 select(gun, AnalyticsEvent.event_type, func.count())
                 .where(AnalyticsEvent.user_id == user_id)
                 .where(AnalyticsEvent.created_at >= since)
+                .where(_ust_sinir(until))
                 .group_by(gun, AnalyticsEvent.event_type)
             )
             return [
@@ -74,7 +75,7 @@ class AnalyticsEventRepository(BaseRepository[AnalyticsEvent]):
         return await self.execute_query(_counts)
 
     async def daily_link_click_counts(
-        self, user_id: int, since: datetime
+        self, user_id: int, since: datetime, until: datetime | None = None
     ) -> list[tuple[str, int, int]]:
         """Gunluk tiklama sayilari, link kirilimiyla.
 
@@ -94,6 +95,7 @@ class AnalyticsEventRepository(BaseRepository[AnalyticsEvent]):
                 .where(AnalyticsEvent.event_type == EVENT_LINK_CLICK)
                 .where(AnalyticsEvent.link_id.isnot(None))
                 .where(AnalyticsEvent.created_at >= since)
+                .where(_ust_sinir(until))
                 .group_by(gun, AnalyticsEvent.link_id)
             )
             return [
@@ -104,7 +106,7 @@ class AnalyticsEventRepository(BaseRepository[AnalyticsEvent]):
         return await self.execute_query(_counts)
 
     async def referrer_counts(
-        self, user_id: int, since: datetime
+        self, user_id: int, since: datetime, until: datetime | None = None
     ) -> list[tuple[str | None, int]]:
         """Kullanicinin `since` tarihinden itibaren kaynak basina tiklamalari.
 
@@ -126,6 +128,7 @@ class AnalyticsEventRepository(BaseRepository[AnalyticsEvent]):
                 .where(AnalyticsEvent.user_id == user_id)
                 .where(AnalyticsEvent.event_type == EVENT_LINK_CLICK)
                 .where(AnalyticsEvent.created_at >= since)
+                .where(_ust_sinir(until))
                 .group_by(AnalyticsEvent.referrer)
             )
             return [(satir[0], satir[1]) for satir in result.all()]
@@ -133,7 +136,7 @@ class AnalyticsEventRepository(BaseRepository[AnalyticsEvent]):
         return await self.execute_query(_counts)
 
     async def hourly_click_counts(
-        self, user_id: int, since: datetime
+        self, user_id: int, since: datetime, until: datetime | None = None
     ) -> list[tuple[str, int, int]]:
         """Kullanicinin `since` tarihinden itibaren saat basina tiklamalari.
 
@@ -158,6 +161,7 @@ class AnalyticsEventRepository(BaseRepository[AnalyticsEvent]):
                 .where(AnalyticsEvent.user_id == user_id)
                 .where(AnalyticsEvent.event_type == EVENT_LINK_CLICK)
                 .where(AnalyticsEvent.created_at >= since)
+                .where(_ust_sinir(until))
                 .group_by(gun, saat)
             )
             return [
@@ -167,6 +171,22 @@ class AnalyticsEventRepository(BaseRepository[AnalyticsEvent]):
 
         return await self.execute_query(_counts)
 
+
+
+def _ust_sinir(until: datetime | None):
+    """Araligin ust sinirini veren kosul; `until` yoksa her zaman dogru.
+
+    NEDEN AYRI FONKSIYON: dort sorgu da ayni kosulu kuruyor ve `until`
+    opsiyonel. Her birinde ayri bir if yazmak, birinde unutuldugunda
+    yalnizca o ucun tarih araligini sessizce gormezden gelmesi demekti.
+
+    Sinir disarida birakiliyor (`<`): cagiran taraf bitis gununun
+    ertesinin baslangicini veriyor, boylece son gunun tamami kapsaniyor
+    ve saniye/mikrosaniye yuvarlama sorusu hic dogmuyor.
+    """
+    if until is None:
+        return true()
+    return AnalyticsEvent.created_at < until
 
 
 def _gune_metin(deger: object) -> str:

@@ -1,5 +1,6 @@
 # routers/v1/analytics_router.py
 
+from datetime import date
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from dependency_injector.wiring import Provide, inject
@@ -16,10 +17,58 @@ from services.analytics.analytics_dto import (
     LinkTimeseriesResponse,
     ReferrerBreakdown,
 )
-from services.analytics.analytics_service import MAX_DAYS, AnalyticsService
+from services.analytics.analytics_service import (
+    MAX_DAYS,
+    AnalyticsService,
+    Aralik,
+    aralik_kur,
+)
 
 # Prefix disaridaki routers/analytics_router.py tarafindan veriliyor.
 router = APIRouter(tags=["analytics"])
+
+
+def aralik_baglayici(varsayilan_gun: int):
+    """`days` ya da `start`/`end` okuyan bir bagimlilik uretir.
+
+    NEDEN TEK YERDE: dort uc de ayni uc parametreyi aliyor ve ayni
+    kurallari uyguluyor. Her ucta ayri ayri yazilsaydi, birinde atlanan
+    bir kontrol yalnizca o ucu sessizce sinirsiz birakirdi.
+
+    `days` geriye donuk uyumluluk icin duruyor ve varsayilan o; `start`
+    ile `end` verilirse onlar geciyor.
+    """
+
+    def coz(
+        days: int = Query(
+            varsayilan_gun,
+            ge=1,
+            le=MAX_DAYS,
+            description="Kac gunluk aralik dondurulecek (bugun dahil).",
+        ),
+        start: date | None = Query(
+            None,
+            description=(
+                "Aralik baslangici (YYYY-AA-GG, UTC, dahil). end ile "
+                "birlikte verilmeli; verilirse days yok sayilir."
+            ),
+        ),
+        end: date | None = Query(
+            None,
+            description="Aralik sonu (YYYY-AA-GG, UTC, dahil).",
+        ),
+    ) -> Aralik:
+        try:
+            return aralik_kur(days=days, start=start, end=end)
+        except ValueError as hata:
+            # 422: istek bicimsel olarak dogru ama icerik gecersiz --
+            # Query(ge=, le=) ne donduruyorsa aynisi.
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=str(hata),
+            ) from hata
+
+    return coz
 
 
 @router.get("/summary", response_model=SuccessResponse[AnalyticsSummary])
@@ -44,12 +93,7 @@ async def get_analytics_summary(
 @router.get("/timeseries", response_model=SuccessResponse[AnalyticsTimeseries])
 @inject
 async def get_analytics_timeseries(
-    days: int = Query(
-        7,
-        ge=1,
-        le=MAX_DAYS,
-        description="Kac gunluk aralik dondurulecek (bugun dahil).",
-    ),
+    aralik: Aralik = Depends(aralik_baglayici(7)),
     current_user: User = Depends(get_current_user),
     analytics_service: AnalyticsService = Depends(Provide[Container.analytics_service]),
 ):
@@ -62,7 +106,7 @@ async def get_analytics_timeseries(
     tablosunun olusturuldugu tarihten sonrasini kapsar; /summary'deki
     toplamlar ise hesabin tum gecmisini sayar.
     """
-    series = await analytics_service.get_timeseries(current_user, days)
+    series = await analytics_service.get_timeseries(current_user, aralik)
     return SuccessResponse.create(
         data=series,
         message="Analytics timeseries retrieved successfully",
@@ -74,12 +118,7 @@ async def get_analytics_timeseries(
 )
 @inject
 async def get_link_timeseries(
-    days: int = Query(
-        7,
-        ge=1,
-        le=MAX_DAYS,
-        description="Kac gunluk aralik dondurulecek (bugun dahil).",
-    ),
+    aralik: Aralik = Depends(aralik_baglayici(7)),
     current_user: User = Depends(get_current_user),
     analytics_service: AnalyticsService = Depends(Provide[Container.analytics_service]),
 ):
@@ -92,7 +131,7 @@ async def get_link_timeseries(
     duruyor ama artik bir linke baglanamiyor); /timeseries'te sayilmaya
     devam ediyorlar.
     """
-    series = await analytics_service.get_link_timeseries(current_user, days)
+    series = await analytics_service.get_link_timeseries(current_user, aralik)
     return SuccessResponse.create(
         data=series,
         message="Link timeseries retrieved successfully",
@@ -102,12 +141,7 @@ async def get_link_timeseries(
 @router.get("/referrers", response_model=SuccessResponse[ReferrerBreakdown])
 @inject
 async def get_referrers(
-    days: int = Query(
-        7,
-        ge=1,
-        le=MAX_DAYS,
-        description="Kac gunluk aralik dondurulecek (bugun dahil).",
-    ),
+    aralik: Aralik = Depends(aralik_baglayici(7)),
     current_user: User = Depends(get_current_user),
     analytics_service: AnalyticsService = Depends(Provide[Container.analytics_service]),
 ):
@@ -121,7 +155,7 @@ async def get_referrers(
     DIKKAT: Referrer kolonu olay tablosundan sonra eklendi; daha eski
     tiklamalarin kaynagi bilinmedigi icin "dogrudan" sayiliyorlar.
     """
-    breakdown = await analytics_service.get_referrers(current_user, days)
+    breakdown = await analytics_service.get_referrers(current_user, aralik)
     return SuccessResponse.create(
         data=breakdown,
         message="Referrers retrieved successfully",
@@ -131,12 +165,7 @@ async def get_referrers(
 @router.get("/best-times", response_model=SuccessResponse[BestTimes])
 @inject
 async def get_best_times(
-    days: int = Query(
-        30,
-        ge=1,
-        le=MAX_DAYS,
-        description="Kac gunluk aralik dondurulecek (bugun dahil).",
-    ),
+    aralik: Aralik = Depends(aralik_baglayici(30)),
     tz: str = Query(
         "UTC",
         description=(
@@ -169,7 +198,7 @@ async def get_best_times(
             detail=f"Unknown timezone: {tz}",
         ) from hata
 
-    best_times = await analytics_service.get_best_times(current_user, days, tz)
+    best_times = await analytics_service.get_best_times(current_user, aralik, tz)
     return SuccessResponse.create(
         data=best_times,
         message="Best times retrieved successfully",
