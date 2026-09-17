@@ -144,3 +144,50 @@ class ReferrerBreakdown(BaseModel):
     end_date: date
     total_clicks: int
     sources: list[ReferrerSource]
+
+
+class WeekdayBucket(BaseModel):
+    """Bir haftagununun toplam tiklamasi."""
+
+    # 0 = Pazartesi ... 6 = Pazar (datetime.weekday ile ayni).
+    weekday: int
+    clicks: int
+
+
+class HourBucket(BaseModel):
+    """Bir saatin toplam tiklamasi."""
+
+    # 0-23, istekte verilen saat diliminde.
+    hour: int
+    clicks: int
+
+
+class BestTimes(BaseModel):
+    """Tiklamalarin haftaguno ve saate dagilimi.
+
+    NEDEN SAAT DILIMI ISTEKTE: Olaylar UTC saklaniyor. "En cok tiklama saat
+    14'te" bilgisi, kullanicinin kendi saatine cevrilmeden hicbir sey
+    anlatmiyor -- Istanbul'da 17, Los Angeles'ta 06 demek. Cevrim sunucuda
+    yapiliyor ki yaz saati gecisleri de dogru olsun.
+
+    DIKKAT: `peak_weekday` ve `peak_hour` yalnizca en cok tiklama alan
+    kutunun adi; az veriyle bunlar gurultu. `enough_data` tam bunun icin:
+    false iken arayuz "en iyi gunun sali" gibi bir iddiada bulunmamali.
+    """
+
+    days: int
+    start_date: date
+    end_date: date
+    # Istekte verilen IANA saat dilimi; verilmediyse "UTC".
+    timezone: str
+
+    total_clicks: int
+    # Her zaman 7 ve 24 eleman; bos kutular sifirla doluyor ki cagiran
+    # taraf eksik gunleri/saatleri kendisi tamamlamak zorunda kalmasin.
+    by_weekday: list[WeekdayBucket]
+    by_hour: list[HourBucket]
+
+    peak_weekday: int | None
+    peak_hour: int | None
+    # Zirveyi bir cikarim olarak sunmak icin yeterli tiklama var mi?
+    enough_data: bool

@@ -1,6 +1,7 @@
 """Pano ve analytics sayfasinin verisini hazirlar."""
 
 from datetime import UTC, date, datetime, timedelta
+from zoneinfo import ZoneInfo
 
 from models import EVENT_LINK_CLICK, EVENT_PROFILE_VIEW, User
 from repositories.analytics.analytics_event_repository import (
@@ -11,6 +12,8 @@ from services.analytics.analytics_dto import (
     AnalyticsDayPoint,
     AnalyticsSummary,
     AnalyticsTimeseries,
+    BestTimes,
+    HourBucket,
     LinkClickStat,
     LinkDayPoint,
     LinkTimeseries,
@@ -18,6 +21,7 @@ from services.analytics.analytics_dto import (
     ReferrerBreakdown,
     ReferrerKind,
     ReferrerSource,
+    WeekdayBucket,
 )
 from utils.time_utils import utcnow
 
@@ -29,6 +33,13 @@ MAX_DAYS = 90
 # kalanlar tek bir "diger" satirinda toplaniyor. Uzun kuyruk panoda okunur
 # bir sey anlatmiyor, yalnizca listeyi uzatiyor.
 MAX_SOURCES = 8
+
+# Zirveyi bir cikarim olarak sunmak icin gereken en az tiklama.
+#
+# Uc tiklamayla "en iyi gunun sali" demek, uc para atisina bakip yazi
+# gelme egilimi oldugunu iddia etmek gibi. Bu esigin altinda dagilim yine
+# donuyor ama enough_data false ve arayuz iddiada bulunmuyor.
+MIN_CLICKS_FOR_PEAK = 20
 
 
 class AnalyticsService:
@@ -241,3 +252,71 @@ class AnalyticsService:
             total_clicks=sum(kaynak.clicks for kaynak in kaynaklar),
             sources=kaynaklar,
         )
+
+    async def get_best_times(
+        self, user: User, days: int, tz_name: str = "UTC"
+    ) -> BestTimes:
+        """Tiklamalarin haftaguno ve saate dagilimi.
+
+        Saat dilimi cevrimi burada, SQL'de degil: IANA saat dilimiyle
+        gruplama PostgreSQL'e ozgu olurdu ve testler SQLite'ta kosuyor.
+        Repository (gun, saat, adet) uclulerini UTC'ye gore donduruyor;
+        her kutunun ortasi degil basi kullanicinin saat dilimine
+        ceviriliyor. Bir saatlik kutu cevrildiginde de bir saatlik kutu
+        kaliyor, dolayisiyla toplamlar korunuyor.
+
+        zoneinfo kullanildigi icin yaz saati gecisleri de dogru: Mart'ta
+        saatin ileri alindigi gun, o gunun kutulari kaymis haliyle
+        sayiliyor.
+        """
+        days, baslangic_gun, bugun, baslangic = self._aralik(days)
+        dilim = ZoneInfo(tz_name)
+
+        satirlar = (
+            await self.event_repository.hourly_click_counts(user.id, baslangic)
+            if self.event_repository
+            else []
+        )
+
+        gun_sayaci = [0] * 7
+        saat_sayaci = [0] * 24
+
+        for gun_metni, saat, adet in satirlar:
+            yil, ay, gun = (int(parca) for parca in gun_metni.split("-"))
+            utc_an = datetime(yil, ay, gun, saat, tzinfo=UTC)
+            yerel = utc_an.astimezone(dilim)
+            gun_sayaci[yerel.weekday()] += adet
+            saat_sayaci[yerel.hour] += adet
+
+        toplam = sum(gun_sayaci)
+
+        return BestTimes(
+            days=days,
+            start_date=baslangic_gun,
+            end_date=bugun,
+            timezone=tz_name,
+            total_clicks=toplam,
+            by_weekday=[
+                WeekdayBucket(weekday=indeks, clicks=adet)
+                for indeks, adet in enumerate(gun_sayaci)
+            ],
+            by_hour=[
+                HourBucket(hour=indeks, clicks=adet)
+                for indeks, adet in enumerate(saat_sayaci)
+            ],
+            peak_weekday=_zirve(gun_sayaci),
+            peak_hour=_zirve(saat_sayaci),
+            enough_data=toplam >= MIN_CLICKS_FOR_PEAK,
+        )
+
+
+def _zirve(sayaclar: list[int]) -> int | None:
+    """En cok tiklama alan kutunun indeksi; hic tiklama yoksa None.
+
+    Esitlikte ilk kutu kazaniyor. Bu, "ilk gun/saat daha iyi" demek degil
+    -- esitligi bozmanin veriye dayali bir yolu yok ve rastgele secmek
+    ardisik isteklerde farkli cevap verirdi.
+    """
+    if not any(sayaclar):
+        return None
+    return max(range(len(sayaclar)), key=lambda indeks: sayaclar[indeks])

@@ -489,3 +489,222 @@ class TestTrafikKaynaklari:
 
         response = await auth_client.get("/api/v1/analytics/referrers?days=91")
         assert response.status_code == 422
+
+
+async def olay_yaz(app, user_id: int, ne_zaman, link_id=None, adet=1):
+    """Belirli bir ana tiklama olayi yazar.
+
+    Uc uzerinden yazilamiyor: tiklama her zaman "simdi" kaydediliyor.
+    Gecmise ait bir zaman istendigi icin dogrudan veritabanina yaziliyor.
+    """
+    from models import EVENT_LINK_CLICK, AnalyticsEvent
+
+    session_factory = app.container.async_session_factory()
+    async with session_factory() as session:
+        for _ in range(adet):
+            session.add(
+                AnalyticsEvent(
+                    user_id=user_id,
+                    event_type=EVENT_LINK_CLICK,
+                    link_id=link_id,
+                    created_at=ne_zaman,
+                )
+            )
+        await session.commit()
+
+
+async def kullanici_id(client) -> int:
+    response = await client.get("/api/v1/users/me")
+    assert response.status_code == 200, response.text
+    return response.json()["data"]["id"]
+
+
+def gun_sozlugu(data: dict) -> dict:
+    return {k["weekday"]: k["clicks"] for k in data["by_weekday"] if k["clicks"]}
+
+
+def saat_sozlugu(data: dict) -> dict:
+    return {k["hour"]: k["clicks"] for k in data["by_hour"] if k["clicks"]}
+
+
+class TestEnIyiZamanlar:
+    async def test_tokensiz_401(self, client):
+        response = await client.get("/api/v1/analytics/best-times")
+        assert response.status_code == 401
+
+    async def test_bos_hesapta_sifirlar(self, auth_client):
+        response = await auth_client.get("/api/v1/analytics/best-times")
+
+        assert response.status_code == 200, response.text
+        data = response.json()["data"]
+        assert data["days"] == 30
+        assert data["timezone"] == "UTC"
+        assert data["total_clicks"] == 0
+        # Kutular her zaman tam: cagiran taraf eksikleri tamamlamak
+        # zorunda kalmasin.
+        assert len(data["by_weekday"]) == 7
+        assert len(data["by_hour"]) == 24
+        assert data["peak_weekday"] is None
+        assert data["peak_hour"] is None
+        assert data["enough_data"] is False
+
+    async def test_tiklamalar_saatlere_dagiliyor(self, auth_client, app):
+        from datetime import UTC, datetime, timedelta
+
+        kimlik = await kullanici_id(auth_client)
+        link = await create_link(auth_client)
+        dun = datetime.now(UTC) - timedelta(days=1)
+
+        await olay_yaz(
+            app, kimlik, dun.replace(hour=9, minute=0), link["id"], adet=3
+        )
+        await olay_yaz(
+            app, kimlik, dun.replace(hour=21, minute=0), link["id"], adet=1
+        )
+
+        data = (
+            await auth_client.get("/api/v1/analytics/best-times")
+        ).json()["data"]
+
+        assert data["total_clicks"] == 4
+        assert saat_sozlugu(data) == {9: 3, 21: 1}
+        assert data["peak_hour"] == 9
+
+    async def test_saat_dilimi_saatleri_kaydiriyor(self, auth_client, app):
+        from datetime import UTC, datetime, timedelta
+
+        kimlik = await kullanici_id(auth_client)
+        link = await create_link(auth_client)
+        dun = datetime.now(UTC) - timedelta(days=1)
+        await olay_yaz(app, kimlik, dun.replace(hour=9), link["id"], adet=2)
+
+        utc = (
+            await auth_client.get("/api/v1/analytics/best-times")
+        ).json()["data"]
+        istanbul = (
+            await auth_client.get(
+                "/api/v1/analytics/best-times?tz=Europe/Istanbul"
+            )
+        ).json()["data"]
+
+        assert saat_sozlugu(utc) == {9: 2}
+        # UTC+3: ayni olay kullanicinin saatiyle 12'de.
+        assert saat_sozlugu(istanbul) == {12: 2}
+        assert istanbul["timezone"] == "Europe/Istanbul"
+        # Toplam degismiyor; yalnizca kutular kayiyor.
+        assert istanbul["total_clicks"] == utc["total_clicks"]
+
+    async def test_saat_dilimi_gun_sinirini_kaydiriyor(self, auth_client, app):
+        # Asil mesele bu: gece yarisina yakin bir tiklama, kullanicinin
+        # saat diliminde baska bir gune dusuyor. Saatleri cevirip gunu
+        # UTC'den okumak burada yanlis cevap verirdi.
+        from datetime import UTC, datetime
+
+        kimlik = await kullanici_id(auth_client)
+        link = await create_link(auth_client)
+
+        # 2026-09-14 bir Pazartesi. 23:00 UTC -> Istanbul'da Sali 02:00.
+        an = datetime(2026, 9, 14, 23, tzinfo=UTC)
+        await olay_yaz(app, kimlik, an, link["id"], adet=2)
+
+        yol = "/api/v1/analytics/best-times?days=90"
+        utc = (await auth_client.get(yol)).json()["data"]
+        istanbul = (
+            await auth_client.get(f"{yol}&tz=Europe/Istanbul")
+        ).json()["data"]
+
+        assert gun_sozlugu(utc) == {0: 2}  # Pazartesi
+        assert gun_sozlugu(istanbul) == {1: 2}  # Sali
+        assert saat_sozlugu(istanbul) == {2: 2}
+
+    async def test_az_veriyle_zirve_iddia_edilmiyor(self, auth_client, app):
+        from datetime import UTC, datetime, timedelta
+
+        from services.analytics.analytics_service import MIN_CLICKS_FOR_PEAK
+
+        kimlik = await kullanici_id(auth_client)
+        link = await create_link(auth_client)
+        dun = datetime.now(UTC) - timedelta(days=1)
+
+        await olay_yaz(app, kimlik, dun.replace(hour=9), link["id"], adet=3)
+        az = (await auth_client.get("/api/v1/analytics/best-times")).json()["data"]
+        assert az["enough_data"] is False
+        # Zirve yine donuyor -- arayuz "su an en cok" diyebilsin diye; ama
+        # bayrak "en iyi gunun su" demeyi engelliyor.
+        assert az["peak_hour"] == 9
+
+        await olay_yaz(
+            app,
+            kimlik,
+            dun.replace(hour=9),
+            link["id"],
+            adet=MIN_CLICKS_FOR_PEAK,
+        )
+        cok = (await auth_client.get("/api/v1/analytics/best-times")).json()["data"]
+        assert cok["enough_data"] is True
+
+    async def test_profil_goruntulemesi_sayilmiyor(self, auth_client, app):
+        from datetime import UTC, datetime, timedelta
+
+        from models import EVENT_PROFILE_VIEW
+
+        kimlik = await kullanici_id(auth_client)
+        link = await create_link(auth_client)
+        dun = datetime.now(UTC) - timedelta(days=1)
+        await olay_yaz(app, kimlik, dun.replace(hour=9), link["id"], adet=2)
+
+        session_factory = app.container.async_session_factory()
+        from models import AnalyticsEvent
+
+        async with session_factory() as session:
+            session.add(
+                AnalyticsEvent(
+                    user_id=kimlik,
+                    event_type=EVENT_PROFILE_VIEW,
+                    created_at=dun.replace(hour=15),
+                )
+            )
+            await session.commit()
+
+        data = (
+            await auth_client.get("/api/v1/analytics/best-times")
+        ).json()["data"]
+
+        # Uc yalnizca tiklamalari sayiyor; 15 saati listede olmamali.
+        assert saat_sozlugu(data) == {9: 2}
+
+    async def test_baska_kullanicinin_tiklamalari_sizmaz(self, auth_client, app):
+        from datetime import UTC, datetime, timedelta
+
+        kimlik = await kullanici_id(auth_client)
+        link = await create_link(auth_client)
+        dun = datetime.now(UTC) - timedelta(days=1)
+        await olay_yaz(app, kimlik, dun.replace(hour=9), link["id"], adet=2)
+
+        await register_user(
+            auth_client, username="baska", email="baska@example.com"
+        )
+        baska_token = await login(auth_client, "baska@example.com")
+
+        data = (
+            await auth_client.get(
+                "/api/v1/analytics/best-times", headers=auth_header(baska_token)
+            )
+        ).json()["data"]
+
+        assert data["total_clicks"] == 0
+
+    async def test_gecersiz_saat_dilimi_422(self, auth_client):
+        response = await auth_client.get(
+            "/api/v1/analytics/best-times?tz=Mars/Olympus"
+        )
+        assert response.status_code == 422
+        assert "Mars/Olympus" in response.text
+
+    async def test_gecersiz_gun_sayisi_422(self, auth_client):
+        assert (
+            await auth_client.get("/api/v1/analytics/best-times?days=0")
+        ).status_code == 422
+        assert (
+            await auth_client.get("/api/v1/analytics/best-times?days=91")
+        ).status_code == 422

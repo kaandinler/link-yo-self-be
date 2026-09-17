@@ -132,6 +132,42 @@ class AnalyticsEventRepository(BaseRepository[AnalyticsEvent]):
 
         return await self.execute_query(_counts)
 
+    async def hourly_click_counts(
+        self, user_id: int, since: datetime
+    ) -> list[tuple[str, int, int]]:
+        """Kullanicinin `since` tarihinden itibaren saat basina tiklamalari.
+
+        (gun, saat, adet) uclulerinden olusan bir liste doner; gun ve saat
+        UTC'ye gore. Saat dilimi cevrimi bilerek burada degil servis
+        katmaninda: SQL'de IANA saat dilimi kullanmak PostgreSQL'e ozgu
+        olurdu ve testler SQLite uzerinde kosuyor.
+
+        Gruplama veritabaninda yapiliyor ve sonuc kucuk kaliyor: 90 gunluk
+        aralikta en fazla 90 x 24 = 2160 satir. Ham olaylari Python'a
+        cekmek, yogun bir hesapta on binlerce satir demekti.
+
+        func.extract iki veritabaninda da calisiyor: SQLAlchemy bunu
+        SQLite'ta STRFTIME'a ceviriyor.
+        """
+        gun = func.date(AnalyticsEvent.created_at).label("gun")
+        saat = func.extract("hour", AnalyticsEvent.created_at).label("saat")
+
+        async def _counts(session: AsyncSession) -> list[tuple[str, int, int]]:
+            result = await session.execute(
+                select(gun, saat, func.count())
+                .where(AnalyticsEvent.user_id == user_id)
+                .where(AnalyticsEvent.event_type == EVENT_LINK_CLICK)
+                .where(AnalyticsEvent.created_at >= since)
+                .group_by(gun, saat)
+            )
+            return [
+                (_gune_metin(satir[0]), int(satir[1]), satir[2])
+                for satir in result.all()
+            ]
+
+        return await self.execute_query(_counts)
+
+
 
 def _gune_metin(deger: object) -> str:
     """date/datetime/metin -> 'YYYY-MM-DD'."""
