@@ -8,7 +8,11 @@ from fastapi import APIRouter, Depends, Path, Query
 
 from core.schemas.response import SuccessResponse
 from di.container import Container
-from services.public.public_profile_dto import PublicProfile, PublicProfileRef
+from services.public.public_profile_dto import (
+    PublicProfile,
+    PublicProfileCount,
+    PublicProfileRef,
+)
 from services.user.user_service import UserService
 
 router = APIRouter(tags=["public"])
@@ -44,6 +48,30 @@ async def list_public_profiles(
     return SuccessResponse.create(
         data=profiles,
         message="Public profiles retrieved successfully",
+    )
+
+
+@router.get(
+    "/sitemap/count", response_model=SuccessResponse[PublicProfileCount]
+)
+@inject
+async def count_public_profiles(
+    user_service: Annotated[UserService, Depends(Provide[Container.user_service])],
+):
+    """Sitemap'e girecek profil sayisi.
+
+    Frontend sitemap'i 50.000 URL'lik standart sinirin altinda tutmak
+    icin parcalara boluyor ve kac parca gerektigini buradan ogreniyor.
+    Listeyi bastan sona okuyup saymak, her parca icin butun listeyi
+    cekmek demekti.
+
+    Sayim, listeyle ayni kosulu kullaniyor (en az bir gorunur link);
+    aksi halde parca sayisi liste uzunluguyla tutmazdi.
+    """
+    count = await user_service.count_public_profiles()
+    return SuccessResponse.create(
+        data=count,
+        message="Public profile count retrieved successfully",
     )
 
 

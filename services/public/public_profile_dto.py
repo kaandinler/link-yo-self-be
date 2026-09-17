@@ -59,3 +59,9 @@ class PublicProfileRef(BaseModel):
 
     username: str
     last_modified: datetime
+
+
+class PublicProfileCount(BaseModel):
+    """Sitemap'e girecek profil sayisi."""
+
+    count: int

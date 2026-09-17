@@ -161,6 +161,7 @@ kutunun adi.
 |---|---|---|
 | GET | `/p/{username}` | **Public** — profil + aktif linkler |
 | GET | `/p/sitemap/profiles` | **Public** — sitemap icin profil listesi |
+| GET | `/p/sitemap/count` | **Public** — o listenin uzunlugu |
 
 `/p/{username}` token gerektirmez, buyuk/kucuk harf duyarsizdir ve
 e-posta / id / admin gibi hassas alanlari donmez.
@@ -180,3 +181,13 @@ yalnizca `User.updated_at`'e bakmak link eklenmesini kacirirdi.
 `limit`ten az satir donmesi listenin bittigini gosterir. Yol iki
 segmentli: tek segmentli olsaydi `sitemap` adli bir kullanicinin
 profilini golgelerdi.
+
+`/p/sitemap/count` ayni kosulla sayiyor. Frontend sitemap'i 50.000
+URL'lik standart sinirin altinda tutmak icin parcalara boluyor ve kac
+parca gerektigini buradan ogreniyor; listeyi bastan sona okuyup saymak
+her parca icin butun listeyi cekmek demekti.
+
+**Kosul iki sorguda da ayni fonksiyondan geliyor.** Ayrisirlarsa parca
+sayisi liste uzunluguyla tutmaz -- son parca eksik kalir ya da bos bir
+parca uretilir -- ve bu yalnizca profil sayisi belirli bir esige
+gelince ortaya cikar.

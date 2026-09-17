@@ -17,6 +17,7 @@ from repositories.user.user_repository import UserRepository
 from services.public.public_profile_dto import (
     PublicLink,
     PublicProfile,
+    PublicProfileCount,
     PublicProfileRef,
 )
 from services.user.user_service_dto import UserCreateAdmin, UserUpdateAdmin
@@ -252,6 +253,12 @@ class UserService(BaseService):
             PublicProfileRef(username=username, last_modified=son_degisiklik)
             for username, son_degisiklik in satirlar
         ]
+
+    async def count_public_profiles(self) -> PublicProfileCount:
+        """Sitemap'e girecek profil sayisi; parcalama icin."""
+        return PublicProfileCount(
+            count=await self.repository.count_public_profiles()
+        )
 
     async def check_username_availability(self, username: str) -> bool:
         """Kullanici adi musait mi (silinmis kayitlar da isgal eder)."""
