@@ -134,6 +134,23 @@ kutunun adi.
 | Method | Yol | Aciklama |
 |---|---|---|
 | GET | `/p/{username}` | **Public** — profil + aktif linkler |
+| GET | `/p/sitemap/profiles` | **Public** — sitemap icin profil listesi |
 
 `/p/{username}` token gerektirmez, buyuk/kucuk harf duyarsizdir ve
 e-posta / id / admin gibi hassas alanlari donmez.
+
+`/p/sitemap/profiles` frontend'in `sitemap.xml`'i uretmesi icin var:
+her satirda yalnizca `username` ve `last_modified`.
+
+**En az bir gorunur linki olan profiller doner.** Sitemap arama
+motoruna "sitenin onemli sayfalari bunlar" demek; kayit olup hicbir
+sey eklememis bir hesabin bos sayfasi oraya girerse hem ziyaretciyi
+hem de sitenin genel degerlendirmesini asagi ceker.
+
+`last_modified` profilin ve linklerinin en yeni degisiklik tarihi --
+yalnizca `User.updated_at`'e bakmak link eklenmesini kacirirdi.
+
+`limit` (varsayilan 1000, en fazla 5000) ve `offset` ile sayfalanir;
+`limit`ten az satir donmesi listenin bittigini gosterir. Yol iki
+segmentli: tek segmentli olsaydi `sitemap` adli bir kullanicinin
+profilini golgelerdi.

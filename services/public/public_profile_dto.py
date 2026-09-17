@@ -5,6 +5,8 @@ Bu modeller kimlik dogrulamasi olmadan servis edildigi icin hassas alanlar
 birakilmistir.
 """
 
+from datetime import datetime
+
 from pydantic import BaseModel, ConfigDict
 
 
@@ -45,3 +47,15 @@ class PublicProfile(BaseModel):
     background_value: str | None = None
 
     links: list[PublicLink] = []
+
+
+class PublicProfileRef(BaseModel):
+    """Sitemap icin bir profil satiri.
+
+    Sayfanin icerigi degil, yalnizca adresi ve ne zaman degistigi. Arama
+    motorunun sitemap'ten istedigi tam olarak bu ikisi; profilin kendisi
+    zaten sayfa cagrilinca geliyor.
+    """
+
+    username: str
+    last_modified: datetime

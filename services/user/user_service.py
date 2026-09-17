@@ -14,7 +14,11 @@ from repositories.analytics.analytics_event_repository import (
 )
 from repositories.auth.refresh_token_repository import RefreshTokenRepository
 from repositories.user.user_repository import UserRepository
-from services.public.public_profile_dto import PublicLink, PublicProfile
+from services.public.public_profile_dto import (
+    PublicLink,
+    PublicProfile,
+    PublicProfileRef,
+)
 from services.user.user_service_dto import UserCreateAdmin, UserUpdateAdmin
 
 
@@ -234,6 +238,20 @@ class UserService(BaseService):
             background_value=user.background_value,
             links=[PublicLink.model_validate(link) for link in visible_links],
         )
+
+    async def list_public_profiles(
+        self, limit: int, offset: int
+    ) -> list[PublicProfileRef]:
+        """Sitemap'e girecek profiller, kullanici adina gore sirali.
+
+        Sayfalama cagiran tarafta: `limit`ten az satir gelmesi listenin
+        bittigini gosteriyor, boylece ayri bir sayim sorgusu gerekmiyor.
+        """
+        satirlar = await self.repository.list_public_profiles(limit, offset)
+        return [
+            PublicProfileRef(username=username, last_modified=son_degisiklik)
+            for username, son_degisiklik in satirlar
+        ]
 
     async def check_username_availability(self, username: str) -> bool:
         """Kullanici adi musait mi (silinmis kayitlar da isgal eder)."""

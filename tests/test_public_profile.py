@@ -164,3 +164,115 @@ class TestPublicProfileLinks:
 
         assert response.status_code == 200
         assert response.json()["data"]["redirect_url"] == "https://ornek.com"
+
+
+SITEMAP_URL = "/api/v1/p/sitemap/profiles"
+
+
+async def _kullanici_ve_link(client, username: str, link_sayisi: int = 1) -> str:
+    """Kullanici acar, giris yapar ve istenen sayida link ekler."""
+    await register_user(client, username=username, email=f"{username}@example.com")
+    token = await login(client, identifier=f"{username}@example.com")
+    for sira in range(link_sayisi):
+        response = await client.post(
+            "/api/v1/links/",
+            json={"title": f"Link {sira}", "url": f"https://ornek.test/{sira}"},
+            headers=auth_header(token),
+        )
+        assert response.status_code == 201, response.text
+    return token
+
+
+def _adlar(response) -> list[str]:
+    return [satir["username"] for satir in response.json()["data"]]
+
+
+class TestSitemapProfiles:
+    async def test_token_gerektirmez(self, client):
+        await _kullanici_ve_link(client, "ada")
+
+        response = await client.get(SITEMAP_URL)
+
+        assert response.status_code == 200
+        assert _adlar(response) == ["ada"]
+
+    async def test_linki_olmayan_profil_listelenmiyor(self, client):
+        # Kayit olup hicbir sey eklememis hesabin sayfasi bos; sitemap
+        # arama motoruna "onemli sayfalarim" diyor, bos sayfa oraya girmemeli.
+        await register_user(client, username="bos", email="bos@example.com")
+        await _kullanici_ve_link(client, "dolu")
+
+        response = await client.get(SITEMAP_URL)
+
+        assert _adlar(response) == ["dolu"]
+
+    async def test_pasif_link_tek_basina_yetmiyor(self, client):
+        token = await _kullanici_ve_link(client, "gizli")
+        linkler = (
+            await client.get("/api/v1/links/", headers=auth_header(token))
+        ).json()["data"]
+        response = await client.patch(
+            f"/api/v1/links/{linkler[0]['id']}/toggle", headers=auth_header(token)
+        )
+        assert response.status_code == 200, response.text
+
+        # Link'i kapatan kullanicinin sayfasinda gosterilecek bir sey kalmadi.
+        assert _adlar(await client.get(SITEMAP_URL)) == []
+
+    async def test_silinmis_kullanici_listelenmiyor(self, client):
+        token = await _kullanici_ve_link(client, "giden")
+        response = await client.request(
+            "DELETE",
+            "/api/v1/users/me",
+            headers=auth_header(token),
+            json={"password": DEFAULT_USER["password"]},
+        )
+        assert response.status_code == 204, response.text
+
+        assert _adlar(await client.get(SITEMAP_URL)) == []
+
+    async def test_kullanici_adina_gore_sirali_ve_sayfalanabilir(self, client):
+        for ad in ("ceren", "ali", "berk"):
+            await _kullanici_ve_link(client, ad)
+
+        hepsi = await client.get(SITEMAP_URL)
+        assert _adlar(hepsi) == ["ali", "berk", "ceren"]
+
+        # Sayfalama tutarli olmali: sabit siralama olmadan ayni kayit iki
+        # sayfada birden cikabilir ya da hic cikmayabilir.
+        ilk = await client.get(SITEMAP_URL, params={"limit": 2, "offset": 0})
+        ikinci = await client.get(SITEMAP_URL, params={"limit": 2, "offset": 2})
+        assert _adlar(ilk) == ["ali", "berk"]
+        assert _adlar(ikinci) == ["ceren"]
+
+    async def test_son_degisiklik_link_eklenince_de_ilerliyor(self, client):
+        token = await _kullanici_ve_link(client, "ada")
+        once = (await client.get(SITEMAP_URL)).json()["data"][0]["last_modified"]
+
+        response = await client.post(
+            "/api/v1/links/",
+            json={"title": "Yeni", "url": "https://ornek.test/yeni"},
+            headers=auth_header(token),
+        )
+        assert response.status_code == 201, response.text
+
+        sonra = (await client.get(SITEMAP_URL)).json()["data"][0]["last_modified"]
+        # Yalnizca User.updated_at'e bakilsaydi link eklemek tarihi
+        # ilerletmezdi ve arama motoru degisikligi gormezdi.
+        assert sonra >= once
+
+    async def test_sitemap_adli_kullanici_ucu_golgelemiyor(self, client):
+        # "/sitemap/profiles" iki segmentli oldugu icin "/{username}" ile
+        # cakismiyor. Tek segmentli yazilsaydi bu kullanici erisilemezdi.
+        await _kullanici_ve_link(client, "sitemap")
+
+        profil = await client.get("/api/v1/p/sitemap")
+        assert profil.status_code == 200
+        assert profil.json()["data"]["username"] == "sitemap"
+
+        assert _adlar(await client.get(SITEMAP_URL)) == ["sitemap"]
+
+    async def test_limit_ust_sinirin_ustunde_reddediliyor(self, client):
+        response = await client.get(SITEMAP_URL, params={"limit": 100000})
+
+        assert response.status_code == 422

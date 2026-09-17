@@ -4,14 +4,47 @@
 from typing import Annotated
 
 from dependency_injector.wiring import Provide, inject
-from fastapi import APIRouter, Depends, Path
+from fastapi import APIRouter, Depends, Path, Query
 
 from core.schemas.response import SuccessResponse
 from di.container import Container
-from services.public.public_profile_dto import PublicProfile
+from services.public.public_profile_dto import PublicProfile, PublicProfileRef
 from services.user.user_service import UserService
 
 router = APIRouter(tags=["public"])
+
+# Tek seferde donen en fazla satir. Sitemap standardi 50.000 URL'de
+# kesiyor; buradaki sinir yanit boyutu icin, listenin tamami sayfalanarak
+# aliniyor.
+MAX_LIMIT = 5000
+
+
+# DIKKAT - SIRA: bu route "/{username}"den ONCE tanimli olmali. Iki
+# segmentli oldugu icin tek segmentli profil adresiyle zaten cakismiyor,
+# ama tek segmentli yazilsaydi "sitemap" adli bir kullanicinin sayfasini
+# golgelerdi. Ayri bir segment bu riski tamamen kaldiriyor.
+@router.get(
+    "/sitemap/profiles", response_model=SuccessResponse[list[PublicProfileRef]]
+)
+@inject
+async def list_public_profiles(
+    user_service: Annotated[UserService, Depends(Provide[Container.user_service])],
+    limit: Annotated[int, Query(ge=1, le=MAX_LIMIT)] = 1000,
+    offset: Annotated[int, Query(ge=0)] = 0,
+):
+    """Sitemap icin profil adresleri ve son degisiklik tarihleri.
+
+    Token gerektirmez; zaten herkese acik sayfalarin listesi. Yalnizca
+    en az bir gorunur linki olan profiller doner -- bos bir sayfayi
+    arama motoruna onermek ona da siteye de zarar veriyor.
+
+    `limit`ten az satir donmesi listenin bittigini gosterir.
+    """
+    profiles = await user_service.list_public_profiles(limit=limit, offset=offset)
+    return SuccessResponse.create(
+        data=profiles,
+        message="Public profiles retrieved successfully",
+    )
 
 
 @router.get("/{username}", response_model=SuccessResponse[PublicProfile])

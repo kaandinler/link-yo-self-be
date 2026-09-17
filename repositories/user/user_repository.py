@@ -1,11 +1,26 @@
 from collections.abc import Awaitable, Sequence
+from datetime import UTC, datetime
 
 from sqlalchemy import func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from core.base_repository import BaseRepository
-from models import User
+from models import Link, User
+
+
+def _en_yeni(*tarihler: datetime | None) -> datetime:
+    """Verilen tarihlerin en yenisi, UTC'ye normalize edilmis.
+
+    NEDEN NORMALIZE: kolonlar DateTime(timezone=True) ama SQLite (testler)
+    saat dilimsiz datetime donduruyor, PostgreSQL ise dilimli. Ikisi
+    karistirilip max()'e verilirse Python TypeError atiyor -- yani hata
+    yalnizca tek bir veritabaninda gorunurdu.
+    """
+    dolu = [
+        t if t.tzinfo else t.replace(tzinfo=UTC) for t in tarihler if t is not None
+    ]
+    return max(dolu)
 
 # Listelemede siralanmasina izin verilen kolonlar. Beyaz liste sart: kolon adi
 # istemciden geliyor, dogrudan getattr edilirse hashed_password gibi alanlara
@@ -166,6 +181,58 @@ class UserRepository(BaseRepository[User]):
 
         return await self.execute_query(
             _get_public_profile, username, transactional=transactional
+        )
+
+    async def list_public_profiles(
+        self, limit: int, offset: int, transactional: bool = False
+    ) -> list[tuple[str, datetime]]:
+        """Sitemap'e girecek profiller: (kullanici_adi, son_degisiklik).
+
+        EN AZ BIR GORUNUR LINK SARTI: sitemap arama motoruna "sitemin
+        onemli sayfalari bunlar" demek. Kayit olup hicbir sey eklememis
+        bir hesabin sayfasi bos; oraya yollamak hem ziyaretciyi hem de
+        sitenin genel degerlendirmesini asagi cekiyor. Bu yuzden liste
+        kayitli kullanicilarin degil, gercekten bir icerigi olanlarin.
+
+        Son degisiklik profilin kendisinden ve linklerinden en yenisi:
+        yalnizca User.updated_at'e bakmak, kullanici link eklediginde
+        sayfanin degistigini kacirirdi.
+        """
+
+        async def _list_public_profiles(
+            session: AsyncSession, limit_: int, offset_: int
+        ) -> list[tuple[str, datetime]]:
+            result = await session.execute(
+                select(
+                    User.username,
+                    User.updated_at,
+                    User.created_at,
+                    func.max(Link.updated_at),
+                    func.max(Link.created_at),
+                )
+                .join(Link, Link.user_id == User.id)
+                .where(
+                    User.is_deleted.is_(False),
+                    Link.is_deleted.is_(False),
+                    Link.is_active.is_(True),
+                )
+                # Postgres birincil anahtara gore gruplamaya izin veriyor
+                # ama SQLite'ta ayni garanti yok; secilen tum kolonlar
+                # gruba giriyor.
+                .group_by(User.id, User.username, User.updated_at, User.created_at)
+                # Sayfalamanin tutarli olmasi icin sabit bir siralama sart.
+                .order_by(User.username)
+                .limit(limit_)
+                .offset(offset_)
+            )
+
+            return [
+                (satir[0], _en_yeni(satir[1], satir[2], satir[3], satir[4]))
+                for satir in result.all()
+            ]
+
+        return await self.execute_query(
+            _list_public_profiles, limit, offset, transactional=transactional
         )
 
     async def count_admins(self, transactional: bool = False) -> int:
