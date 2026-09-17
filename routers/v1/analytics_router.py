@@ -1,7 +1,9 @@
 # routers/v1/analytics_router.py
 
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+
 from dependency_injector.wiring import Provide, inject
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from core.schemas.response import SuccessResponse
 from deps import get_current_user
@@ -10,6 +12,7 @@ from models import User
 from services.analytics.analytics_dto import (
     AnalyticsSummary,
     AnalyticsTimeseries,
+    BestTimes,
     LinkTimeseriesResponse,
     ReferrerBreakdown,
 )
@@ -122,4 +125,52 @@ async def get_referrers(
     return SuccessResponse.create(
         data=breakdown,
         message="Referrers retrieved successfully",
+    )
+
+
+@router.get("/best-times", response_model=SuccessResponse[BestTimes])
+@inject
+async def get_best_times(
+    days: int = Query(
+        30,
+        ge=1,
+        le=MAX_DAYS,
+        description="Kac gunluk aralik dondurulecek (bugun dahil).",
+    ),
+    tz: str = Query(
+        "UTC",
+        description=(
+            "IANA saat dilimi, orn. 'Europe/Istanbul'. Saatler bu dilime "
+            "gore gruplanir."
+        ),
+    ),
+    current_user: User = Depends(get_current_user),
+    analytics_service: AnalyticsService = Depends(Provide[Container.analytics_service]),
+):
+    """Tiklamalarin haftaguno ve saate dagilimi.
+
+    Varsayilan aralik 7 degil 30 gun: haftanin her gununun birkac kez
+    tekrarlanmadigi bir aralikta "hangi gun daha iyi" sorusu sorulamaz.
+
+    Saat dilimi zorunlu degil ama neredeyse her zaman verilmeli. Olaylar
+    UTC saklaniyor ve "en cok tiklama saat 14'te" bilgisi kullanicinin
+    kendi saatine cevrilmeden bir sey anlatmiyor.
+
+    DIKKAT: Yanittaki `enough_data` false iken `peak_weekday` /
+    `peak_hour` bir cikarim degil, yalnizca en buyuk kutunun adi.
+    """
+    try:
+        ZoneInfo(tz)
+    except (ZoneInfoNotFoundError, ValueError) as hata:
+        # 422: istek bicimsel olarak dogru ama icerik gecersiz -- days icin
+        # Query(ge=, le=) ne donduruyorsa aynisi.
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Unknown timezone: {tz}",
+        ) from hata
+
+    best_times = await analytics_service.get_best_times(current_user, days, tz)
+    return SuccessResponse.create(
+        data=best_times,
+        message="Best times retrieved successfully",
     )

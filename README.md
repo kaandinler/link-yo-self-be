@@ -117,10 +117,18 @@ saklar; yol ve sorgu kismi atilir.
 | GET | `/analytics/timeseries` | Gunluk tiklama + profil goruntulenme (`?days=1..90`) |
 | GET | `/analytics/timeseries/by-link` | Ayni aralik, link kirilimiyla |
 | GET | `/analytics/referrers` | Tiklamalarin kaynak dagilimi |
+| GET | `/analytics/best-times` | Tiklamalarin haftaguno ve saate dagilimi (`?tz=Europe/Istanbul`) |
 
 Zaman serisi uclari `analytics_events` tablosunu okuyor; toplamlar ise
 sayaclardan geliyor. Olay kaydi sonradan eklendigi icin bu iki grubun
 sayilari birbirini tutmayabilir.
+
+`/analytics/best-times` saat dilimini istekten aliyor: olaylar UTC
+saklaniyor ve "en cok tiklama saat 14'te" bilgisi kullanicinin kendi
+saatine cevrilmeden bir sey anlatmiyor. Cevrim sunucuda, `zoneinfo` ile
+yapiliyor; yaz saati gecisleri de dogru. Yanittaki `enough_data` false
+iken `peak_weekday` / `peak_hour` bir cikarim degil, yalnizca en buyuk
+kutunun adi.
 
 ### Public profil
 | Method | Yol | Aciklama |
