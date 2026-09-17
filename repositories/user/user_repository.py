@@ -9,6 +9,21 @@ from core.base_repository import BaseRepository
 from models import Link, User
 
 
+def _sitemap_kosullari():
+    """Sitemap'e giren profillerin kosulu.
+
+    TEK YERDE: liste ile sayim ayni kosulu kullanmak ZORUNDA. Ayri ayri
+    yazilsalardi ve biri degisseydi, parca sayisi liste uzunluguyla
+    tutmaz -- son parca eksik kalir ya da bos bir parca uretilirdi ve bu
+    yalnizca profil sayisi belirli bir esige gelince ortaya cikardi.
+    """
+    return (
+        User.is_deleted.is_(False),
+        Link.is_deleted.is_(False),
+        Link.is_active.is_(True),
+    )
+
+
 def _en_yeni(*tarihler: datetime | None) -> datetime:
     """Verilen tarihlerin en yenisi, UTC'ye normalize edilmis.
 
@@ -211,11 +226,7 @@ class UserRepository(BaseRepository[User]):
                     func.max(Link.created_at),
                 )
                 .join(Link, Link.user_id == User.id)
-                .where(
-                    User.is_deleted.is_(False),
-                    Link.is_deleted.is_(False),
-                    Link.is_active.is_(True),
-                )
+                .where(*_sitemap_kosullari())
                 # Postgres birincil anahtara gore gruplamaya izin veriyor
                 # ama SQLite'ta ayni garanti yok; secilen tum kolonlar
                 # gruba giriyor.
@@ -233,6 +244,33 @@ class UserRepository(BaseRepository[User]):
 
         return await self.execute_query(
             _list_public_profiles, limit, offset, transactional=transactional
+        )
+
+    async def count_public_profiles(self, transactional: bool = False) -> int:
+        """Sitemap'e girecek profil sayisi.
+
+        Frontend sitemap'i parcalara bolerken kac parca gerektigini
+        buradan ogreniyor. Listeyi bastan sona okuyup saymak, her parca
+        icin butun listeyi cekmek demekti.
+
+        Kosul list_public_profiles ile ayni fonksiyondan geliyor.
+        """
+
+        async def _count_public_profiles(session: AsyncSession) -> int:
+            # Once gruplanmis alt sorgu, sonra satir sayisi: dogrudan
+            # count() bir kullaniciyi link sayisi kadar sayardi.
+            alt = (
+                select(User.id)
+                .join(Link, Link.user_id == User.id)
+                .where(*_sitemap_kosullari())
+                .group_by(User.id)
+                .subquery()
+            )
+            toplam = await session.scalar(select(func.count()).select_from(alt))
+            return toplam or 0
+
+        return await self.execute_query(
+            _count_public_profiles, transactional=transactional
         )
 
     async def count_admins(self, transactional: bool = False) -> int:

@@ -276,3 +276,45 @@ class TestSitemapProfiles:
         response = await client.get(SITEMAP_URL, params={"limit": 100000})
 
         assert response.status_code == 422
+
+
+COUNT_URL = "/api/v1/p/sitemap/count"
+
+
+class TestSitemapCount:
+    """Sayim, sitemap'i parcalara bolmek icin.
+
+    Sayim ile liste ayni kosulu kullanmak zorunda: ayrisirlarsa parca
+    sayisi liste uzunluguyla tutmaz ve bu yalnizca profil sayisi belirli
+    bir esige gelince ortaya cikar.
+    """
+
+    async def test_token_gerektirmez(self, client):
+        await _kullanici_ve_link(client, "ada")
+
+        response = await client.get(COUNT_URL)
+
+        assert response.status_code == 200
+        assert response.json()["data"]["count"] == 1
+
+    async def test_bos_veritabaninda_sifir(self, client):
+        response = await client.get(COUNT_URL)
+
+        assert response.json()["data"]["count"] == 0
+
+    async def test_cok_linkli_kullanici_bir_kez_sayiliyor(self, client):
+        # Gruplamadan dogrudan count() alinsaydi bu 3 donerdi.
+        await _kullanici_ve_link(client, "ada", link_sayisi=3)
+
+        assert (await client.get(COUNT_URL)).json()["data"]["count"] == 1
+
+    async def test_sayim_liste_uzunluguyla_ayni(self, client):
+        for ad in ("ali", "berk", "ceren"):
+            await _kullanici_ve_link(client, ad, link_sayisi=2)
+        # Listeye girmemesi gerekenler.
+        await register_user(client, username="bos", email="bos@example.com")
+
+        sayim = (await client.get(COUNT_URL)).json()["data"]["count"]
+        liste = _adlar(await client.get(SITEMAP_URL, params={"limit": 5000}))
+
+        assert sayim == len(liste) == 3
