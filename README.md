@@ -31,6 +31,18 @@ pytest
 Testler SQLite (aiosqlite) uzerinde calisir, ayri bir veritabani kurulumu
 gerektirmez. Her test sifirdan olusturulan bos bir semada calisir.
 
+**Ayni anda iki pytest kosturmayin.** Veritabani `/tmp` altinda sabit bir
+dosya (`tests/conftest.py`), dolayisiyla paralel iki kosu birbirinin
+semasini siler ve ikisi de anlamsiz hatalar verir. Tek kosu temizdir.
+
+### CI
+
+`.github/workflows/tests.yml` (pytest) ve `ruff.yml` (lint) `pull_request`
+ile, `push`ta ise yalnizca `dev` ve `main` icin kosar. `on: [push,
+pull_request]` iken acik PR'i olan bir dala push yapmak ayni commit icin
+her isi iki kez kosturuyordu. Ayni daldaki eski kosu, yenisi gelince
+iptal ediliyor.
+
 ## Sifre sifirlama
 
 `POST /auth/forgot-password` tek kullanimlik bir token uretip kullaniciya

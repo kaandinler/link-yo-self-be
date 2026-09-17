@@ -1,6 +1,22 @@
 name: Tests
 
-on: [push, pull_request]
+# push'ta yalnizca dev ve main: bir dalda acik PR varken hem push hem
+# pull_request tetikleniyordu ve ayni commit icin butun is iki kez
+# kosuyordu (ornegin 3ae7e78 icin 70 ve 71 numarali calismalar). Dal
+# calismalari artik PR uzerinden geliyor; kapsamda kayip yok, kontrol
+# PR acilinca kosuyor. (main henuz yok, ileride acilirsa kapsanmis olsun
+# diye listede.)
+on:
+  push:
+    branches: [dev, main]
+  pull_request:
+
+concurrency:
+  # Art arda push yapildiginda yalnizca son commit'in sonucu onemli;
+  # eskisini iptal etmek hem runner'i hem sirayi bosaltiyor. dev ve
+  # main'de iptal yok: oradaki her commit'in kendi kaydi kalsin.
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/dev' && github.ref != 'refs/heads/main' }}
 
 jobs:
   pytest:
