@@ -9,6 +9,7 @@ from repositories.analytics.analytics_event_repository import (
 )
 from repositories.link.link_repository import LinkRepository
 from services.link.link_service_dto import LinkCreate, LinkReorderRequest, LinkUpdate
+from utils.referrer import kaynak_host
 
 
 class LinkService(BaseService):
@@ -96,11 +97,18 @@ class LinkService(BaseService):
         # Güncellenmiş linkleri döndür
         return await self.repository.get_links_by_user(user_id, include_inactive=True)
 
-    async def increment_click_count(self, link_id: int) -> Link:
+    async def increment_click_count(
+        self, link_id: int, referrer: str | None = None
+    ) -> Link:
         """Link tiklanma sayisini artirir ve olayi kaydeder.
 
         Sayac toplami, olay ise zamani tutuyor: pano toplami sayactan,
         "son N gun" grafigi olaylardan okuyor.
+
+        `referrer` ziyaretcinin profil sayfasina gelmeden once bulundugu tam
+        adres; yalnizca host'u saklaniyor ve site ici gezinme "kaynaksiz"
+        sayiliyor (bkz. utils/referrer.py). Ayrastirilamayan bir deger
+        istegi dusurmuyor: tiklama sayaci, kaynak bilgisinden onemli.
         """
         link = await self.repository.get_by_id(link_id)
         if not link:
@@ -114,6 +122,7 @@ class LinkService(BaseService):
                 user_id=link.user_id,
                 event_type=EVENT_LINK_CLICK,
                 link_id=link.id,
+                referrer=kaynak_host(referrer),
             )
 
         return guncel

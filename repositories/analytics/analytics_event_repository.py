@@ -15,9 +15,16 @@ class AnalyticsEventRepository(BaseRepository[AnalyticsEvent]):
         self._model_type = AnalyticsEvent
 
     async def record(
-        self, user_id: int, event_type: str, link_id: int | None = None
+        self,
+        user_id: int,
+        event_type: str,
+        link_id: int | None = None,
+        referrer: str | None = None,
     ) -> None:
         """Tek bir olayi yazar.
+
+        `referrer` normalize edilmis host olmali (bkz. utils.referrer);
+        burada dogrulama yapilmiyor. None = dis bir kaynak yok.
 
         Olusan satir cagirana dondurulmuyor: olay kaydi bir yan etki,
         cagiranin (tiklama ucu, herkese acik profil) yanitini etkilemiyor.
@@ -29,6 +36,7 @@ class AnalyticsEventRepository(BaseRepository[AnalyticsEvent]):
                     user_id=user_id,
                     event_type=event_type,
                     link_id=link_id,
+                    referrer=referrer,
                 )
             )
 
@@ -92,6 +100,35 @@ class AnalyticsEventRepository(BaseRepository[AnalyticsEvent]):
                 (_gune_metin(satir[0]), satir[1], satir[2])
                 for satir in result.all()
             ]
+
+        return await self.execute_query(_counts)
+
+    async def referrer_counts(
+        self, user_id: int, since: datetime
+    ) -> list[tuple[str | None, int]]:
+        """Kullanicinin `since` tarihinden itibaren kaynak basina tiklamalari.
+
+        (host, adet) ikililerinden olusan bir liste doner; host None ise
+        dogrudan gelen tiklamalar.
+
+        Yalnizca tiklamalar sayiliyor: profil goruntulenmesi sunucuda
+        render edilirken kaydediliyor ve orada ziyaretcinin referrer'i
+        elimizde olmuyor, dolayisiyla o satirlarin hepsi None olurdu ve
+        "Direct"i yapay olarak sisirirdi.
+
+        Gruplama veritabaninda: dagilimi cikarmak icin tum satirlari
+        Python'a cekmeye gerek yok.
+        """
+
+        async def _counts(session: AsyncSession) -> list[tuple[str | None, int]]:
+            result = await session.execute(
+                select(AnalyticsEvent.referrer, func.count())
+                .where(AnalyticsEvent.user_id == user_id)
+                .where(AnalyticsEvent.event_type == EVENT_LINK_CLICK)
+                .where(AnalyticsEvent.created_at >= since)
+                .group_by(AnalyticsEvent.referrer)
+            )
+            return [(satir[0], satir[1]) for satir in result.all()]
 
         return await self.execute_query(_counts)
 

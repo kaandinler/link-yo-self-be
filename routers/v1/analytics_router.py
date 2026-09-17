@@ -11,6 +11,7 @@ from services.analytics.analytics_dto import (
     AnalyticsSummary,
     AnalyticsTimeseries,
     LinkTimeseriesResponse,
+    ReferrerBreakdown,
 )
 from services.analytics.analytics_service import MAX_DAYS, AnalyticsService
 
@@ -92,4 +93,33 @@ async def get_link_timeseries(
     return SuccessResponse.create(
         data=series,
         message="Link timeseries retrieved successfully",
+    )
+
+
+@router.get("/referrers", response_model=SuccessResponse[ReferrerBreakdown])
+@inject
+async def get_referrers(
+    days: int = Query(
+        7,
+        ge=1,
+        le=MAX_DAYS,
+        description="Kac gunluk aralik dondurulecek (bugun dahil).",
+    ),
+    current_user: User = Depends(get_current_user),
+    analytics_service: AnalyticsService = Depends(Provide[Container.analytics_service]),
+):
+    """Tiklamalarin hangi siteden geldigi.
+
+    Kaynak, ziyaretcinin profil sayfasina gelmeden once bulundugu adresin
+    host'u. Bunu frontend acikca gonderiyor: tiklama isteginin kendi Referer
+    basligi her zaman bizim profil sayfamiz oldugu icin bu is icin
+    kullanilamiyor (bkz. utils/referrer.py).
+
+    DIKKAT: Referrer kolonu olay tablosundan sonra eklendi; daha eski
+    tiklamalarin kaynagi bilinmedigi icin "dogrudan" sayiliyorlar.
+    """
+    breakdown = await analytics_service.get_referrers(current_user, days)
+    return SuccessResponse.create(
+        data=breakdown,
+        message="Referrers retrieved successfully",
     )

@@ -15,12 +15,20 @@ from services.analytics.analytics_dto import (
     LinkDayPoint,
     LinkTimeseries,
     LinkTimeseriesResponse,
+    ReferrerBreakdown,
+    ReferrerKind,
+    ReferrerSource,
 )
 from utils.time_utils import utcnow
 
 # Ucun kabul ettigi araligin ust siniri. Uzun araliklar hem sorguyu hem de
 # grafigi anlamsiz derecede yogunlastiriyor; gerekirse aylik bir uc eklenir.
 MAX_DAYS = 90
+
+# Kaynak listesinde ayri satir olarak gosterilecek en fazla host sayisi;
+# kalanlar tek bir "diger" satirinda toplaniyor. Uzun kuyruk panoda okunur
+# bir sey anlatmiyor, yalnizca listeyi uzatiyor.
+MAX_SOURCES = 8
 
 
 class AnalyticsService:
@@ -180,4 +188,56 @@ class AnalyticsService:
             start_date=baslangic_gun,
             end_date=bugun,
             links=seriler,
+        )
+
+    async def get_referrers(self, user: User, days: int) -> ReferrerBreakdown:
+        """Secili aralikta tiklamalarin hangi siteden geldigi.
+
+        Hicbir kaynagi olmayan bir aralik icin bos liste doner; cagiran taraf
+        "henuz veri yok" durumunu sources'in bosluguyla ayirt edebiliyor.
+
+        Dogrudan gelen tiklamalar ayri bir satir olarak listede: onlari
+        gizlemek toplami tutarsiz gosterirdi ve "trafigimin ucte ikisini
+        nereden geldigini bilmiyorum" da bir bilgi.
+        """
+        days, baslangic_gun, bugun, baslangic = self._aralik(days)
+
+        satirlar = (
+            await self.event_repository.referrer_counts(user.id, baslangic)
+            if self.event_repository
+            else []
+        )
+
+        dogrudan = sum(adet for host, adet in satirlar if not host)
+        hostlar = sorted(
+            ((host, adet) for host, adet in satirlar if host),
+            key=lambda satir: (-satir[1], satir[0]),
+        )
+
+        kaynaklar = [
+            ReferrerSource(kind=ReferrerKind.HOST, host=host, clicks=adet)
+            for host, adet in hostlar[:MAX_SOURCES]
+        ]
+
+        if dogrudan:
+            kaynaklar.append(
+                ReferrerSource(kind=ReferrerKind.DIRECT, clicks=dogrudan)
+            )
+
+        # Dogrudan satiri da siralamaya giriyor: cogu sitede en buyuk pay
+        # onda ve listenin ortasinda kaybolmamali.
+        kaynaklar.sort(key=lambda kaynak: -kaynak.clicks)
+
+        kalan = sum(adet for _, adet in hostlar[MAX_SOURCES:])
+        if kalan:
+            kaynaklar.append(
+                ReferrerSource(kind=ReferrerKind.OTHER, clicks=kalan)
+            )
+
+        return ReferrerBreakdown(
+            days=days,
+            start_date=baslangic_gun,
+            end_date=bugun,
+            total_clicks=sum(kaynak.clicks for kaynak in kaynaklar),
+            sources=kaynaklar,
         )

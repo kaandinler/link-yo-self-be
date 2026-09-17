@@ -283,6 +283,17 @@ class AnalyticsEvent(BaseModel):
         nullable=True,
     )
 
+    # Ziyaretcinin bu sayfaya hangi siteden geldigi; yalnizca host, orn.
+    # "instagram.com". NULL = dis bir kaynak yok (adres cubuguna yazilmis,
+    # referrer gondermeyen bir uygulamadan gelinmis ya da site ici gezinme).
+    #
+    # NEDEN TAM URL DEGIL: referrer'in yol ve sorgu kismi cogu zaman kampanya
+    # ve oturum belirteci tasiyor; bunlari saklamanin bize bir faydasi yok ama
+    # sizdirma yuzeyi yaratiyor. Host, "trafigim nereden geliyor" sorusunun
+    # tamamini cevapliyor. Bedeli: "Instagram'da hangi gonderi" gibi bir
+    # kirilim sonradan gecmise donuk uretilemez.
+    referrer = Column(String(255), nullable=True)
+
     # Zaman serisi sorgusu her zaman "bir kullanicinin su tarihten sonraki
     # olaylari" seklinde; bilesik indeks tam bu erisim icin.
     __table_args__ = (

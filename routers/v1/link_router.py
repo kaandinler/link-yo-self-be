@@ -9,6 +9,7 @@ from di.container import Container
 from models import User
 from services.link.link_service import LinkService
 from services.link.link_service_dto import (
+    LinkClickRequest,
     LinkCreate,
     LinkRead,
     LinkReorderRequest,
@@ -135,10 +136,19 @@ async def toggle_link_status(
 @inject
 async def click_link(
     link_id: int,
+    payload: LinkClickRequest | None = None,
     link_service: LinkService = Depends(Provide[Container.link_service])
 ):
-    """Link tıklanma sayısını artırır ve redirect URL'sini döndürür"""
-    link = await link_service.increment_click_count(link_id)
+    """Link tıklanma sayısını artırır ve redirect URL'sini döndürür.
+
+    Govde opsiyonel; verilirse icindeki `referrer` ziyaretcinin bu sayfaya
+    hangi siteden geldigini soyluyor. Istegin kendi Referer basligi bunun
+    yerine gecemiyor: o her zaman bizim profil sayfamiz
+    (bkz. services/link/link_service_dto.py).
+    """
+    link = await link_service.increment_click_count(
+        link_id, referrer=payload.referrer if payload else None
+    )
     return SuccessResponse.create(
         data={"redirect_url": link.url},
         message="Click recorded successfully"
