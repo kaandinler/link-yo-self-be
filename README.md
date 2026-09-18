@@ -159,12 +159,25 @@ kutunun adi.
 ### Public profil
 | Method | Yol | Aciklama |
 |---|---|---|
-| GET | `/p/{username}` | **Public** — profil + aktif linkler |
+| GET | `/p/{username}` | **Public** — profil + aktif linkler (`count_view=false` ile sayilmadan) |
 | GET | `/p/sitemap/profiles` | **Public** — sitemap icin profil listesi |
 | GET | `/p/sitemap/count` | **Public** — o listenin uzunlugu |
 
 `/p/{username}` token gerektirmez, buyuk/kucuk harf duyarsizdir ve
 e-posta / id / admin gibi hassas alanlari donmez.
+
+**`count_view=false` ile sayimsiz okunur.** Bu cagri varsayilan olarak
+bir "profil goruntulenmesi" sayiliyor: hem `profile_view_count` hem de
+zaman serisindeki olay kaydi artiyor. Ama ayni ucu sayfa disinda
+cagiran yerler de var -- frontend paylasim kartini (`opengraph-image`)
+cizerken profili yeniden okuyor. Bayraksiz halde bir kaziyicinin kart
+istegi ziyaret olarak sayiliyor, yani kimsenin gormedigi bir sayfa
+goruntulenme uretiyordu. Bayrak yalnizca sayimi kapatiyor; donen
+profil birebir ayni.
+
+Kotuye kullanim tarafinda bir sey acmiyor: bayrak sayiyi yalnizca
+*azaltabiliyor*, sisirmenin yolu degil -- sayac zaten hic istek
+atmamakla da artmiyor.
 
 `/p/sitemap/profiles` frontend'in `sitemap.xml`'i uretmesi icin var:
 her satirda yalnizca `username` ve `last_modified`.
