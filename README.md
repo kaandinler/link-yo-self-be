@@ -21,6 +21,36 @@ Swagger arayuzu: <http://localhost:8000/docs>
 > **Not:** `bcrypt` 4.0.1'e pinlenmistir. `passlib` 1.7.4 bcrypt >= 4.1 ile
 > uyumsuzdur ve yukseltilirse kayit ucu 500 doner.
 
+### Ilk admin
+
+```bash
+python -m scripts.create_admin --username kaan \
+    --email kaan@example.com --password 'Gizli.Parola1'
+
+# ya da ortam degiskenleriyle (CI icin daha rahat):
+ADMIN_USERNAME=... ADMIN_EMAIL=... ADMIN_PASSWORD=... python -m scripts.create_admin
+```
+
+**Neden ayri bir betik:** admin olusturmanin tek yolu admin panelinden
+gecmek, panele girmenin tek yolu da admin olmak. Kayit ucunda
+`is_admin` bilincli olarak yok -- olsaydi herkes kendini admin
+yapardi. Yani bos bir veritabaninda panele hic kimse giremiyordu;
+ilk admini acmanin yolu elle SQL yazmakti.
+
+Betik surecin icinden degil, sunucuya erisimi olan birinin elinden
+calisiyor: HTTP yuzeyine yeni bir sey acmiyor.
+
+Kullanici zaten varsa yeniden olusturulmuyor, yalnizca admin degilse
+admin yapiliyor -- **parolasi degismiyor.** Yetkilendirme parola
+sifirlama degil; ezseydi bir hesabi admin yapmak o hesaba girmenin
+yolu olurdu. Ayni degerlerle ikinci kez calistirmak guvenli, bu
+yuzden kurulum betiklerine ve CI adimlarina konabiliyor.
+
+Kullanici adi ve parola uygulamanin kendi kurallarindan geciyor;
+e-posta da oyle. (`example.test` gibi ayrilmis bir alan adi kabul
+edilseydi kayit acilir, sonra `/users/` ucu yaniti serilestiremeyip
+500 donerdi -- olcup gorduk.)
+
 ## Testler
 
 ```bash
