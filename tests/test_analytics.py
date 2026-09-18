@@ -77,6 +77,41 @@ class TestProfilGoruntulenme:
         data = (await auth_client.get("/api/v1/analytics/summary")).json()["data"]
         assert data["profile_view_count"] == 0
 
+    async def test_count_view_false_sayaci_artirmaz(self, auth_client):
+        """Paylasim kartinin okumasi ziyaret sayilmamali.
+
+        Frontend karti cizerken ayni ucu yeniden cagiriyor. Sayac
+        varsayilan olarak arttigi icin bir kaziyicinin kart istegi
+        "ziyaret" olarak sayiliyordu; kimsenin gormedigi bir sayfa
+        goruntulenme uretiyordu.
+        """
+        for _ in range(3):
+            response = await auth_client.get(
+                f"/api/v1/p/{DEFAULT_USER['username']}?count_view=false"
+            )
+            assert response.status_code == 200, response.text
+
+        data = (await auth_client.get("/api/v1/analytics/summary")).json()["data"]
+
+        assert data["profile_view_count"] == 0
+
+    async def test_count_view_false_yaniti_degistirmiyor(self, auth_client):
+        """Bayrak yalnizca sayimi kapatiyor; donen profil ayni."""
+        sayan = await auth_client.get(f"/api/v1/p/{DEFAULT_USER['username']}")
+        saymayan = await auth_client.get(
+            f"/api/v1/p/{DEFAULT_USER['username']}?count_view=false"
+        )
+
+        assert sayan.json()["data"] == saymayan.json()["data"]
+
+    async def test_count_view_varsayilani_hala_sayiyor(self, auth_client):
+        """Bayrak verilmezse davranis degismiyor."""
+        await auth_client.get(f"/api/v1/p/{DEFAULT_USER['username']}")
+
+        data = (await auth_client.get("/api/v1/analytics/summary")).json()["data"]
+
+        assert data["profile_view_count"] == 1
+
     async def test_sayac_kullaniciya_ozel(self, client):
         await register_user(client)
         await register_user(client, username="baska", email="baska@example.com")
@@ -156,6 +191,18 @@ class TestAnalyticsZamanSerisi:
 
         assert data["total_profile_views"] == 1
         assert data["points"][-1]["profile_views"] == 1
+
+    async def test_count_view_false_zaman_serisine_de_girmiyor(self, auth_client):
+        """Sayac ile olay kaydi ayri yerlerde tutuluyor; ikisi de susmali."""
+        await auth_client.get(
+            f"/api/v1/p/{DEFAULT_USER['username']}?count_view=false"
+        )
+
+        data = (
+            await auth_client.get("/api/v1/analytics/timeseries?days=7")
+        ).json()["data"]
+
+        assert data["total_profile_views"] == 0
 
     async def test_baska_kullanicinin_olaylari_sizmaz(self, auth_client):
         link = await create_link(auth_client, title="Benim")

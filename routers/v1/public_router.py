@@ -82,13 +82,34 @@ async def get_public_profile(
         str, Path(min_length=3, max_length=30, description="Profil kullanici adi")
     ],
     user_service: Annotated[UserService, Depends(Provide[Container.user_service])],
+    count_view: Annotated[
+        bool,
+        Query(
+            description=(
+                "False verilirse bu cagri goruntulenme sayilmaz. "
+                "Sayfanin kendisini degil, ayni profili yeniden okuyan "
+                "yardimci istekleri (paylasim karti gibi) icindir."
+            )
+        ),
+    ] = True,
 ):
     """Bir kullanicinin herkese acik link sayfasini doner.
 
     Token gerektirmez. Sadece aktif linkler ve gorunur profil alanlari doner;
     e-posta gibi hassas bilgiler bu yanitta yer almaz.
+
+    NEDEN count_view: ayni ucu sayfa disinda cagiran yerler var --
+    frontend paylasim kartini cizerken profili yeniden okuyor. Sayac
+    varsayilan olarak arttigi icin bir kaziyicinin kart istegi
+    "ziyaret" olarak sayiliyordu, yani kimsenin gormedigi bir sayfa
+    goruntulenme uretiyordu. Bu bayrak o cagrilari sayimin disinda
+    birakiyor.
+
+    Kotuye kullanim tarafinda bir sey acmiyor: bayrak yalnizca sayimi
+    *azaltabiliyor*, sisirmenin yolu degil -- sayac zaten istemcinin
+    hic istek atmamasiyla da artmiyor.
     """
-    profile = await user_service.get_public_profile(username)
+    profile = await user_service.get_public_profile(username, record_view=count_view)
     return SuccessResponse.create(
         data=profile,
         message="Public profile retrieved successfully",
