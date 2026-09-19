@@ -65,6 +65,28 @@ gerektirmez. Her test sifirdan olusturulan bos bir semada calisir.
 dosya (`tests/conftest.py`), dolayisiyla paralel iki kosu birbirinin
 semasini siler ve ikisi de anlamsiz hatalar verir. Tek kosu temizdir.
 
+### Commit oncesi kanca
+
+```bash
+git config core.hooksPath scripts/hooks
+```
+
+Bir kez kurulur; `scripts/hooks/pre-commit` commit'ten once
+`ruff check .` kosturur ve gecmezse commit'i durdurur. Komut CI'in
+kosturdugunun AYNISI, dolayisiyla kanca gecerse Ruff Check is akisinin
+da gececegi garanti. Maliyeti 33 milisaniye.
+
+Kanca **pytest kosturmuyor**: paket ~3 dakika suruyor ve her commit'te
+beklemek kancayi atlatilan bir seye cevirirdi. Testleri CI kosuyor.
+
+Kanca **`ruff format` de denetlemiyor**, cunku bu depo su an
+bicimlendirilmis degil: 67 dosyanin 49'u `ruff format`'tan gecmiyor ve
+CI da format denetlemiyor. Kancaya format eklemek, ilgisiz 49 dosyayi
+yeniden bicimlendirmeden once her commit'i durdururdu. Bicimlendirmeyi
+benimsemek ayri bir karar: once tek seferlik `ruff format .`, sonra
+hem CI'a hem bu kancaya `ruff format --check .` eklenmeli. Ikisi
+birlikte yapilmali, aksi halde ayni sorun geri gelir.
+
 ### CI
 
 `.github/workflows/tests.yml` (pytest) ve `ruff.yml` (lint) `pull_request`
