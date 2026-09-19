@@ -5,7 +5,7 @@ from sqlalchemy import and_, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.base_repository import BaseRepository
-from models import Link
+from models import Link, User
 
 
 class LinkRepository(BaseRepository[Link]):
@@ -87,6 +87,40 @@ class LinkRepository(BaseRepository[Link]):
             return result.scalars().all()
 
         return await self.execute_query(_get_public_links, user_id, transactional=False)
+
+    async def get_public_link(self, link_id: int) -> Link | None:
+        """Herkese acik sayfada gorunen bir linki id ile getirir.
+
+        NEDEN AYRI SORGU: tiklama ucu token istemiyor ve linke yalnizca
+        id ile ulasiliyor. `get_by_id` hicbir kosul uygulamadigi icin
+        sahibi hesabini kapatmis ya da sahibinin gizledigi bir link de
+        aciliyordu -- profil sayfasi 404 verirken hedef adres bu uctan
+        donmeye devam ediyordu (olculdu).
+
+        Kosul, profil sayfasinin gorunur link kosuluyla ayni:
+        get_public_links + user_repository.get_public_profile. Ikisi
+        ayrisirsa "sayfada gorunmeyen link tiklanamaz" kurali sessizce
+        bozulur.
+        """
+
+        async def _get_public_link(session: AsyncSession, link_id_: int) -> Link | None:
+            query = (
+                select(Link)
+                .join(User, Link.user_id == User.id)
+                .where(
+                    and_(
+                        Link.id == link_id_,
+                        Link.is_active,
+                        Link.is_deleted.is_(False),
+                        User.is_deleted.is_(False),
+                    )
+                )
+            )
+
+            result = await session.execute(query)
+            return result.scalars().first()
+
+        return await self.execute_query(_get_public_link, link_id, transactional=False)
 
     async def get_link_by_url(self, user_id: int, url: str) -> Link | None:
         """Kullanıcının belirli URL'ye sahip linkini getirir (duplicate kontrolü için)"""

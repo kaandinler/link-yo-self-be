@@ -109,8 +109,16 @@ class LinkService(BaseService):
         adres; yalnizca host'u saklaniyor ve site ici gezinme "kaynaksiz"
         sayiliyor (bkz. utils/referrer.py). Ayrastirilamayan bir deger
         istegi dusurmuyor: tiklama sayaci, kaynak bilgisinden onemli.
+
+        YALNIZCA GORUNUR LINK: uc token istemiyor, yani linke yalnizca id
+        ile ulasiliyor. Once `get_by_id` kullaniliyordu ve o hicbir kosul
+        uygulamiyor; sonucta sahibi gizledigi ya da hesabini kapattigi
+        linkler de acilabiliyordu -- profil sayfasi 404 verirken bu uc
+        hedef adresi dondurmeye ve tiklamayi kapali hesabin istatistigine
+        yazmaya devam ediyordu. Gorunmeyen link artik yok sayiliyor;
+        404 "gizli" ile "hic yok"u ayirt ettirmiyor.
         """
-        link = await self.repository.get_by_id(link_id)
+        link = await self.repository.get_public_link(link_id)
         if not link:
             raise NotFoundException(f"Link not found: {link_id}")
 
