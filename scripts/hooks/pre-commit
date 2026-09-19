@@ -1,0 +1,24 @@
+#!/bin/sh
+# Commit oncesi denetim.
+#
+# NEDEN VAR: bu depoda hic kanca yoktu. Lint hatasi ancak CI'da,
+# push'tan sonra goruluyordu -- oysa "ruff check ." 33 milisaniye
+# suruyor, yani beklemenin bir bedeli yok.
+#
+# NEDEN TAM OLARAK CI'IN KOMUTU: kanca gecerse Ruff Check is akisinin
+# da gececegi garanti olsun diye. Farkli bir komut kosturmak, yerelde
+# yesil ama CI'da kirmizi durumunu geri getirirdi.
+#
+# NEDEN "ruff format" YOK: deponun 67 dosyasindan 49'u su an
+# ruff format'tan gecmiyor ve CI da format denetlemiyor. Bu kancaya
+# format eklemek, ilgisiz 49 dosyayi yeniden bicimlendirmeden once
+# her commit'i durdururdu. O ayri bir karar (bkz. README).
+#
+# NEDEN pytest YOK: paket ~3 dakika suruyor; her commit'te kosturmak
+# kancayi atlatilan bir seye cevirirdi. Testleri CI kosuyor.
+if ! ruff check .; then
+  echo ""
+  echo "Commit durduruldu: 'ruff check .' basarisiz."
+  echo "Otomatik duzeltilebilenler icin: ruff check --fix ."
+  exit 1
+fi
