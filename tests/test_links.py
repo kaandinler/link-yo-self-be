@@ -3,7 +3,7 @@ import pytest
 
 from core.exceptions import NotFoundException
 from services.link.link_service import LinkService
-from tests.conftest import auth_header, login, register_user
+from tests.conftest import DEFAULT_USER, auth_header, login, register_user
 
 LINK = {"title": "GitHub", "url": "https://github.com/kaandinler"}
 
@@ -206,6 +206,88 @@ class TestReorderToggleClick:
             await client.get(f"/api/v1/links/{link['id']}", headers=auth_header(token))
         ).json()["data"]
         assert guncel["click_count"] == 1
+
+
+
+class TestGorunmeyenLinkeTiklanamaz:
+    """Tiklama ucunun kosulu, profil sayfasinin gorunur link kosuluyla ayni.
+
+    Uc token istemiyor ve linke yalnizca id ile ulasiyor; id de tahmin
+    edilebilir bir tamsayi. Iki kosul ayrisirsa sayfada gorunmeyen bir
+    linkin hedef adresi buradan sizar ve tiklama sahibinin istatistigine
+    yazilir. Onceki hal tam olarak boyleydi: uc `get_by_id` cagiriyordu,
+    o da hicbir kosul uygulamiyor.
+    """
+
+    async def test_pasif_linkin_tiklamasi_404_ve_sayac_artmaz(self, client):
+        await register_user(client)
+        basliklar = auth_header(await login(client))
+        link = (
+            await client.post("/api/v1/links/", json=LINK, headers=basliklar)
+        ).json()["data"]
+
+        toggle = await client.patch(
+            f"/api/v1/links/{link['id']}/toggle", headers=basliklar
+        )
+        assert toggle.json()["data"]["is_active"] is False
+
+        yanit = await client.post(f"/api/v1/links/{link['id']}/click")
+
+        assert yanit.status_code == 404
+        # Hedef adres hata govdesinden de sizmamali.
+        assert link["url"] not in yanit.text
+
+        guncel = (
+            await client.get(f"/api/v1/links/{link['id']}", headers=basliklar)
+        ).json()["data"]
+        assert guncel["click_count"] == 0
+
+    async def test_geri_acilan_link_yeniden_tiklanabiliyor(self, client):
+        """Kosul kalici bir engel degil: gorunurluk geri gelince tiklama da gelir."""
+        await register_user(client)
+        basliklar = auth_header(await login(client))
+        link = (
+            await client.post("/api/v1/links/", json=LINK, headers=basliklar)
+        ).json()["data"]
+
+        await client.patch(f"/api/v1/links/{link['id']}/toggle", headers=basliklar)
+        await client.patch(f"/api/v1/links/{link['id']}/toggle", headers=basliklar)
+
+        yanit = await client.post(f"/api/v1/links/{link['id']}/click")
+
+        assert yanit.status_code == 200
+        assert yanit.json()["data"]["redirect_url"] == link["url"]
+
+    async def test_kapali_hesabin_linki_404(self, client):
+        kullanici = await register_user(client)
+        basliklar = auth_header(await login(client))
+        link = (
+            await client.post("/api/v1/links/", json=LINK, headers=basliklar)
+        ).json()["data"]
+
+        # Kapatmadan once calistigini gorelim; yoksa test kapatma
+        # yuzunden degil bambaska bir sebeple de gecebilirdi.
+        assert (
+            await client.post(f"/api/v1/links/{link['id']}/click")
+        ).status_code == 200
+
+        kapat = await client.request(
+            "DELETE",
+            "/api/v1/users/me",
+            json={"password": DEFAULT_USER["password"]},
+            headers=basliklar,
+        )
+        assert kapat.status_code == 204
+
+        # Profil sayfasi 404 veriyor; tiklama ucu da ayni seyi demeli.
+        assert (
+            await client.get(f"/api/v1/p/{kullanici['username']}")
+        ).status_code == 404
+
+        yanit = await client.post(f"/api/v1/links/{link['id']}/click")
+
+        assert yanit.status_code == 404
+        assert link["url"] not in yanit.text
 
 
 # NOT: Analytics testleri tests/test_analytics.py'ye tasindi. Uc artik
