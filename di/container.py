@@ -12,9 +12,13 @@ from repositories.auth.email_verification_repository import (
 from repositories.auth.password_reset_repository import PasswordResetRepository
 from repositories.auth.refresh_token_repository import RefreshTokenRepository
 from repositories.link.link_repository import LinkRepository  # EKLENDI
+from repositories.social.social_account_repository import (
+    SocialAccountRepository,
+)
 from repositories.user.user_repository import UserRepository
 from services.analytics.analytics_service import AnalyticsService
 from services.link.link_service import LinkService  # EKLENDI
+from services.social.social_account_service import SocialAccountService
 from services.user.user_service import UserService
 from settings import settings
 
@@ -96,6 +100,11 @@ class Container(containers.DeclarativeContainer):
         session_factory=async_session_factory
     )
 
+    social_account_repository = providers.Factory(
+        SocialAccountRepository,
+        session_factory=async_session_factory
+    )
+
     # Services
     user_service = providers.Factory(
         UserService,
@@ -125,6 +134,11 @@ class Container(containers.DeclarativeContainer):
         LinkService,
         link_repo=link_repository,
         event_repo=analytics_event_repository,
+    )
+
+    social_account_service = providers.Factory(
+        SocialAccountService,
+        social_account_repo=social_account_repository,
     )
 
     analytics_service = providers.Factory(

@@ -99,6 +99,32 @@ async def make_admin(app, username: str) -> None:
         await session.commit()
 
 
+
+async def seed_platforms(app, *adlar: str) -> dict[str, int]:
+    """Platform satirlari ekler ve {ad: id} doner.
+
+    NEDEN TESTTE EKLENIYOR: platformlar uretimde bir migration ile
+    geliyor (a7b8c9d0e1f2_seed_platforms), ama testler migration
+    calistirmiyor -- conftest tablolari Base.metadata.create_all ile
+    kuruyor, yani platforms tablosu bos basliyor. Uc bos tabloyla
+    calisamaz (platform_id bir FOREIGN KEY), bu yuzden sosyal hesap
+    testleri ihtiyaci olan platformu kendisi ekliyor.
+    """
+    from sqlalchemy import select
+
+    from models import Platform
+
+    session_factory = app.container.async_session_factory()
+    async with session_factory() as session:
+        for ad in adlar:
+            session.add(Platform(name=ad, display_name=ad.title()))
+        await session.commit()
+
+        sonuc = await session.execute(
+            select(Platform.name, Platform.id).where(Platform.name.in_(adlar))
+        )
+        return {ad: kimlik for ad, kimlik in sonuc.all()}
+
 @pytest_asyncio.fixture
 async def auth_client(client):
     """Kayitli ve giris yapmis bir kullanicinin token'ini tasiyan istemci."""
