@@ -25,6 +25,7 @@ Geriye kalan iki kolon -- adult_warning_enabled ve extra_settings --
 users'ta karsiligi olmayanlar; PageSettings artik yalnizca onlari
 tutuyor.
 """
+
 from collections.abc import Sequence
 
 import sqlalchemy as sa
@@ -32,29 +33,29 @@ import sqlalchemy as sa
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision: str = 'b8c9d0e1f2a3'
-down_revision: str | None = 'a7b8c9d0e1f2'
+revision: str = "b8c9d0e1f2a3"
+down_revision: str | None = "a7b8c9d0e1f2"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
-    op.drop_column('user_page_settings', 'background_color')
-    op.drop_column('user_page_settings', 'background_image_url')
-    op.drop_column('user_page_settings', 'profile_image_url')
+    op.drop_column("user_page_settings", "background_color")
+    op.drop_column("user_page_settings", "background_image_url")
+    op.drop_column("user_page_settings", "profile_image_url")
 
 
 def downgrade() -> None:
     # Kolonlar geri geliyor ama icerikleri gelmiyor: zaten bos idiler.
     op.add_column(
-        'user_page_settings',
-        sa.Column('profile_image_url', sa.String(), nullable=True),
+        "user_page_settings",
+        sa.Column("profile_image_url", sa.String(), nullable=True),
     )
     op.add_column(
-        'user_page_settings',
-        sa.Column('background_image_url', sa.String(), nullable=True),
+        "user_page_settings",
+        sa.Column("background_image_url", sa.String(), nullable=True),
     )
     op.add_column(
-        'user_page_settings',
-        sa.Column('background_color', sa.String(length=20), nullable=True),
+        "user_page_settings",
+        sa.Column("background_color", sa.String(length=20), nullable=True),
     )

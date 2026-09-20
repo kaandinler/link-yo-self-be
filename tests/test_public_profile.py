@@ -1,4 +1,5 @@
 """Public profil sayfasi testleri (token gerektirmez)."""
+
 from tests.conftest import DEFAULT_USER, auth_header, login, register_user
 
 PROFILE_URL = f"/api/v1/p/{DEFAULT_USER['username']}"
@@ -31,8 +32,14 @@ class TestPublicProfile:
 
         data = (await client.get(PROFILE_URL)).json()["data"]
 
-        for alan in ("email", "hashed_password", "id", "is_admin",
-                     "onboarding_completed", "profile_completed"):
+        for alan in (
+            "email",
+            "hashed_password",
+            "id",
+            "is_admin",
+            "onboarding_completed",
+            "profile_completed",
+        ):
             assert alan not in data, f"{alan} public yanitta olmamali"
 
     async def test_display_name_yoksa_kullanici_adina_duser(self, client):

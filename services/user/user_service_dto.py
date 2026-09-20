@@ -25,7 +25,10 @@ from core.validators import (
 
 class UserCreateMinimal(BaseModel):
     """Minimal registration - sadece gerekli alanlar"""
-    username: str = Field(..., min_length=3, max_length=30, description="Unique username for profile URL")
+
+    username: str = Field(
+        ..., min_length=3, max_length=30, description="Unique username for profile URL"
+    )
     email: EmailStr = Field(..., description="User email address")
     password: str = Field(
         ...,
@@ -119,18 +122,30 @@ class AccountDeleteRequest(BaseModel):
 
 class ProfileCompletionStep1(BaseModel):
     """Step 1: Basic Profile Info"""
+
     first_name: str | None = Field(None, max_length=50, description="First name")
     last_name: str | None = Field(None, max_length=50, description="Last name")
-    display_name: str | None = Field(None, max_length=100, description="Display name on profile page")
+    display_name: str | None = Field(
+        None, max_length=100, description="Display name on profile page"
+    )
     bio: str | None = Field(None, max_length=500, description="Short bio/description")
-    profile_image_url: str | None = Field(None, max_length=500, description="Profile image URL")
+    profile_image_url: str | None = Field(
+        None, max_length=500, description="Profile image URL"
+    )
 
 
 class ProfileCompletionStep2(BaseModel):
     """Step 2: Page Settings"""
-    page_title: str | None = Field(None, max_length=100, description="Custom page title")
-    page_description: str | None = Field(None, max_length=500, description="Page meta description")
-    website: str | None = Field(None, max_length=500, description="Personal/business website")
+
+    page_title: str | None = Field(
+        None, max_length=100, description="Custom page title"
+    )
+    page_description: str | None = Field(
+        None, max_length=500, description="Page meta description"
+    )
+    website: str | None = Field(
+        None, max_length=500, description="Personal/business website"
+    )
 
     @field_validator("website", mode="before")
     @classmethod
@@ -140,11 +155,20 @@ class ProfileCompletionStep2(BaseModel):
 
 class ProfileCompletionStep3(BaseModel):
     """Step 3: Social Media Links"""
-    twitter_username: str | None = Field(None, max_length=100, description="Twitter username (without @)")
-    instagram_username: str | None = Field(None, max_length=100, description="Instagram username (without @)")
-    linkedin_username: str | None = Field(None, max_length=100, description="LinkedIn username")
 
-    @field_validator("twitter_username", "instagram_username", "linkedin_username", mode="before")
+    twitter_username: str | None = Field(
+        None, max_length=100, description="Twitter username (without @)"
+    )
+    instagram_username: str | None = Field(
+        None, max_length=100, description="Instagram username (without @)"
+    )
+    linkedin_username: str | None = Field(
+        None, max_length=100, description="LinkedIn username"
+    )
+
+    @field_validator(
+        "twitter_username", "instagram_username", "linkedin_username", mode="before"
+    )
     @classmethod
     def check_social_handle(cls, username: str | None) -> str | None:
         return clean_social_handle(username)
@@ -152,9 +176,16 @@ class ProfileCompletionStep3(BaseModel):
 
 class ProfileCompletionStep4(BaseModel):
     """Step 4: Theme & Appearance"""
-    theme_color: str | None = Field("#1383eb", max_length=20, description="Primary theme color")
-    background_type: str | None = Field("color", description="Background type: color, gradient, image")
-    background_value: str | None = Field("#ffffff", max_length=500, description="Background color/image URL")
+
+    theme_color: str | None = Field(
+        "#1383eb", max_length=20, description="Primary theme color"
+    )
+    background_type: str | None = Field(
+        "color", description="Background type: color, gradient, image"
+    )
+    background_value: str | None = Field(
+        "#ffffff", max_length=500, description="Background color/image URL"
+    )
 
     @field_validator("theme_color", mode="before")
     @classmethod
@@ -175,6 +206,7 @@ class ProfileCompletionStep4(BaseModel):
 
 class UserProfileUpdate(BaseModel):
     """Complete profile update - all optional"""
+
     first_name: str | None = Field(None, max_length=50)
     last_name: str | None = Field(None, max_length=50)
     display_name: str | None = Field(None, max_length=100)
@@ -230,6 +262,7 @@ class UserProfileUpdate(BaseModel):
 
 class UserRead(BaseModel):
     """User read model - session-detached safe"""
+
     id: int
     username: str
     email: EmailStr
@@ -276,9 +309,7 @@ class UserRead(BaseModel):
             self.bio,
             self.profile_image_url,
             self.website,
-            self.twitter_username
-            or self.instagram_username
-            or self.linkedin_username,
+            self.twitter_username or self.instagram_username or self.linkedin_username,
             self.page_title,
             self.page_description,
         ]
@@ -293,6 +324,7 @@ class UserRead(BaseModel):
 
 class OnboardingStatus(BaseModel):
     """Onboarding durumu"""
+
     step: int = 1  # Hangi adımda
     completed_steps: list[int] = []
     profile_completion_percentage: int = 0

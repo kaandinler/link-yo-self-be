@@ -5,6 +5,7 @@ yapmanin tek yolu da panele girmek. Bu betik o dongunun disaridan tek
 kirilma noktasi; bozulursa bos bir veritabaninda panele kimse
 giremez ve bunu ancak kurulum sirasinda fark ederiz.
 """
+
 import pytest
 from sqlalchemy import select
 

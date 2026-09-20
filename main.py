@@ -113,9 +113,7 @@ def create_app() -> FastAPI:
 
     # Configure security for production
     if settings.environment == "production":
-        app.add_middleware(
-            TrustedHostMiddleware, allowed_hosts=guvenilir_adresler()
-        )
+        app.add_middleware(TrustedHostMiddleware, allowed_hosts=guvenilir_adresler())
         app.add_middleware(HTTPSRedirectMiddleware)
 
     # Configure CORS
@@ -136,46 +134,51 @@ def create_app() -> FastAPI:
 
     # Add specific exception handlers
     @app.exception_handler(NotAuthenticatedException)
-    async def unauthorized_exception_handler(request: Request, exc: NotAuthenticatedException):
+    async def unauthorized_exception_handler(
+        request: Request, exc: NotAuthenticatedException
+    ):
         error_response = ErrorResponse.create(message="Unauthorized access")
         return JSONResponse(
             status_code=exc.status_code,
             content=error_response.model_dump(),
-            headers=exc.headers
+            headers=exc.headers,
         )
 
     @app.exception_handler(PermissionDeniedException)
-    async def permission_denied_exception_handler(request: Request, exc: PermissionDeniedException):
+    async def permission_denied_exception_handler(
+        request: Request, exc: PermissionDeniedException
+    ):
         error_response = ErrorResponse.create(message=exc.detail)
         return JSONResponse(
-            status_code=exc.status_code,
-            content=error_response.model_dump()
+            status_code=exc.status_code, content=error_response.model_dump()
         )
 
     @app.exception_handler(NotFoundException)
     async def not_found_exception_handler(request: Request, exc: NotFoundException):
         error_response = ErrorResponse.create(message="Resource not found")
         return JSONResponse(
-            status_code=exc.status_code,
-            content=error_response.model_dump()
+            status_code=exc.status_code, content=error_response.model_dump()
         )
 
     @app.exception_handler(DatabaseException)
     async def database_exception_handler(request: Request, exc: DatabaseException):
         logger.error(f"Database Error: {exc.detail}")
-        error_response = ErrorResponse.create(message="A database error occurred. Please try again later.")
+        error_response = ErrorResponse.create(
+            message="A database error occurred. Please try again later."
+        )
         return JSONResponse(
-            status_code=exc.status_code,
-            content=error_response.model_dump()
+            status_code=exc.status_code, content=error_response.model_dump()
         )
 
     @app.exception_handler(InvalidCredentialsException)
-    async def invalid_credentials_exception_handler(request: Request, exc: InvalidCredentialsException):
+    async def invalid_credentials_exception_handler(
+        request: Request, exc: InvalidCredentialsException
+    ):
         error_response = ErrorResponse.create(message="Invalid credentials")
         return JSONResponse(
             status_code=exc.status_code,
             content=error_response.model_dump(),
-            headers=exc.headers
+            headers=exc.headers,
         )
 
     # Create and configure the DI container
@@ -204,7 +207,7 @@ def create_app() -> FastAPI:
             "routers.v1.analytics_router",
             "routers.social_account_router",
             "routers.v1.social_account_router",
-            "deps"
+            "deps",
         ]
     )
 
@@ -215,9 +218,7 @@ def create_app() -> FastAPI:
     wrapped_profile_router = add_response_model(profile_router.router)
     wrapped_public_router = add_response_model(public_router.router)
     wrapped_analytics_router = add_response_model(analytics_router.router)
-    wrapped_social_account_router = add_response_model(
-        social_account_router.router
-    )
+    wrapped_social_account_router = add_response_model(social_account_router.router)
 
     # V1 API router'ı oluştur
     api_v1_router = APIRouter(prefix="/api/v1")
@@ -245,4 +246,3 @@ app = create_app()
 async def root():
     """Health check endpoint"""
     return {"status": "online", "message": "LinkYoSelf API is running"}
-

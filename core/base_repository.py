@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from db import execute_without_transaction, run_in_transaction
 
-T = TypeVar('T')
+T = TypeVar("T")
 
 
 class BaseRepository(Generic[T]):
@@ -65,11 +65,11 @@ class BaseRepository(Generic[T]):
 
     # Helper methods for custom queries
     async def execute_query(
-            self,
-            query_func: Callable[[AsyncSession, ...], Awaitable[T]],  # Note the Awaitable
-            *args,
-            transactional: bool = False,
-            **kwargs
+        self,
+        query_func: Callable[[AsyncSession, ...], Awaitable[T]],  # Note the Awaitable
+        *args,
+        transactional: bool = False,
+        **kwargs,
     ) -> T:
         """
         Execute a custom query function with optional transaction management.

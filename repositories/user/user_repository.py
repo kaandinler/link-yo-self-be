@@ -32,10 +32,9 @@ def _en_yeni(*tarihler: datetime | None) -> datetime:
     karistirilip max()'e verilirse Python TypeError atiyor -- yani hata
     yalnizca tek bir veritabaninda gorunurdu.
     """
-    dolu = [
-        t if t.tzinfo else t.replace(tzinfo=UTC) for t in tarihler if t is not None
-    ]
+    dolu = [t if t.tzinfo else t.replace(tzinfo=UTC) for t in tarihler if t is not None]
     return max(dolu)
+
 
 # Listelemede siralanmasina izin verilen kolonlar. Beyaz liste sart: kolon adi
 # istemciden geliyor, dogrudan getattr edilirse hashed_password gibi alanlara
@@ -59,7 +58,9 @@ class UserRepository(BaseRepository[User]):
         super().__init__(session_factory)
         self._model_type = User
 
-    async def list_users(self, transactional: bool = False) -> Awaitable[Sequence[User]]:
+    async def list_users(
+        self, transactional: bool = False
+    ) -> Awaitable[Sequence[User]]:
         """Get all users with optional transaction control"""
         return await self.list_all(transactional=transactional)
 
@@ -135,7 +136,9 @@ class UserRepository(BaseRepository[User]):
         varsayilan (False) kalmali, aksi halde silinmis kullanici giris yapar.
         """
 
-        async def _get_by_username(session: AsyncSession, username_: str) -> User | None:
+        async def _get_by_username(
+            session: AsyncSession, username_: str
+        ) -> User | None:
             # links eager yuklenmeli: User.profile_completion_percentage bu
             # iliskiye eriseyor ve session kapandiktan sonra lazy load
             # DetachedInstanceError firlatir.
@@ -151,7 +154,9 @@ class UserRepository(BaseRepository[User]):
             return result.scalars().first()
 
         # Use the execute_query helper for flexible transaction handling
-        return await self.execute_query(_get_by_username, username, transactional=transactional)
+        return await self.execute_query(
+            _get_by_username, username, transactional=transactional
+        )
 
     async def get_by_email(
         self,
@@ -174,7 +179,9 @@ class UserRepository(BaseRepository[User]):
             return result.scalars().first()
 
         # Use the execute_query helper for flexible transaction handling
-        return await self.execute_query(_get_by_email, email, transactional=transactional)
+        return await self.execute_query(
+            _get_by_email, email, transactional=transactional
+        )
 
     async def get_public_profile(
         self, username: str, transactional: bool = False

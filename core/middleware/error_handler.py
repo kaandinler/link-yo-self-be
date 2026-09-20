@@ -35,7 +35,9 @@ async def catch_exceptions_middleware(request: Request, call_next: Callable):
         logger.error(f"Database error: {exc!s}")
         logger.debug(traceback.format_exc())
         db_exception = DatabaseException(detail=f"Database error: {exc!s}")
-        error_response = ErrorResponse.create(message="A database error occurred. Please try again later.")
+        error_response = ErrorResponse.create(
+            message="A database error occurred. Please try again later."
+        )
         return JSONResponse(
             status_code=db_exception.status_code,
             content=error_response.model_dump(),
@@ -65,8 +67,12 @@ def setup_exception_handlers(app: FastAPI) -> None:
     # tum uygulama hatalarinin ayni ErrorResponse zarfini kullanmasini saglar.
     # (main.py'deki daha spesifik handler'lar tam sinif eslesmesiyle oncelikli.)
     @app.exception_handler(BaseAppException)
-    async def app_exception_handler(request: Request, exc: BaseAppException) -> JSONResponse:
-        logger.warning(f"Handled error: {exc.__class__.__name__}. Details: {exc.detail}")
+    async def app_exception_handler(
+        request: Request, exc: BaseAppException
+    ) -> JSONResponse:
+        logger.warning(
+            f"Handled error: {exc.__class__.__name__}. Details: {exc.detail}"
+        )
         error_response = ErrorResponse.create(message=exc.detail)
         return JSONResponse(
             status_code=exc.status_code,
@@ -81,8 +87,7 @@ def setup_exception_handlers(app: FastAPI) -> None:
             message=f"Requested resource not found: {request.url.path}"
         )
         return JSONResponse(
-            status_code=status.HTTP_404_NOT_FOUND,
-            content=error_response.model_dump()
+            status_code=status.HTTP_404_NOT_FOUND, content=error_response.model_dump()
         )
 
     @app.exception_handler(status.HTTP_405_METHOD_NOT_ALLOWED)
@@ -92,5 +97,5 @@ def setup_exception_handlers(app: FastAPI) -> None:
         )
         return JSONResponse(
             status_code=status.HTTP_405_METHOD_NOT_ALLOWED,
-            content=error_response.model_dump()
+            content=error_response.model_dump(),
         )

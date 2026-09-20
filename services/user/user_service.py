@@ -154,9 +154,7 @@ class UserService(BaseService):
 
         # Son admin cikarsa yonetim paneline bir daha kimse giremez.
         if user.is_admin and await self.repository.count_admins() <= 1:
-            raise ValidationException(
-                detail="The last admin account cannot be deleted"
-            )
+            raise ValidationException(detail="The last admin account cannot be deleted")
 
         await self._soft_delete(user)
 
@@ -259,9 +257,7 @@ class UserService(BaseService):
 
     async def count_public_profiles(self) -> PublicProfileCount:
         """Sitemap'e girecek profil sayisi; parcalama icin."""
-        return PublicProfileCount(
-            count=await self.repository.count_public_profiles()
-        )
+        return PublicProfileCount(count=await self.repository.count_public_profiles())
 
     async def check_username_availability(self, username: str) -> bool:
         """Kullanici adi musait mi (silinmis kayitlar da isgal eder)."""

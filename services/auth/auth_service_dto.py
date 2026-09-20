@@ -11,10 +11,12 @@ from core.validators import (
 class TokenRefreshRequest(BaseModel):
     refresh_token: str
 
+
 class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
     refresh_token: str = None
+
 
 class ForgotPasswordRequest(BaseModel):
     email: EmailStr

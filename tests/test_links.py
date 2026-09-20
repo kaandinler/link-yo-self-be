@@ -1,4 +1,5 @@
 """Link CRUD, siralama, toggle ve tiklama testleri."""
+
 import pytest
 
 from core.exceptions import NotFoundException
@@ -38,8 +39,8 @@ class TestCreateLink:
         [
             ("url", "bu bir url degil"),
             ("title", ""),
-            ("background_color", "kirmizi"),   # hex olmali
-            ("border_radius", 999),            # 0-50 araligi
+            ("background_color", "kirmizi"),  # hex olmali
+            ("border_radius", 999),  # 0-50 araligi
         ],
     )
     async def test_gecersiz_veri_422(self, auth_client, alan, deger):
@@ -206,7 +207,6 @@ class TestReorderToggleClick:
             await client.get(f"/api/v1/links/{link['id']}", headers=auth_header(token))
         ).json()["data"]
         assert guncel["click_count"] == 1
-
 
 
 class TestGorunmeyenLinkeTiklanamaz:

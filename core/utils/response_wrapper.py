@@ -7,7 +7,7 @@ from fastapi import APIRouter
 from core.schemas.response import BaseResponseModel, SuccessResponse
 
 # Tip değişkeni
-T = TypeVar('T')
+T = TypeVar("T")
 
 
 def wrap_response(func: Callable) -> Callable:
@@ -20,6 +20,7 @@ def wrap_response(func: Callable) -> Callable:
     Returns:
         Sarmalanan fonksiyon
     """
+
     @wraps(func)
     async def wrapper(*args: Any, **kwargs: Any) -> BaseResponseModel:
         # Orijinal fonksiyonu çağır
@@ -59,6 +60,7 @@ def add_response_model(router: APIRouter) -> APIRouter:
 
     # Her bir metot için yeni bir wrapper oluştur
     for method_name, original_method in original_methods.items():
+
         @wraps(original_method)
         def wrapped_method(
             *args: Any,
@@ -89,7 +91,9 @@ def add_response_model(router: APIRouter) -> APIRouter:
                     custom_response_model = BaseResponseModel[response_type]
 
                     # Orijinal route decorator'ı çağır, ancak sarmalanmış fonksiyon ve yeni model ile
-                    return route_decorator(wrapped_func, response_model=custom_response_model)
+                    return route_decorator(
+                        wrapped_func, response_model=custom_response_model
+                    )
 
                 return decorator
 

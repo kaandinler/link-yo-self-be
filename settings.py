@@ -42,4 +42,5 @@ class Settings(BaseSettings):
     allowed_hosts: list[str] | None = None
     allowed_origins: list[str] | None = None
 
+
 settings = Settings()

@@ -68,8 +68,7 @@ class AnalyticsEventRepository(BaseRepository[AnalyticsEvent]):
                 .group_by(gun, AnalyticsEvent.event_type)
             )
             return [
-                (_gune_metin(satir[0]), satir[1], satir[2])
-                for satir in result.all()
+                (_gune_metin(satir[0]), satir[1], satir[2]) for satir in result.all()
             ]
 
         return await self.execute_query(_counts)
@@ -99,8 +98,7 @@ class AnalyticsEventRepository(BaseRepository[AnalyticsEvent]):
                 .group_by(gun, AnalyticsEvent.link_id)
             )
             return [
-                (_gune_metin(satir[0]), satir[1], satir[2])
-                for satir in result.all()
+                (_gune_metin(satir[0]), satir[1], satir[2]) for satir in result.all()
             ]
 
         return await self.execute_query(_counts)
@@ -170,7 +168,6 @@ class AnalyticsEventRepository(BaseRepository[AnalyticsEvent]):
             ]
 
         return await self.execute_query(_counts)
-
 
 
 def _ust_sinir(until: datetime | None):

@@ -58,9 +58,7 @@ class PageSettingsService(BaseService):
                 # Verilmeyen alan varsayilaninda kalmali; model default'u
                 # yalnizca INSERT sirasinda uygulandigi icin burada acikca
                 # yaziliyor.
-                adult_warning_enabled=guncellenecek.get(
-                    "adult_warning_enabled", False
-                ),
+                adult_warning_enabled=guncellenecek.get("adult_warning_enabled", False),
                 extra_settings=guncellenecek.get("extra_settings"),
             )
             olusan = await self.repository.create(ayarlar)

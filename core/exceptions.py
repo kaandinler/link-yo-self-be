@@ -7,15 +7,13 @@ class BaseAppException(HTTPException):
     """
     Base application exception class. All custom application exceptions should inherit from this class.
     """
+
     status_code: int = status.HTTP_500_INTERNAL_SERVER_ERROR
     detail: str = "Unknown error occurred."
     headers: dict[str, Any] | None = None
 
     def __init__(
-        self,
-        detail: str | None = None,
-        headers: dict[str, Any] | None = None,
-        **kwargs
+        self, detail: str | None = None, headers: dict[str, Any] | None = None, **kwargs
     ):
         """
         Args:
@@ -30,21 +28,20 @@ class BaseAppException(HTTPException):
 
         # If there is additional info and detail is a string, enrich the detail
         if self.extra_info and isinstance(actual_detail, str):
-            actual_detail = (f"{actual_detail} Extra info: {self.extra_info}")
+            actual_detail = f"{actual_detail} Extra info: {self.extra_info}"
 
         # If headers are provided, use them instead of the class default value
         actual_headers = headers if headers is not None else self.headers
 
         # Call the parent class's __init__ method
         super().__init__(
-            status_code=self.status_code,
-            detail=actual_detail,
-            headers=actual_headers
+            status_code=self.status_code, detail=actual_detail, headers=actual_headers
         )
 
 
 class NotAuthenticatedException(BaseAppException):
     """User authentication error"""
+
     status_code = status.HTTP_401_UNAUTHORIZED
     detail = "Unauthenticated user"
     headers: ClassVar[dict[str, str]] = {"WWW-Authenticate": "Bearer"}
@@ -52,36 +49,42 @@ class NotAuthenticatedException(BaseAppException):
 
 class PermissionDeniedException(BaseAppException):
     """Permission error"""
+
     status_code = status.HTTP_403_FORBIDDEN
     detail = "Permission denied"
 
 
 class NotFoundException(BaseAppException):
     """Resource not found error"""
+
     status_code = status.HTTP_404_NOT_FOUND
     detail = "Resource not found"
 
 
 class AlreadyExistsException(BaseAppException):
     """Resource already exists error"""
+
     status_code = status.HTTP_409_CONFLICT
-    detail ="Resource already exists"
+    detail = "Resource already exists"
 
 
 class InvalidResetTokenException(BaseAppException):
     """Sifre sifirlama token'i gecersiz, suresi dolmus veya kullanilmis"""
+
     status_code = status.HTTP_400_BAD_REQUEST
     detail = "Invalid or expired password reset token"
 
 
 class InvalidVerificationTokenException(BaseAppException):
     """E-posta dogrulama token'i gecersiz, suresi dolmus veya kullanilmis"""
+
     status_code = status.HTTP_400_BAD_REQUEST
     detail = "Invalid or expired email verification token"
 
 
 class ValidationException(BaseAppException):
     """Data validation error"""
+
     status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
     detail = "Validation error"
 
@@ -89,7 +92,7 @@ class ValidationException(BaseAppException):
         self,
         detail: str | None = None,
         errors: list[dict[str, Any]] | None = None,
-        **kwargs
+        **kwargs,
     ):
         """
         Args:
@@ -106,26 +109,26 @@ class ValidationException(BaseAppException):
 
 class DatabaseException(BaseAppException):
     """Database error"""
+
     status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
     detail = "Error occurred while accessing the database."
 
 
 class ExternalServiceException(BaseAppException):
     """External service error"""
+
     status_code = status.HTTP_502_BAD_GATEWAY
     detail = "External service error occurred."
 
 
 class RateLimitException(BaseAppException):
     """Request limit exceeded error"""
+
     status_code = status.HTTP_429_TOO_MANY_REQUESTS
     detail = "Rate limit exceeded. Please try again later."
 
     def __init__(
-        self,
-        detail: str | None = None,
-        retry_after: int | None = None,
-        **kwargs
+        self, detail: str | None = None, retry_after: int | None = None, **kwargs
     ):
         """
         Args:
@@ -139,14 +142,12 @@ class RateLimitException(BaseAppException):
 
 class ServiceUnavailableException(BaseAppException):
     """Service unavailable error"""
+
     status_code = status.HTTP_503_SERVICE_UNAVAILABLE
     detail = "Service unavailable. Please try again later."
 
     def __init__(
-        self,
-        detail: str | None = None,
-        retry_after: int | None = None,
-        **kwargs
+        self, detail: str | None = None, retry_after: int | None = None, **kwargs
     ):
         """
         Args:
@@ -157,16 +158,18 @@ class ServiceUnavailableException(BaseAppException):
         headers = {"Retry-After": str(retry_after)} if retry_after else None
         super().__init__(detail=detail, headers=headers, **kwargs)
 
+
 # Login credentials exception
 class InvalidCredentialsException(BaseAppException):
     """Invalid credentials error"""
+
     status_code = status.HTTP_401_UNAUTHORIZED
     detail = "Invalid credentials provided."
 
 
 class UnauthorizedException(BaseAppException):
     """Unauthorized access error"""
+
     status_code = status.HTTP_401_UNAUTHORIZED
     detail = "Unauthorized access"
     headers: ClassVar[dict[str, str]] = {"WWW-Authenticate": "Bearer"}
-

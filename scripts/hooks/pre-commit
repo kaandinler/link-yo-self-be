@@ -5,20 +5,39 @@
 # push'tan sonra goruluyordu -- oysa "ruff check ." 33 milisaniye
 # suruyor, yani beklemenin bir bedeli yok.
 #
-# NEDEN TAM OLARAK CI'IN KOMUTU: kanca gecerse Ruff Check is akisinin
-# da gececegi garanti olsun diye. Farkli bir komut kosturmak, yerelde
-# yesil ama CI'da kirmizi durumunu geri getirirdi.
+# NEDEN TAM OLARAK CI'IN KOMUTLARI: kanca gecerse Ruff Check is
+# akisinin da gececegi garanti olsun diye. Farkli bir komut
+# kosturmak, yerelde yesil ama CI'da kirmizi durumunu geri getirirdi.
+# Bu iki dosya birlikte degistirilmeli (.github/workflows/ruff.yml).
 #
-# NEDEN "ruff format" YOK: deponun 67 dosyasindan 49'u su an
-# ruff format'tan gecmiyor ve CI da format denetlemiyor. Bu kancaya
-# format eklemek, ilgisiz 49 dosyayi yeniden bicimlendirmeden once
-# her commit'i durdururdu. O ayri bir karar (bkz. README).
-#
-# NEDEN pytest YOK: paket ~3 dakika suruyor; her commit'te kosturmak
-# kancayi atlatilan bir seye cevirirdi. Testleri CI kosuyor.
+# NEDEN pytest YOK: paket ~3.5 dakika suruyor; her commit'te
+# kosturmak kancayi atlatilan bir seye cevirirdi. Testleri CI kosuyor.
 if ! ruff check .; then
   echo ""
   echo "Commit durduruldu: 'ruff check .' basarisiz."
   echo "Otomatik duzeltilebilenler icin: ruff check --fix ."
+  exit 1
+fi
+
+# FORMAT DENETIMI.
+#
+# Onceden burada degildi ve sebebi yaziliydi: deponun 79 dosyasindan
+# 57'si "ruff format"tan gecmiyordu, yani kancaya format eklemek
+# ilgisiz 57 dosyayi yeniden bicimlendirmeden once her commit'i
+# durdururdu. O 57 dosya tek seferde bicimlendirildi ve denetim
+# CI'a da eklendi; artik kural isliyor.
+#
+# NEDEN --check, YANI DUZELTMIYOR: kanca kendiliginden dosya
+# degistirseydi, commit edilen sey gelistiricinin gordugu sey
+# olmazdi -- "git add" edilmis icerikle commit'e giden icerik
+# ayrisirdi. Kanca yalnizca durduruyor, duzeltmeyi cagiran yapiyor.
+#
+# ALEMBIC NOTU: "alembic revision --autogenerate" ciktisi bu bicimde
+# uretmiyor, yani yeni bir migration'dan sonra bu adim duser. Beklenen
+# durum; asagidaki komut yetiyor.
+if ! ruff format --check .; then
+  echo ""
+  echo "Commit durduruldu: 'ruff format --check .' basarisiz."
+  echo "Duzeltmek icin: ruff format ."
   exit 1
 fi

@@ -134,9 +134,7 @@ class TestProfileUpdateNormalizasyon:
 
     async def test_dokunulmayan_alanlar_varsayilana_dusmez(self, auth_client):
         """Adim DTO'larindan farkli olarak burada bos alan varsayilana dusmemeli."""
-        await auth_client.put(
-            "/api/v1/profile/update", json={"theme_color": "#FF5733"}
-        )
+        await auth_client.put("/api/v1/profile/update", json={"theme_color": "#FF5733"})
 
         response = await auth_client.put(
             "/api/v1/profile/update", json={"bio": "Merhaba"}

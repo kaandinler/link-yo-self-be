@@ -9,6 +9,7 @@ Bu dosya iki seyi olcuyor:
   1. Uretimde bos liste uygulamayi baslatmiyor (fail-closed).
   2. Tanimli liste gercekten kisitliyor; yabanci origin yansitilmiyor.
 """
+
 import pytest
 
 import main

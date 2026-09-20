@@ -8,18 +8,18 @@ from models import User
 
 # Swagger'daki "Authorize" butonunun dogru endpoint'e istek atmasi icin
 # tam yol verilmeli (router'lar /api/v1 prefix'i altinda).
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl='/api/v1/auth/token')
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/token")
 credentials_exception = HTTPException(
     status.HTTP_401_UNAUTHORIZED,
-    detail='Could not validate credentials',
-    headers={'WWW-Authenticate': 'Bearer'}
+    detail="Could not validate credentials",
+    headers={"WWW-Authenticate": "Bearer"},
 )
 
 
 @inject
 async def get_current_user(
-        token: str = Depends(oauth2_scheme),
-        auth_service: AuthService = Depends(Provide[Container.auth_service])
+    token: str = Depends(oauth2_scheme),
+    auth_service: AuthService = Depends(Provide[Container.auth_service]),
 ) -> User:
     """
     Get the current authenticated user based on the JWT token.
@@ -56,7 +56,9 @@ async def get_current_user(
     return user
 
 
-async def get_current_admin_user(current_user: User = Depends(get_current_user)) -> User:
+async def get_current_admin_user(
+    current_user: User = Depends(get_current_user),
+) -> User:
     """
     Check if the current user is an admin.
     First authenticates the user, then checks if they have admin privileges.
@@ -71,4 +73,3 @@ async def get_current_admin_user(current_user: User = Depends(get_current_user))
             detail="Admin privileges required",
         )
     return current_user
-

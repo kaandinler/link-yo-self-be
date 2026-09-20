@@ -6,28 +6,36 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 class LinkCreate(BaseModel):
     title: str = Field(..., min_length=1, max_length=255, description="Link title")
     url: str = Field(..., min_length=1, max_length=2048, description="Link URL")
-    description: str | None = Field(None, max_length=500, description="Link description")
+    description: str | None = Field(
+        None, max_length=500, description="Link description"
+    )
     icon_url: str | None = Field(None, max_length=500, description="Link icon URL")
-    background_color: str | None = Field(None, max_length=20, description="Background color (hex)")
+    background_color: str | None = Field(
+        None, max_length=20, description="Background color (hex)"
+    )
     text_color: str | None = Field(None, max_length=20, description="Text color (hex)")
-    border_radius: int | None = Field(8, ge=0, le=50, description="Border radius in pixels")
+    border_radius: int | None = Field(
+        8, ge=0, le=50, description="Border radius in pixels"
+    )
     is_active: bool | None = Field(True, description="Whether the link is active")
 
     @field_validator("url", mode="before")
     @classmethod
     def validate_url(cls, url: str) -> str:
         # URL formatını kontrol et
-        if not url.startswith(('http://', 'https://')):
-            url = 'https://' + url
+        if not url.startswith(("http://", "https://")):
+            url = "https://" + url
 
         # Basit URL regex kontrolü
         url_pattern = re.compile(
-            r'^https?://'  # http:// veya https://
-            r'(?:(?:[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?\.)+[A-Z]{2,6}\.?|'  # domain
-            r'localhost|'  # localhost
-            r'\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})'  # IP
-            r'(?::\d+)?'  # optional port
-            r'(?:/?|[/?]\S+)$', re.IGNORECASE)
+            r"^https?://"  # http:// veya https://
+            r"(?:(?:[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?\.)+[A-Z]{2,6}\.?|"  # domain
+            r"localhost|"  # localhost
+            r"\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})"  # IP
+            r"(?::\d+)?"  # optional port
+            r"(?:/?|[/?]\S+)$",
+            re.IGNORECASE,
+        )
 
         if not url_pattern.match(url):
             raise ValueError("Invalid URL format")
@@ -41,7 +49,7 @@ class LinkCreate(BaseModel):
             return color
 
         # Hex renk kodu kontrolü
-        if not re.match(r'^#[0-9A-Fa-f]{6}$', color):
+        if not re.match(r"^#[0-9A-Fa-f]{6}$", color):
             raise ValueError("Color must be a valid hex code (e.g., #FF5733)")
 
         return color
@@ -63,16 +71,18 @@ class LinkUpdate(BaseModel):
         if url is None:
             return url
 
-        if not url.startswith(('http://', 'https://')):
-            url = 'https://' + url
+        if not url.startswith(("http://", "https://")):
+            url = "https://" + url
 
         url_pattern = re.compile(
-            r'^https?://'
-            r'(?:(?:[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?\.)+[A-Z]{2,6}\.?|'
-            r'localhost|'
-            r'\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})'
-            r'(?::\d+)?'
-            r'(?:/?|[/?]\S+)$', re.IGNORECASE)
+            r"^https?://"
+            r"(?:(?:[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?\.)+[A-Z]{2,6}\.?|"
+            r"localhost|"
+            r"\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})"
+            r"(?::\d+)?"
+            r"(?:/?|[/?]\S+)$",
+            re.IGNORECASE,
+        )
 
         if not url_pattern.match(url):
             raise ValueError("Invalid URL format")
@@ -85,7 +95,7 @@ class LinkUpdate(BaseModel):
         if color is None:
             return color
 
-        if not re.match(r'^#[0-9A-Fa-f]{6}$', color):
+        if not re.match(r"^#[0-9A-Fa-f]{6}$", color):
             raise ValueError("Color must be a valid hex code (e.g., #FF5733)")
 
         return color

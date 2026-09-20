@@ -3,6 +3,7 @@
 Bu testler veritabanina dokunmuyor: fonksiyon saf ve hatalarinin cogu
 (sema, port, "www.", cop girdi) tam burada yakalanabiliyor.
 """
+
 import pytest
 
 from utils.referrer import host_ayikla, kaynak_host
@@ -58,9 +59,10 @@ class TestHostAyikla:
 
 class TestKaynakHost:
     def test_dis_site_korunuyor(self):
-        assert kaynak_host(
-            "https://instagram.com/p/abc", ic_hostlar={"linkyoself.com"}
-        ) == "instagram.com"
+        assert (
+            kaynak_host("https://instagram.com/p/abc", ic_hostlar={"linkyoself.com"})
+            == "instagram.com"
+        )
 
     def test_site_ici_gezinme_dogrudan_sayiliyor(self):
         # Kendi ana sayfamizdan gelmek bir trafik kaynagi degil; listede en
@@ -76,9 +78,7 @@ class TestKaynakHost:
         # kendi_hostlarimiz() da host_ayikla'dan geciyor, yani "www." ve
         # buyuk harf iki tarafta da ayni sekilde temizleniyor.
         assert (
-            kaynak_host(
-                "https://WWW.linkyoself.com/en", ic_hostlar={"linkyoself.com"}
-            )
+            kaynak_host("https://WWW.linkyoself.com/en", ic_hostlar={"linkyoself.com"})
             is None
         )
 

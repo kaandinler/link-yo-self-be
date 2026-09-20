@@ -1,4 +1,5 @@
 """Auth akisi testleri: kayit, giris, token yenileme, cikis."""
+
 import pytest
 
 from tests.conftest import (
@@ -53,11 +54,11 @@ class TestRegister:
     @pytest.mark.parametrize(
         "alan,deger",
         [
-            ("password", "123"),            # min 6 karakter
-            ("username", "ab"),             # min 3 karakter
-            ("username", "admin"),          # rezerve kelime
-            ("email", "gecersiz-eposta"),   # format hatasi
-            ("username", "kaan!!!"),        # gecersiz karakter (bkz. asagidaki not)
+            ("password", "123"),  # min 6 karakter
+            ("username", "ab"),  # min 3 karakter
+            ("username", "admin"),  # rezerve kelime
+            ("email", "gecersiz-eposta"),  # format hatasi
+            ("username", "kaan!!!"),  # gecersiz karakter (bkz. asagidaki not)
         ],
     )
     async def test_gecersiz_kayit_verisi(self, client, alan, deger):
@@ -467,9 +468,9 @@ class TestEpostaDegistirTalebi:
         )
 
         assert response.status_code == 403
-        assert (
-            await auth_client.get("/api/v1/users/me")
-        ).json()["data"]["email"] == DEFAULT_USER["email"]
+        assert (await auth_client.get("/api/v1/users/me")).json()["data"][
+            "email"
+        ] == DEFAULT_USER["email"]
 
     async def test_gecersiz_eposta_422(self, auth_client):
         response = await auth_client.post(
@@ -527,9 +528,7 @@ class TestEpostaDegistirTalebi:
         assert gonderilen[-1]["to"] == "yeni@example.com"
 
     async def test_baskasinin_epostasi_409(self, auth_client):
-        await register_user(
-            auth_client, username="baska", email="baska@example.com"
-        )
+        await register_user(auth_client, username="baska", email="baska@example.com")
 
         response = await auth_client.post(
             "/api/v1/auth/change-email",
@@ -574,9 +573,7 @@ class TestEpostaDogrulama:
             await register_user(client)
         token = token_cikar(gonderilen[-1]["body"])
 
-        response = await client.post(
-            "/api/v1/auth/verify-email", json={"token": token}
-        )
+        response = await client.post("/api/v1/auth/verify-email", json={"token": token})
 
         assert response.status_code == 200, response.text
         assert response.json()["data"]["email_verified"] is True
@@ -588,9 +585,7 @@ class TestEpostaDogrulama:
         token = token_cikar(gonderilen[-1]["body"])
 
         # Authorization basligi olmadan
-        response = await client.post(
-            "/api/v1/auth/verify-email", json={"token": token}
-        )
+        response = await client.post("/api/v1/auth/verify-email", json={"token": token})
         assert response.status_code == 200
 
     async def test_gecersiz_token_400(self, client):
@@ -605,9 +600,7 @@ class TestEpostaDogrulama:
         token = token_cikar(gonderilen[-1]["body"])
 
         await client.post("/api/v1/auth/verify-email", json={"token": token})
-        ikinci = await client.post(
-            "/api/v1/auth/verify-email", json={"token": token}
-        )
+        ikinci = await client.post("/api/v1/auth/verify-email", json={"token": token})
 
         assert ikinci.status_code == 400
 
@@ -623,9 +616,7 @@ class TestEpostaDogrulama:
             )
         token = token_cikar(gonderilen[-1]["body"])
 
-        response = await client.post(
-            "/api/v1/auth/verify-email", json={"token": token}
-        )
+        response = await client.post("/api/v1/auth/verify-email", json={"token": token})
 
         assert response.status_code == 200, response.text
         data = response.json()["data"]
@@ -664,9 +655,7 @@ class TestEpostaDogrulama:
 
         await register_user(auth_client, username="rakip", email="yeni@example.com")
 
-        response = await client.post(
-            "/api/v1/auth/verify-email", json={"token": token}
-        )
+        response = await client.post("/api/v1/auth/verify-email", json={"token": token})
 
         assert response.status_code == 409
 
@@ -691,9 +680,7 @@ class TestEpostaDogrulama:
             )
             ikinci_token = token_cikar(gonderilen[-1]["body"])
 
-        eski = await client.post(
-            "/api/v1/auth/verify-email", json={"token": ilk_token}
-        )
+        eski = await client.post("/api/v1/auth/verify-email", json={"token": ilk_token})
         assert eski.status_code == 400
 
         yeni = await client.post(
@@ -739,9 +726,7 @@ class TestEpostaDogrulama:
             "DELETE", "/api/v1/users/me", json={"password": DEFAULT_USER["password"]}
         )
 
-        response = await client.post(
-            "/api/v1/auth/verify-email", json={"token": token}
-        )
+        response = await client.post("/api/v1/auth/verify-email", json={"token": token})
         assert response.status_code == 400
 
 
