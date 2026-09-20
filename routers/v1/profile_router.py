@@ -7,6 +7,11 @@ from core.schemas.response import SuccessResponse
 from deps import get_current_user
 from di.container import Container
 from models import User
+from services.page_settings.page_settings_dto import (
+    PageSettingsRead,
+    PageSettingsUpdate,
+)
+from services.page_settings.page_settings_service import PageSettingsService
 from services.user.user_service import UserService
 from services.user.user_service_dto import (
     OnboardingStatus,
@@ -186,6 +191,51 @@ async def complete_onboarding(
         message="Onboarding completed successfully! Welcome to LinkYoSelf!"
     )
 
+
+
+@router.get("/page-settings", response_model=SuccessResponse[PageSettingsRead])
+@inject
+async def get_page_settings(
+        current_user: User = Depends(get_current_user),
+        page_settings_service: PageSettingsService = Depends(
+            Provide[Container.page_settings_service]
+        )
+):
+    """Kullanicinin sayfa ayarlari.
+
+    Ayarlara hic dokunulmamissa satir yok ve varsayilanlar donuyor;
+    istemcinin "once bir kez olustur" adimi atmasi gerekmiyor.
+    """
+    ayarlar = await page_settings_service.get_settings(current_user.id)
+    return SuccessResponse.create(
+        data=ayarlar,
+        message="Page settings retrieved successfully"
+    )
+
+
+@router.put("/page-settings", response_model=SuccessResponse[PageSettingsRead])
+@inject
+async def update_page_settings(
+        settings_data: PageSettingsUpdate,
+        current_user: User = Depends(get_current_user),
+        page_settings_service: PageSettingsService = Depends(
+            Provide[Container.page_settings_service]
+        )
+):
+    """Sayfa ayarlarini gunceller; satir yoksa ilk yazmada olusuyor.
+
+    Arka plan, tema rengi ve profil fotografi BURADA DEGIL: onlar
+    users tablosunda ve PUT /profile/update ile yonetiliyor. Ikisini de
+    buradan kabul etmek ayni gorunumu iki ayri uctan degistirilebilir
+    yapardi.
+    """
+    ayarlar = await page_settings_service.update_settings(
+        current_user.id, settings_data
+    )
+    return SuccessResponse.create(
+        data=ayarlar,
+        message="Page settings updated successfully"
+    )
 
 @router.put("/update", response_model=SuccessResponse[UserRead])
 @inject

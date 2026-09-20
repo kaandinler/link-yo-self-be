@@ -46,6 +46,15 @@ class PublicProfile(BaseModel):
     background_type: str | None = None
     background_value: str | None = None
 
+    # PageSettings'ten gelen tek herkese acik alan. Ayni tablodaki
+    # extra_settings BILINCLI OLARAK disarida: semasi yok, icerigini
+    # istemci belirliyor, yani sema disi bir alani kazara yayinlamak
+    # mumkun olurdu.
+    #
+    # Ayar satiri olmayan kullanici icin False: sayfaya hic dokunmamis
+    # olmak "+18 uyarisi istiyorum" demek degil.
+    adult_warning_enabled: bool = False
+
     links: list[PublicLink] = []
 
 

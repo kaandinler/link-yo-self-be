@@ -156,6 +156,21 @@ class SocialAccount(BaseModel):
 
 
 class PageSettings(BaseModel):
+    """Kullanicinin sayfa ayarlarindan users'ta karsiligi OLMAYANLAR.
+
+    NEDEN BU KADAR DAR: tablo basta background_color, background_image_url
+    ve profile_image_url kolonlarini da tasiyordu; ucu de users'takilerle
+    ayni seyi anlatiyordu (background_type + background_value ikilisi
+    ustelik 'gradient'i de ifade edebiliyor, bu iki kolon edemiyordu).
+    Ikisini birden acik birakmak ayni gorunumu iki yerden okunabilir
+    yapardi. Kolonlar b8c9d0e1f2a3 migration'inda dusuruldu; tablo hic
+    yazilmamisti, veri kaybi olmadi.
+
+    Gorunumle ilgili her sey users'ta: theme_color, background_type,
+    background_value, profile_image_url. Burasi yalnizca onlarin
+    kapsamadigi iki ayar icin.
+    """
+
     __tablename__ = 'user_page_settings'
 
     user_id = Column(
@@ -164,11 +179,12 @@ class PageSettings(BaseModel):
         nullable=False,
         unique=True,
     )
-    background_color = Column(String(20), nullable=True)          # CSS hex veya isim
-    background_image_url = Column(String, nullable=True)          # URL ile resim
-    profile_image_url = Column(String, nullable=True)             # Kullanıcı profil fotoğrafı
-    adult_warning_enabled = Column(Boolean, default=False, nullable=False)  # +18 uyarısı
-    extra_settings = Column(JSON, nullable=True)                  # İleride ek ihtiyaçlar için JSON
+    # Herkese acik sayfada +18 ara ekrani gosterilsin mi?
+    adult_warning_enabled = Column(Boolean, default=False, nullable=False)
+    # Semasi olmayan, sahibine ozel ek ayarlar. Herkese acik profile
+    # DAHIL EDILMIYOR: icerigini istemci belirliyor, yani sema disi bir
+    # alani kazara yayinlamak mumkun olurdu.
+    extra_settings = Column(JSON, nullable=True)
 
     user = relationship('User', back_populates='page_settings')
 

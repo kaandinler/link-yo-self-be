@@ -189,7 +189,12 @@ class UserRepository(BaseRepository[User]):
         ) -> User | None:
             result = await session.execute(
                 select(User)
-                .options(selectinload(User.links))
+                # page_settings de eager: lazy kalsaydi asenkron oturumda
+                # iliskiye ilk dokunus MissingGreenlet ile patlardi.
+                .options(
+                    selectinload(User.links),
+                    selectinload(User.page_settings),
+                )
                 .where(User.username == username_, User.is_deleted.is_(False))
             )
             return result.scalars().first()
