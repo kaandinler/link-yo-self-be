@@ -95,6 +95,31 @@ gerektirmez. Her test sifirdan olusturulan bos bir semada calisir.
 dosya (`tests/conftest.py`), dolayisiyla paralel iki kosu birbirinin
 semasini siler ve ikisi de anlamsiz hatalar verir. Tek kosu temizdir.
 
+### Kapsam
+
+```bash
+pytest --cov          # rapor + esik denetimi
+```
+
+Su an **%91** (2433 ifade, 218'i kapsanmamis). Ayarlar `.coveragerc`'de.
+
+Rakam iki sey sayilmadigi icin bu: testlerin kendisi ve `alembic/`.
+Testler dahil edilseydi %95 cikardi -- kendi test dosyalarini sayan bir
+kapsam rakami, uygulama kodunun durumunu degil test dosyalarinin
+kendi kendini calistirdigini olcer. Migration'lar ise gercek bir
+veritabanina karsi calisiyor, birim suitinde degil; olcmek yuzlerce
+hic yurutulmeyen satirla sayiyi anlamsizlastirirdi.
+
+`fail_under = 90` bir **mandal**: hedef bir sayiya ulasmak degil,
+geriye gitmemek. Bugunku degerin bir puan altinda -- kucuk bir yeniden
+duzenleme derlemeyi kirmiyor, gercek bir gerileme yakalaniyor. Kapsam
+yukseldikce esik de yukseltilmeli, yoksa mandal gevser.
+
+Olcum **CI adiminda**, `pytest.ini`'deki `addopts`'ta degil. Addopts'a
+konsaydi her yerel `pytest` cagrisi -- tek bir dosyayi kosturmak
+dahil -- bedeli oderdi (olculdu: 211 -> 224 saniye) ve o tek dosyanin
+urettigi yaniltici bir rapor basardi.
+
 ### Commit oncesi kanca
 
 ```bash

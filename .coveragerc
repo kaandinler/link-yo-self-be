@@ -1,0 +1,42 @@
+# Test kapsami olcumu.
+#
+# NEDEN OLCULUYOR: 366 test vardi ama kapsam hic olculmemisti, yani
+# "nerede ince oldugumuz" tahmindi. Rakam, sonraki is secimlerini
+# tahmine dayanmaktan cikariyor.
+
+[run]
+source = .
+omit =
+    # Testlerin kendisi sayilmiyor. Sayilsaydi rakam sisecekti: ilk
+    # olcumde dahil oldugunda %95 cikti, cikarilinca %91. Ikincisi
+    # uygulama kodunun gercek durumu.
+    tests/*
+    # Migration'lar gercek bir veritabanina karsi calisiyor, birim
+    # suitinde degil. Olcmek gurultu uretir: hic calismayan yuzlerce
+    # satir kapsami sistematik olarak asagi ceker ve sayiyi
+    # anlamsizlastirir. (Migration'lar elle uretimde dogrulaniyor.)
+    alembic/*
+    .venv/*
+
+[report]
+# Esik BUGUNKU degerin bir puan altinda.
+#
+# NEDEN MANDAL (ratchet) OLARAK: hedef bir sayiya ulasmak degil,
+# geriye gitmemek. Bugun %91; 90 esigi kucuk bir yeniden duzenlemenin
+# derlemeyi kirmasina izin vermiyor ama gercek bir gerilemeyi
+# yakaliyor. Kapsam yukseldikce esik de yukseltilmeli, yoksa mandal
+# gevser.
+fail_under = 90
+show_missing = True
+# Tam kapsanan dosyalar listede yer kaplamasin; ilgilendigimiz
+# eksikler.
+skip_covered = True
+
+exclude_lines =
+    pragma: no cover
+    # Betiklerin giris noktasi: testler modulu import ediyor,
+    # calistirmiyor. Kapsanmamasi bir eksiklik degil.
+    if __name__ == .__main__.:
+    # Yalnizca tip denetleyici icin var, calisma zamaninda hic
+    # yurutulmuyor.
+    if TYPE_CHECKING:

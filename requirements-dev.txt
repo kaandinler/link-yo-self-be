@@ -3,6 +3,7 @@
 # Bu surumlerle test edildi
 pytest~=9.1.1
 pytest-asyncio~=1.4.0
+pytest-cov~=7.1.0             # kapsam olcumu; bkz. .coveragerc
 httpx~=0.28.1
 aiosqlite~=0.22.1             # testlerde SQLite async driver
 ruff~=0.16.7
