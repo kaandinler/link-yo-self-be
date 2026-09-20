@@ -51,6 +51,36 @@ e-posta da oyle. (`example.test` gibi ayrilmis bir alan adi kabul
 edilseydi kayit acilir, sonra `/users/` ucu yaniti serilestiremeyip
 500 donerdi -- olcup gorduk.)
 
+### Uretime alirken
+
+`ENVIRONMENT=production` iken iki liste **zorunlu**:
+
+```bash
+ALLOWED_ORIGINS=["https://linkyoself.com"]   # tarayicidan hangi origin'ler
+ALLOWED_HOSTS=["api.linkyoself.com"]         # hangi Host basliklari
+```
+
+Bos birakilirsa uygulama ayaga kalkmiyor ve hata neyin eksik oldugunu
+soyluyor. **Neden acikca durduruluyor:** eskiden bos liste sessizce
+"her origin kabul" anlamina geliyordu. Kod `allowed_origins or ["*"]`
+diyordu ve hemen altinda `allow_credentials=True` duruyordu; Starlette
+bu ikisini birlikte gorunce yanita `*` yazmiyor, **istegin origin'ini
+yansitiyor**. Calisan sunucuda olculdu:
+
+```
+$ curl -i -X OPTIONS .../api/v1/profile/me -H "Origin: https://kotu-site.example" ...
+access-control-allow-origin: https://kotu-site.example
+access-control-allow-credentials: true
+```
+
+`ALLOWED_ORIGINS` yazmayi unutan bir dagitim, hicbir uyari cikmadan
+her siteye acik hale geliyordu. Sessizce acik olmaktansa acikca
+baslamamak tercih edildi.
+
+Gelistirmede `ALLOWED_ORIGINS` bos birakilabilir; o zaman yalnizca
+`FRONTEND_URL` kabul edilir. Hicbir ortamda `*` kullanilmiyor --
+`allow_credentials=True` ile bir arada zaten bir sey kisitlamiyor.
+
 ## Testler
 
 ```bash
