@@ -155,9 +155,17 @@ kendiliginden degistirseydi commit edilen sey gelistiricinin gordugu
 sey olmazdi: `git add` edilmis icerikle commit'e giden icerik
 ayrisirdi.
 
-`alembic revision --autogenerate` ciktisi bu bicimde uretmiyor, yani
-yeni bir migration'dan sonra denetim duser. Beklenen durum; `ruff
-format .` yetiyor.
+**Migration'lar bicimlendirme denetiminin disinda** (`ruff.toml`,
+`[format] exclude`). Onlari insan yazmiyor, `alembic revision
+--autogenerate` uretiyor ve cikti bu bicimde gelmiyor; denetim
+kapsasaydi her yeni migration'dan sonra kanca duser, gelistirici de
+anlamsiz bir `ruff format .` adimi atmak zorunda kalirdi.
+
+Bu **yalnizca bicimlendirme**. `exclude`'u ust seviyeye koymak
+`ruff check`i de kapsardi ve migration'lar lint edilmez olurdu; o
+yuzden `[format]` bolumunde. Olculdu: migration'lardaki kullanilmayan
+bir import `ruff check`te hala F401 veriyor, bozuk bicim ise
+`ruff format --check`te gorunmuyor.
 
 ### CI
 

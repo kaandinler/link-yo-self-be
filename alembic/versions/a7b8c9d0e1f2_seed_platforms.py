@@ -18,7 +18,6 @@ kullaniyor) ve ikisinin upsert sozdizimi ayni degil. Mevcut adlari
 okuyup eksikleri eklemek her iki veritabaninda da ayni sekilde
 davraniyor ve migration'i yeniden calistirilabilir yapiyor.
 """
-
 from collections.abc import Sequence
 
 import sqlalchemy as sa
@@ -26,8 +25,8 @@ import sqlalchemy as sa
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision: str = "a7b8c9d0e1f2"
-down_revision: str | None = "f6a7b8c9d0e1"
+revision: str = 'a7b8c9d0e1f2'
+down_revision: str | None = 'f6a7b8c9d0e1'
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
@@ -62,7 +61,8 @@ def upgrade() -> None:
     baglanti = op.get_bind()
 
     mevcut = {
-        satir[0] for satir in baglanti.execute(sa.text("SELECT name FROM platforms"))
+        satir[0]
+        for satir in baglanti.execute(sa.text("SELECT name FROM platforms"))
     }
 
     eklenecek = [

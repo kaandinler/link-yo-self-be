@@ -32,9 +32,11 @@ fi
 # olmazdi -- "git add" edilmis icerikle commit'e giden icerik
 # ayrisirdi. Kanca yalnizca durduruyor, duzeltmeyi cagiran yapiyor.
 #
-# ALEMBIC NOTU: "alembic revision --autogenerate" ciktisi bu bicimde
-# uretmiyor, yani yeni bir migration'dan sonra bu adim duser. Beklenen
-# durum; asagidaki komut yetiyor.
+# ALEMBIC: migration'lar bicimlendirme denetiminin DISINDA
+# (ruff.toml, [format] exclude). Ureten "alembic revision
+# --autogenerate"; cikti bu bicimde gelmiyor ve denetim kapsasaydi her
+# yeni migration'dan sonra bu adim duserdi. Lint kapsami degismedi:
+# "ruff check" o dosyalari hala goruyor.
 if ! ruff format --check .; then
   echo ""
   echo "Commit durduruldu: 'ruff format --check .' basarisiz."
