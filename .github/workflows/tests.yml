@@ -32,5 +32,15 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements-dev.txt
 
-      - name: Run tests
-        run: pytest -q
+      # Kapsam BURADA olculuyor, pytest.ini'deki addopts'ta degil.
+      #
+      # NEDEN: addopts'a konsaydi her yerel `pytest` cagrisi -- tek bir
+      # dosyayi kosturmak dahil -- olcum bedelini oderdi (olculdu: 211
+      # -> 224 saniye) ve o tek dosyanin urettigi yaniltici bir
+      # kapsam raporu basardi. Esigi zorlamak CI'in isi; gelistirici
+      # istediginde `pytest --cov` diyebiliyor.
+      #
+      # Esik .coveragerc'de (fail_under) ve bir mandal: bugunku
+      # degerin bir puan altinda, amaci geriye gitmeyi yakalamak.
+      - name: Run tests with coverage
+        run: pytest --cov -q
