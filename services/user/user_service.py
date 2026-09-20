@@ -237,6 +237,9 @@ class UserService(BaseService):
             theme_color=user.theme_color,
             background_type=user.background_type,
             background_value=user.background_value,
+            adult_warning_enabled=bool(
+                user.page_settings and user.page_settings.adult_warning_enabled
+            ),
             links=[PublicLink.model_validate(link) for link in visible_links],
         )
 
