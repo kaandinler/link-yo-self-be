@@ -48,6 +48,60 @@ async def lifespan(app: FastAPI):
     logger.info("Shutting down LinkYoSelf API")
 
 
+def cors_kaynaklari() -> list[str]:
+    """Tarayicidan gelen isteklerde kabul edilecek origin listesi.
+
+    NEDEN FAIL-CLOSED: onceki hali `settings.allowed_origins or ["*"]`
+    idi ve hemen altinda allow_credentials=True duruyordu. Starlette bu
+    ikisini birlikte gorunce yanita `*` YAZMIYOR, ISTEGIN ORIGIN'INI
+    YANSITIYOR. Calisan sunucuda olculdu:
+
+        $ curl -i -X OPTIONS .../api/v1/profile/me \
+            -H "Origin: https://kotu-site.example" ...
+        access-control-allow-origin: https://kotu-site.example
+        access-control-allow-credentials: true
+
+    Yani ALLOWED_ORIGINS yazmayi unutan bir uretim dagitimi, hicbir
+    uyari vermeden "her siteye acik" hale geliyordu. Bugun bunun tek
+    basina veri sizdirmadigi dogru -- token Authorization basligiyla
+    gidiyor, tarayici onu kendiliginden eklemiyor. Ama bu, ayarin dogru
+    oldugu anlamina gelmiyor: cerez tabanli bir oturuma gecildigi gun
+    ayni satir sessizce bir acik haline gelir.
+
+    Sessizce acik olmaktansa acikca baslamamak daha iyi: uretimde liste
+    bossa uygulama ayaga kalkmiyor ve hata neyin eksik oldugunu
+    soyluyor. Gelistirmede `*` yerine frontend adresi kullaniliyor --
+    iki ortam ayni sekle sahip olsun ki uretimde surpriz cikmasin.
+    """
+    if settings.allowed_origins:
+        return settings.allowed_origins
+
+    if settings.environment == "production":
+        raise RuntimeError(
+            "ALLOWED_ORIGINS bos. Uretimde CORS listesi acikca "
+            "verilmeli: bos birakilinca her origin kabul edilirdi."
+        )
+
+    return [settings.frontend_url]
+
+
+def guvenilir_adresler() -> list[str]:
+    """TrustedHostMiddleware'in kabul ettigi Host basliklari.
+
+    Ayni hata sekli: `allowed_hosts=None` verildiginde Starlette listeyi
+    ["*"] yapiyor, yani uretim icin acilan kontrol hicbir sey
+    yapmiyordu. Burasi yalnizca uretimde cagriliyor, o yuzden dogrudan
+    hata veriyor.
+    """
+    if settings.allowed_hosts:
+        return settings.allowed_hosts
+
+    raise RuntimeError(
+        "ALLOWED_HOSTS bos. Uretimde Host kontrolu acikca verilmeli: "
+        "bos birakilinca her Host basligi kabul edilirdi."
+    )
+
+
 def create_app() -> FastAPI:
     # Create FastAPI instance
     app = FastAPI(
@@ -59,13 +113,19 @@ def create_app() -> FastAPI:
 
     # Configure security for production
     if settings.environment == "production":
-        app.add_middleware(TrustedHostMiddleware, allowed_hosts=settings.allowed_hosts)
+        app.add_middleware(
+            TrustedHostMiddleware, allowed_hosts=guvenilir_adresler()
+        )
         app.add_middleware(HTTPSRedirectMiddleware)
 
     # Configure CORS
+    #
+    # allow_origins asla ["*"] olmuyor (bkz. cors_kaynaklari): `*` ile
+    # allow_credentials=True bir arada anlamli degil -- Starlette o
+    # durumda origin'i yansitiyor ve liste bir sey kisitlamiyor.
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=settings.allowed_origins or ["*"],
+        allow_origins=cors_kaynaklari(),
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
