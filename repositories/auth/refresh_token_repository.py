@@ -1,4 +1,3 @@
-
 from sqlalchemy import and_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -16,21 +15,31 @@ class RefreshTokenRepository(BaseRepository[RefreshToken]):
         """Yeni bir refresh token oluşturur"""
         return await self.create(refresh_token)
 
-    async def get_by_token(self, token: str, transactional: bool = False) -> RefreshToken | None:
+    async def get_by_token(
+        self, token: str, transactional: bool = False
+    ) -> RefreshToken | None:
         """Token değeri ile refresh token kaydını bulur"""
 
-        async def _get_by_token(session: AsyncSession, token_value: str) -> RefreshToken | None:
+        async def _get_by_token(
+            session: AsyncSession, token_value: str
+        ) -> RefreshToken | None:
             result = await session.execute(
                 select(RefreshToken).where(RefreshToken.token == token_value)
             )
             return result.scalars().first()
 
-        return await self.execute_query(_get_by_token, token, transactional=transactional)
+        return await self.execute_query(
+            _get_by_token, token, transactional=transactional
+        )
 
-    async def get_valid_token(self, token: str, transactional: bool = False) -> RefreshToken | None:
+    async def get_valid_token(
+        self, token: str, transactional: bool = False
+    ) -> RefreshToken | None:
         """Geçerli bir refresh token kaydını bulur (süresi dolmamış ve revoke edilmemiş)"""
 
-        async def _get_valid_token(session: AsyncSession, token_value: str) -> RefreshToken | None:
+        async def _get_valid_token(
+            session: AsyncSession, token_value: str
+        ) -> RefreshToken | None:
             result = await session.execute(
                 select(RefreshToken).where(
                     and_(
@@ -39,13 +48,15 @@ class RefreshTokenRepository(BaseRepository[RefreshToken]):
                         # kolonu Python bool'una cevirip sorguyu WHERE false
                         # haline getirir. SQL karsiligi icin .is_(False) sart.
                         RefreshToken.is_revoked.is_(False),
-                        RefreshToken.expires_at > utcnow()
+                        RefreshToken.expires_at > utcnow(),
                     )
                 )
             )
             return result.scalars().first()
 
-        return await self.execute_query(_get_valid_token, token, transactional=transactional)
+        return await self.execute_query(
+            _get_valid_token, token, transactional=transactional
+        )
 
     async def revoke_token(self, token: str) -> None:
         """Refresh token'ı geçersiz kılar"""
@@ -69,11 +80,13 @@ class RefreshTokenRepository(BaseRepository[RefreshToken]):
                 .where(
                     and_(
                         RefreshToken.user_id == user_id_,
-                        RefreshToken.is_revoked.is_(False)
+                        RefreshToken.is_revoked.is_(False),
                     )
                 )
                 .values(is_revoked=True)
             )
             await session.commit()
 
-        return await self.execute_query(_revoke_all_user_tokens, user_id, transactional=True)
+        return await self.execute_query(
+            _revoke_all_user_tokens, user_id, transactional=True
+        )

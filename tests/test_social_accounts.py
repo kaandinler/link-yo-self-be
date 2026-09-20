@@ -8,6 +8,7 @@ Testler platformlari kendisi ekliyor (seed_platforms): uretimdeki seed
 bir migration ile geliyor, testler ise tablolari create_all ile kuruyor
 ve migration calistirmiyor.
 """
+
 import pytest
 
 from tests.conftest import (
@@ -38,9 +39,7 @@ def hesap():
 
 async def ikinci_kullanici(client) -> str:
     """Ikinci bir kullanici kaydedip token'ini doner (sahiplik testleri icin)."""
-    await register_user(
-        client, username="baskasi", email="baskasi@example.com"
-    )
+    await register_user(client, username="baskasi", email="baskasi@example.com")
     return await login(client, identifier="baskasi@example.com")
 
 
@@ -229,9 +228,7 @@ class TestListelemeVeOkuma:
         await register_user(client)
         ilk = auth_header(await login(client))
         olusan = (
-            await client.post(
-                f"{YOL}/", json=hesap(kimlikler["github"]), headers=ilk
-            )
+            await client.post(f"{YOL}/", json=hesap(kimlikler["github"]), headers=ilk)
         ).json()["data"]
 
         ikinci = auth_header(await ikinci_kullanici(client))
@@ -294,7 +291,9 @@ class TestGuncelleme:
             await auth_client.post(f"{YOL}/", json=hesap(kimlikler["github"]))
         ).json()["data"]
 
-        yanit = await auth_client.put(f"{YOL}/{olusan['id']}", json={"platform_id": 9999})
+        yanit = await auth_client.put(
+            f"{YOL}/{olusan['id']}", json={"platform_id": 9999}
+        )
 
         assert yanit.status_code == 404
 
@@ -313,9 +312,7 @@ class TestGuncelleme:
         await register_user(client)
         ilk = auth_header(await login(client))
         olusan = (
-            await client.post(
-                f"{YOL}/", json=hesap(kimlikler["github"]), headers=ilk
-            )
+            await client.post(f"{YOL}/", json=hesap(kimlikler["github"]), headers=ilk)
         ).json()["data"]
 
         ikinci = auth_header(await ikinci_kullanici(client))
@@ -362,16 +359,16 @@ class TestSilme:
         await register_user(client)
         ilk = auth_header(await login(client))
         olusan = (
-            await client.post(
-                f"{YOL}/", json=hesap(kimlikler["github"]), headers=ilk
-            )
+            await client.post(f"{YOL}/", json=hesap(kimlikler["github"]), headers=ilk)
         ).json()["data"]
 
         ikinci = auth_header(await ikinci_kullanici(client))
         yanit = await client.delete(f"{YOL}/{olusan['id']}", headers=ikinci)
 
         assert yanit.status_code == 403
-        assert (await client.get(f"{YOL}/{olusan['id']}", headers=ilk)).status_code == 200
+        assert (
+            await client.get(f"{YOL}/{olusan['id']}", headers=ilk)
+        ).status_code == 200
 
 
 class TestHesapKapatma:

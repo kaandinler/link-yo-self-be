@@ -127,20 +127,45 @@ git config core.hooksPath scripts/hooks
 ```
 
 Bir kez kurulur; `scripts/hooks/pre-commit` commit'ten once
-`ruff check .` kosturur ve gecmezse commit'i durdurur. Komut CI'in
-kosturdugunun AYNISI, dolayisiyla kanca gecerse Ruff Check is akisinin
-da gececegi garanti. Maliyeti 33 milisaniye.
+`ruff check .` ve `ruff format --check .` kosturur, gecmezse commit'i
+durdurur. Komutlar CI'in kosturdugunun AYNISI, dolayisiyla kanca
+gecerse Ruff Check is akisinin da gececegi garanti. Ikisi birlikte
+degistirilmeli.
 
-Kanca **pytest kosturmuyor**: paket ~3 dakika suruyor ve her commit'te
-beklemek kancayi atlatilan bir seye cevirirdi. Testleri CI kosuyor.
+Kanca **pytest kosturmuyor**: paket ~3.5 dakika suruyor ve her
+commit'te beklemek kancayi atlatilan bir seye cevirirdi. Testleri CI
+kosuyor.
 
-Kanca **`ruff format` de denetlemiyor**, cunku bu depo su an
-bicimlendirilmis degil: 67 dosyanin 49'u `ruff format`'tan gecmiyor ve
-CI da format denetlemiyor. Kancaya format eklemek, ilgisiz 49 dosyayi
-yeniden bicimlendirmeden once her commit'i durdururdu. Bicimlendirmeyi
-benimsemek ayri bir karar: once tek seferlik `ruff format .`, sonra
-hem CI'a hem bu kancaya `ruff format --check .` eklenmeli. Ikisi
-birlikte yapilmali, aksi halde ayni sorun geri gelir.
+### Bicimlendirme
+
+Depo `ruff format` ile bicimlendirilmis. Bir donem degildi: 79
+dosyanin 57'si gecmiyordu ve o yuzden ne kancada ne CI'da format
+denetimi vardi -- eklemek, ilgisiz 57 dosyayi bicimlendirmeden once
+her commit'i durdururdu. Bicimlendirme tek seferde yapildi ve denetim
+**ayni anda hem kancaya hem CI'a** eklendi. Yalnizca birine eklemek
+ise yaramazdi: kanca opt-in, yani kurmamis biri bozuk format push
+edebilir; CI'siz de bir seferlik temizlik zamanla yine dagilirdi.
+
+Satir uzunlugu ayarlanmadi, ruff'in varsayilani (88) kullaniliyor.
+Olculdu: 11954 satirin yalnizca 128'i 88 karakteri geciyordu ve en
+uzun satir 111'di, yani depo zaten bu genislige yakin yazilmisti.
+
+Denetim **duzeltmiyor, yalnizca durduruyor**. Kanca dosyalari
+kendiliginden degistirseydi commit edilen sey gelistiricinin gordugu
+sey olmazdi: `git add` edilmis icerikle commit'e giden icerik
+ayrisirdi.
+
+**Migration'lar bicimlendirme denetiminin disinda** (`ruff.toml`,
+`[format] exclude`). Onlari insan yazmiyor, `alembic revision
+--autogenerate` uretiyor ve cikti bu bicimde gelmiyor; denetim
+kapsasaydi her yeni migration'dan sonra kanca duser, gelistirici de
+anlamsiz bir `ruff format .` adimi atmak zorunda kalirdi.
+
+Bu **yalnizca bicimlendirme**. `exclude`'u ust seviyeye koymak
+`ruff check`i de kapsardi ve migration'lar lint edilmez olurdu; o
+yuzden `[format]` bolumunde. Olculdu: migration'lardaki kullanilmayan
+bir import `ruff check`te hala F401 veriyor, bozuk bicim ise
+`ruff format --check`te gorunmuyor.
 
 ### CI
 

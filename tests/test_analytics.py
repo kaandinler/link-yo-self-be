@@ -1,4 +1,5 @@
 """GET /analytics/summary - pano ve analytics sayfasinin okudugu ozet."""
+
 from datetime import UTC, datetime, time, timedelta
 
 from tests.conftest import DEFAULT_USER, auth_header, login, register_user
@@ -49,9 +50,7 @@ class TestAnalyticsOzeti:
     async def test_baska_kullanicinin_linkleri_sayilmaz(self, auth_client):
         await create_link(auth_client, title="Benim")
 
-        await register_user(
-            auth_client, username="baska", email="baska@example.com"
-        )
+        await register_user(auth_client, username="baska", email="baska@example.com")
         baska_token = await login(auth_client, "baska@example.com")
 
         response = await auth_client.get(
@@ -121,9 +120,7 @@ class TestProfilGoruntulenme:
         await client.get(f"/api/v1/p/{DEFAULT_USER['username']}")
 
         benim = (
-            await client.get(
-                "/api/v1/analytics/summary", headers=auth_header(token)
-            )
+            await client.get("/api/v1/analytics/summary", headers=auth_header(token))
         ).json()["data"]
         baska = (
             await client.get(
@@ -149,9 +146,9 @@ class TestAnalyticsZamanSerisi:
         assert len(data["points"]) == 7
 
     async def test_olaysiz_gunler_sifirla_doluyor(self, auth_client):
-        data = (
-            await auth_client.get("/api/v1/analytics/timeseries?days=30")
-        ).json()["data"]
+        data = (await auth_client.get("/api/v1/analytics/timeseries?days=30")).json()[
+            "data"
+        ]
 
         assert len(data["points"]) == 30
         assert data["total_clicks"] == 0
@@ -159,9 +156,9 @@ class TestAnalyticsZamanSerisi:
         assert all(nokta["clicks"] == 0 for nokta in data["points"])
 
     async def test_gunler_artan_sirada_ve_bugunle_bitiyor(self, auth_client):
-        data = (
-            await auth_client.get("/api/v1/analytics/timeseries?days=3")
-        ).json()["data"]
+        data = (await auth_client.get("/api/v1/analytics/timeseries?days=3")).json()[
+            "data"
+        ]
 
         gunler = [nokta["date"] for nokta in data["points"]]
         assert gunler == sorted(gunler)
@@ -173,9 +170,9 @@ class TestAnalyticsZamanSerisi:
         await auth_client.post(f"/api/v1/links/{link['id']}/click")
         await auth_client.post(f"/api/v1/links/{link['id']}/click")
 
-        data = (
-            await auth_client.get("/api/v1/analytics/timeseries?days=7")
-        ).json()["data"]
+        data = (await auth_client.get("/api/v1/analytics/timeseries?days=7")).json()[
+            "data"
+        ]
 
         assert data["total_clicks"] == 2
         assert data["points"][-1]["clicks"] == 2
@@ -185,22 +182,20 @@ class TestAnalyticsZamanSerisi:
     async def test_profil_goruntulemesi_sayiliyor(self, auth_client):
         await auth_client.get(f"/api/v1/p/{DEFAULT_USER['username']}")
 
-        data = (
-            await auth_client.get("/api/v1/analytics/timeseries?days=7")
-        ).json()["data"]
+        data = (await auth_client.get("/api/v1/analytics/timeseries?days=7")).json()[
+            "data"
+        ]
 
         assert data["total_profile_views"] == 1
         assert data["points"][-1]["profile_views"] == 1
 
     async def test_count_view_false_zaman_serisine_de_girmiyor(self, auth_client):
         """Sayac ile olay kaydi ayri yerlerde tutuluyor; ikisi de susmali."""
-        await auth_client.get(
-            f"/api/v1/p/{DEFAULT_USER['username']}?count_view=false"
-        )
+        await auth_client.get(f"/api/v1/p/{DEFAULT_USER['username']}?count_view=false")
 
-        data = (
-            await auth_client.get("/api/v1/analytics/timeseries?days=7")
-        ).json()["data"]
+        data = (await auth_client.get("/api/v1/analytics/timeseries?days=7")).json()[
+            "data"
+        ]
 
         assert data["total_profile_views"] == 0
 
@@ -208,9 +203,7 @@ class TestAnalyticsZamanSerisi:
         link = await create_link(auth_client, title="Benim")
         await auth_client.post(f"/api/v1/links/{link['id']}/click")
 
-        await register_user(
-            auth_client, username="baska", email="baska@example.com"
-        )
+        await register_user(auth_client, username="baska", email="baska@example.com")
         baska_token = await login(auth_client, "baska@example.com")
 
         data = (
@@ -234,9 +227,9 @@ class TestAnalyticsZamanSerisi:
         await auth_client.post(f"/api/v1/links/{link['id']}/click")
         await auth_client.delete(f"/api/v1/links/{link['id']}")
 
-        data = (
-            await auth_client.get("/api/v1/analytics/timeseries?days=7")
-        ).json()["data"]
+        data = (await auth_client.get("/api/v1/analytics/timeseries?days=7")).json()[
+            "data"
+        ]
 
         # Olay link_id'si bosa duser ama satir kalir: gecmis bir gunun
         # toplami bugun yapilan bir silme yuzunden degismemeli.
@@ -259,9 +252,9 @@ class TestLinkZamanSerisi:
     async def test_tiklanmayan_link_de_listede(self, auth_client):
         await create_link(auth_client, title="Sessiz")
 
-        data = (
-            await auth_client.get("/api/v1/analytics/timeseries/by-link")
-        ).json()["data"]
+        data = (await auth_client.get("/api/v1/analytics/timeseries/by-link")).json()[
+            "data"
+        ]
 
         assert len(data["links"]) == 1
         seri = data["links"][0]
@@ -286,9 +279,7 @@ class TestLinkZamanSerisi:
         assert seriler["Iki"]["total_clicks"] == 1
         # Bugun son gun.
         assert seriler["Bir"]["points"][-1]["clicks"] == 2
-        assert all(
-            nokta["clicks"] == 0 for nokta in seriler["Bir"]["points"][:-1]
-        )
+        assert all(nokta["clicks"] == 0 for nokta in seriler["Bir"]["points"][:-1])
 
     async def test_en_cok_tiklanan_basta(self, auth_client):
         az = await create_link(auth_client, title="Az")
@@ -297,9 +288,9 @@ class TestLinkZamanSerisi:
         for _ in range(3):
             await auth_client.post(f"/api/v1/links/{cok['id']}/click")
 
-        data = (
-            await auth_client.get("/api/v1/analytics/timeseries/by-link")
-        ).json()["data"]
+        data = (await auth_client.get("/api/v1/analytics/timeseries/by-link")).json()[
+            "data"
+        ]
 
         assert [seri["title"] for seri in data["links"]] == ["Cok", "Az"]
 
@@ -307,9 +298,9 @@ class TestLinkZamanSerisi:
         link = await create_link(auth_client, title="Pasif")
         await auth_client.patch(f"/api/v1/links/{link['id']}/toggle")
 
-        data = (
-            await auth_client.get("/api/v1/analytics/timeseries/by-link")
-        ).json()["data"]
+        data = (await auth_client.get("/api/v1/analytics/timeseries/by-link")).json()[
+            "data"
+        ]
 
         assert data["links"][0]["title"] == "Pasif"
         assert data["links"][0]["is_active"] is False
@@ -324,9 +315,7 @@ class TestLinkZamanSerisi:
         kirilim = (
             await auth_client.get("/api/v1/analytics/timeseries/by-link")
         ).json()["data"]
-        genel = (
-            await auth_client.get("/api/v1/analytics/timeseries")
-        ).json()["data"]
+        genel = (await auth_client.get("/api/v1/analytics/timeseries")).json()["data"]
 
         basliklar = [seri["title"] for seri in kirilim["links"]]
         assert basliklar == ["Kalan"]
@@ -337,9 +326,7 @@ class TestLinkZamanSerisi:
     async def test_baska_kullanicinin_linkleri_gorunmez(self, auth_client):
         await create_link(auth_client, title="Benim")
 
-        await register_user(
-            auth_client, username="baska", email="baska@example.com"
-        )
+        await register_user(auth_client, username="baska", email="baska@example.com")
         baska_token = await login(auth_client, "baska@example.com")
 
         data = (
@@ -375,8 +362,7 @@ async def tikla(client, link_id: int, referrer: str | None = None):
 def kaynak_sozlugu(data: dict) -> dict:
     """Yanittaki kaynak listesini {etiket: tiklama} sozluguna cevirir."""
     return {
-        kaynak["host"] or kaynak["kind"]: kaynak["clicks"]
-        for kaynak in data["sources"]
+        kaynak["host"] or kaynak["kind"]: kaynak["clicks"] for kaynak in data["sources"]
     }
 
 
@@ -519,9 +505,7 @@ class TestTrafikKaynaklari:
         link = await create_link(auth_client)
         await tikla(auth_client, link["id"], "https://instagram.com/p/a")
 
-        await register_user(
-            auth_client, username="baska", email="baska@example.com"
-        )
+        await register_user(auth_client, username="baska", email="baska@example.com")
         baska_token = await login(auth_client, "baska@example.com")
 
         data = (
@@ -605,16 +589,10 @@ class TestEnIyiZamanlar:
         link = await create_link(auth_client)
         dun = datetime.now(UTC) - timedelta(days=1)
 
-        await olay_yaz(
-            app, kimlik, dun.replace(hour=9, minute=0), link["id"], adet=3
-        )
-        await olay_yaz(
-            app, kimlik, dun.replace(hour=21, minute=0), link["id"], adet=1
-        )
+        await olay_yaz(app, kimlik, dun.replace(hour=9, minute=0), link["id"], adet=3)
+        await olay_yaz(app, kimlik, dun.replace(hour=21, minute=0), link["id"], adet=1)
 
-        data = (
-            await auth_client.get("/api/v1/analytics/best-times")
-        ).json()["data"]
+        data = (await auth_client.get("/api/v1/analytics/best-times")).json()["data"]
 
         assert data["total_clicks"] == 4
         assert saat_sozlugu(data) == {9: 3, 21: 1}
@@ -628,13 +606,9 @@ class TestEnIyiZamanlar:
         dun = datetime.now(UTC) - timedelta(days=1)
         await olay_yaz(app, kimlik, dun.replace(hour=9), link["id"], adet=2)
 
-        utc = (
-            await auth_client.get("/api/v1/analytics/best-times")
-        ).json()["data"]
+        utc = (await auth_client.get("/api/v1/analytics/best-times")).json()["data"]
         istanbul = (
-            await auth_client.get(
-                "/api/v1/analytics/best-times?tz=Europe/Istanbul"
-            )
+            await auth_client.get("/api/v1/analytics/best-times?tz=Europe/Istanbul")
         ).json()["data"]
 
         assert saat_sozlugu(utc) == {9: 2}
@@ -659,9 +633,7 @@ class TestEnIyiZamanlar:
 
         yol = "/api/v1/analytics/best-times?days=90"
         utc = (await auth_client.get(yol)).json()["data"]
-        istanbul = (
-            await auth_client.get(f"{yol}&tz=Europe/Istanbul")
-        ).json()["data"]
+        istanbul = (await auth_client.get(f"{yol}&tz=Europe/Istanbul")).json()["data"]
 
         assert gun_sozlugu(utc) == {0: 2}  # Pazartesi
         assert gun_sozlugu(istanbul) == {1: 2}  # Sali
@@ -716,9 +688,7 @@ class TestEnIyiZamanlar:
             )
             await session.commit()
 
-        data = (
-            await auth_client.get("/api/v1/analytics/best-times")
-        ).json()["data"]
+        data = (await auth_client.get("/api/v1/analytics/best-times")).json()["data"]
 
         # Uc yalnizca tiklamalari sayiyor; 15 saati listede olmamali.
         assert saat_sozlugu(data) == {9: 2}
@@ -731,9 +701,7 @@ class TestEnIyiZamanlar:
         dun = datetime.now(UTC) - timedelta(days=1)
         await olay_yaz(app, kimlik, dun.replace(hour=9), link["id"], adet=2)
 
-        await register_user(
-            auth_client, username="baska", email="baska@example.com"
-        )
+        await register_user(auth_client, username="baska", email="baska@example.com")
         baska_token = await login(auth_client, "baska@example.com")
 
         data = (
@@ -745,9 +713,7 @@ class TestEnIyiZamanlar:
         assert data["total_clicks"] == 0
 
     async def test_gecersiz_saat_dilimi_422(self, auth_client):
-        response = await auth_client.get(
-            "/api/v1/analytics/best-times?tz=Mars/Olympus"
-        )
+        response = await auth_client.get("/api/v1/analytics/best-times?tz=Mars/Olympus")
         assert response.status_code == 422
         assert "Mars/Olympus" in response.text
 
@@ -773,8 +739,8 @@ class TestTarihAraligi:
 
         # Aralik: 10 gun once - 8 gun once (uc gun).
         await olay_yaz(app, kid, utcnow() - timedelta(days=12), adet=5)  # once
-        await olay_yaz(app, kid, utcnow() - timedelta(days=9), adet=3)   # icinde
-        await olay_yaz(app, kid, utcnow() - timedelta(days=6), adet=7)   # sonra
+        await olay_yaz(app, kid, utcnow() - timedelta(days=9), adet=3)  # icinde
+        await olay_yaz(app, kid, utcnow() - timedelta(days=6), adet=7)  # sonra
 
         start = (bugun - timedelta(days=10)).isoformat()
         end = (bugun - timedelta(days=8)).isoformat()
@@ -797,9 +763,7 @@ class TestTarihAraligi:
         end_gun = bugun - timedelta(days=3)
 
         # Tam sinirlarda, gunun basinda ve sonuna cok yakin.
-        await olay_yaz(
-            app, kid, datetime.combine(start_gun, time(0, 0), tzinfo=UTC)
-        )
+        await olay_yaz(app, kid, datetime.combine(start_gun, time(0, 0), tzinfo=UTC))
         await olay_yaz(
             app,
             kid,
@@ -883,17 +847,13 @@ class TestTarihAraligi:
     async def test_tek_basina_start_reddediliyor(self, auth_client):
         # "start'tan bugune" mi, "start'tan days gun" mu belirsiz.
         bugun = utcnow().date().isoformat()
-        response = await auth_client.get(
-            f"/api/v1/analytics/timeseries?start={bugun}"
-        )
+        response = await auth_client.get(f"/api/v1/analytics/timeseries?start={bugun}")
 
         assert response.status_code == 422
 
     async def test_tek_basina_end_reddediliyor(self, auth_client):
         bugun = utcnow().date().isoformat()
-        response = await auth_client.get(
-            f"/api/v1/analytics/timeseries?end={bugun}"
-        )
+        response = await auth_client.get(f"/api/v1/analytics/timeseries?end={bugun}")
 
         assert response.status_code == 422
 
@@ -941,9 +901,7 @@ class TestTarihAraligi:
 
         assert response.status_code == 422
 
-    async def test_start_end_verilince_days_yok_sayiliyor(
-        self, auth_client, app
-    ):
+    async def test_start_end_verilince_days_yok_sayiliyor(self, auth_client, app):
         kid = await kullanici_id(auth_client)
         bugun = utcnow().date()
         await olay_yaz(app, kid, utcnow() - timedelta(days=20), adet=2)

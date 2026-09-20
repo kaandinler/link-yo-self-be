@@ -28,9 +28,7 @@ from settings import settings
 
 
 class Container(containers.DeclarativeContainer):
-    wiring_config = containers.WiringConfiguration(
-        packages=["routers", "core.auth"]
-    )
+    wiring_config = containers.WiringConfiguration(packages=["routers", "core.auth"])
 
     # Configuration
     config = providers.Configuration()
@@ -57,61 +55,47 @@ class Container(containers.DeclarativeContainer):
 
     # Database
     engine = providers.Singleton(
-        create_async_engine,
-        config.database_url,
-        echo=config.db_echo,
-        future=True
+        create_async_engine, config.database_url, echo=config.db_echo, future=True
     )
 
     async_session_factory = providers.Singleton(
-        async_sessionmaker,
-        bind=engine,
-        class_=AsyncSession,
-        expire_on_commit=False
+        async_sessionmaker, bind=engine, class_=AsyncSession, expire_on_commit=False
     )
 
     # Repositories
     user_repository = providers.Factory(
-        UserRepository,
-        session_factory=async_session_factory
+        UserRepository, session_factory=async_session_factory
     )
 
     refresh_token_repository = providers.Factory(
-        RefreshTokenRepository,
-        session_factory=async_session_factory
+        RefreshTokenRepository, session_factory=async_session_factory
     )
 
     password_reset_repository = providers.Factory(
-        PasswordResetRepository,
-        session_factory=async_session_factory
+        PasswordResetRepository, session_factory=async_session_factory
     )
 
     email_verification_repository = providers.Factory(
-        EmailVerificationRepository,
-        session_factory=async_session_factory
+        EmailVerificationRepository, session_factory=async_session_factory
     )
 
     email_sender = providers.Singleton(build_email_sender)
 
     # Link repository EKLENDI
     link_repository = providers.Factory(
-        LinkRepository,
-        session_factory=async_session_factory
+        LinkRepository, session_factory=async_session_factory
     )
 
     analytics_event_repository = providers.Factory(
-        AnalyticsEventRepository,
-        session_factory=async_session_factory
+        AnalyticsEventRepository, session_factory=async_session_factory
     )
 
     social_account_repository = providers.Factory(
-        SocialAccountRepository,
-        session_factory=async_session_factory
+        SocialAccountRepository, session_factory=async_session_factory
     )
 
     page_settings_repository = providers.Factory(
-        PageSettingsRepository,
-        session_factory=async_session_factory
+        PageSettingsRepository, session_factory=async_session_factory
     )
 
     # Services

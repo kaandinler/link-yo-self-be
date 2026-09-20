@@ -4,6 +4,7 @@ DIKKAT: Ortam degiskenleri, uygulama modulleri import edilmeden ONCE
 ayarlanmali. `settings` modul seviyesinde olusturuluyor ve `di/container.py`
 degerleri import aninda okuyor.
 """
+
 import contextlib
 import os
 import pathlib
@@ -99,7 +100,6 @@ async def make_admin(app, username: str) -> None:
         await session.commit()
 
 
-
 async def seed_platforms(app, *adlar: str) -> dict[str, int]:
     """Platform satirlari ekler ve {ad: id} doner.
 
@@ -124,6 +124,7 @@ async def seed_platforms(app, *adlar: str) -> dict[str, int]:
             select(Platform.name, Platform.id).where(Platform.name.in_(adlar))
         )
         return {ad: kimlik for ad, kimlik in sonuc.all()}
+
 
 @pytest_asyncio.fixture
 async def auth_client(client):

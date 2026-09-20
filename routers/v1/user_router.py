@@ -1,4 +1,3 @@
-
 from typing import Annotated
 
 from dependency_injector.wiring import Provide, inject
@@ -30,7 +29,7 @@ async def list_users(
     order_by: Annotated[str, Query(description="Siralama alani")] = "created_at",
     order: Annotated[str, Query(pattern="^(asc|desc)$")] = "desc",
     current_user=Depends(get_current_admin_user),
-    service=Depends(Provide[Container.user_service])
+    service=Depends(Provide[Container.user_service]),
 ):
     """Admin kullanici listesi (sayfalanmis).
 
@@ -70,25 +69,23 @@ async def list_users(
 async def create_user(
     user_in: UserCreateAdmin,
     current_user=Depends(get_current_admin_user),
-    service=Depends(Provide[Container.user_service])
+    service=Depends(Provide[Container.user_service]),
 ):
     """Admin panelinden yeni kullanici olusturur."""
     user = await service.create_user_as_admin(user_in)
     return BaseResponseModel(
-        data=UserRead.model_validate(user),
-        message="User created successfully"
+        data=UserRead.model_validate(user), message="User created successfully"
     )
 
 
 # NOT: /me route'u /{user_id}'den ÖNCE tanımlanmalı, aksi halde FastAPI
 # "me" değerini user_id path parametresi olarak yorumlayıp 422 döner.
-@router.get('/me', response_model=BaseResponseModel[UserRead])
+@router.get("/me", response_model=BaseResponseModel[UserRead])
 async def read_users_me(current_user=Depends(get_current_user)):
     # SQLAlchemy modeli direkt döndürmek yerine, Pydantic modeline dönüştürerek döndürüyoruz
     user_data = UserRead.model_validate(current_user)
     return BaseResponseModel(
-        data=user_data,
-        message="User profile retrieved successfully"
+        data=user_data, message="User profile retrieved successfully"
     )
 
 
@@ -99,7 +96,7 @@ async def read_users_me(current_user=Depends(get_current_user)):
 async def delete_my_account(
     request: AccountDeleteRequest,
     current_user=Depends(get_current_user),
-    service=Depends(Provide[Container.user_service])
+    service=Depends(Provide[Container.user_service]),
 ):
     """Kullanicinin kendi hesabini kapatmasi.
 
@@ -114,14 +111,13 @@ async def delete_my_account(
 async def get_user(
     user_id: Annotated[int, Path(ge=1)],
     current_user=Depends(get_current_user),
-    service=Depends(Provide[Container.user_service])
+    service=Depends(Provide[Container.user_service]),
 ):
     user = await service.get_user(user_id)
     if not user:
         raise NotFoundException(f"User not found: {user_id}")
     return BaseResponseModel(
-        data=UserRead.model_validate(user),
-        message="User retrieved successfully"
+        data=UserRead.model_validate(user), message="User retrieved successfully"
     )
 
 
@@ -131,13 +127,12 @@ async def update_user(
     user_id: Annotated[int, Path(ge=1)],
     user_in: UserUpdateAdmin,
     current_user=Depends(get_current_admin_user),
-    service=Depends(Provide[Container.user_service])
+    service=Depends(Provide[Container.user_service]),
 ):
     """Kullaniciyi gunceller; yalnizca gonderilen alanlar degisir."""
     user = await service.update_user_as_admin(user_id, user_in, current_user)
     return BaseResponseModel(
-        data=UserRead.model_validate(user),
-        message="User updated successfully"
+        data=UserRead.model_validate(user), message="User updated successfully"
     )
 
 
@@ -146,7 +141,7 @@ async def update_user(
 async def delete_user(
     user_id: Annotated[int, Path(ge=1)],
     current_user=Depends(get_current_admin_user),
-    service=Depends(Provide[Container.user_service])
+    service=Depends(Provide[Container.user_service]),
 ):
     """Kullaniciyi soft delete eder ve acik oturumlarini kapatir."""
     await service.soft_delete_user(user_id, current_user)

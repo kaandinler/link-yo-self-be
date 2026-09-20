@@ -20,14 +20,14 @@ from services.auth.auth_service_dto import (
 from services.user.user_service import UserService
 from services.user.user_service_dto import UserCreateMinimal, UserRead
 
-router = APIRouter(tags=['auth'])
+router = APIRouter(tags=["auth"])
 
 
-@router.post('/token', response_model=BaseResponseModel[TokenResponse])
+@router.post("/token", response_model=BaseResponseModel[TokenResponse])
 @inject
 async def login(
-        form_data: OAuth2PasswordRequestForm = Depends(),
-        auth_service: AuthService = Depends(Provide[Container.auth_service])
+    form_data: OAuth2PasswordRequestForm = Depends(),
+    auth_service: AuthService = Depends(Provide[Container.auth_service]),
 ):
     user = await auth_service.authenticate_user(form_data.username, form_data.password)
 
@@ -36,71 +36,74 @@ async def login(
 
     return BaseResponseModel(
         data=TokenResponse(
-            access_token=access_token,
-            refresh_token=refresh_token,
-            token_type="bearer"
+            access_token=access_token, refresh_token=refresh_token, token_type="bearer"
         ),
-        message="Successfully logged in"
+        message="Successfully logged in",
     )
 
-@router.post('/refresh', response_model=BaseResponseModel[TokenResponse])
+
+@router.post("/refresh", response_model=BaseResponseModel[TokenResponse])
 @inject
 async def refresh_token(
-        refresh_request: TokenRefreshRequest,
-        auth_service: AuthService = Depends(Provide[Container.auth_service])
+    refresh_request: TokenRefreshRequest,
+    auth_service: AuthService = Depends(Provide[Container.auth_service]),
 ):
     # Refresh token ile yeni access token oluştur
-    access_token = await auth_service.refresh_access_token(refresh_request.refresh_token)
-
-    return BaseResponseModel(
-        data=TokenResponse(
-            access_token=access_token,
-            token_type="bearer"
-        ),
-        message="Token successfully refreshed"
+    access_token = await auth_service.refresh_access_token(
+        refresh_request.refresh_token
     )
 
-@router.post('/logout', status_code=status.HTTP_204_NO_CONTENT)
+    return BaseResponseModel(
+        data=TokenResponse(access_token=access_token, token_type="bearer"),
+        message="Token successfully refreshed",
+    )
+
+
+@router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
 @inject
 async def logout(
     current_user=Depends(get_current_user),  # Token'dan user'ı al
-    auth_service: AuthService = Depends(Provide[Container.auth_service])
+    auth_service: AuthService = Depends(Provide[Container.auth_service]),
 ):
     """Kullanıcının tüm refresh token'larını geçersiz kılar"""
     # Kullanıcının tüm refresh token'larını iptal et
     await auth_service.revoke_all_user_tokens(current_user.id)
 
 
-@router.post("/register", response_model=BaseResponseModel[UserRead], status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/register",
+    response_model=BaseResponseModel[UserRead],
+    status_code=status.HTTP_201_CREATED,
+)
 @inject
 async def register(
-        user_in: UserCreateMinimal,
-        auth_service: AuthService = Depends(Provide[Container.auth_service,]),
-        user_service: UserService = Depends(Provide[Container.user_service]),
+    user_in: UserCreateMinimal,
+    auth_service: AuthService = Depends(Provide[Container.auth_service,]),
+    user_service: UserService = Depends(Provide[Container.user_service]),
 ):
     # DIKKAT: get_by_username/get_by_email silinmis kayitlari filtreliyor
     # (silinmis kullanici giris yapamasin diye). Musaitlik kontrolu ise
     # silinmis kayitlari da gormeli: satir tabloda duruyor ve username/email
     # UNIQUE, aksi halde INSERT 500 ile patlardi.
     if not await user_service.check_username_availability(user_in.username):
-        raise AlreadyExistsException(detail=f"This username already exists: {user_in.username}")
+        raise AlreadyExistsException(
+            detail=f"This username already exists: {user_in.username}"
+        )
 
     if not await user_service.check_email_availability(str(user_in.email)):
-        raise AlreadyExistsException(detail=f"This email already exists: {user_in.email}")
+        raise AlreadyExistsException(
+            detail=f"This email already exists: {user_in.email}"
+        )
 
     user = await auth_service.register_user(user_in)
-    return BaseResponseModel(
-        data=user,
-        message="User successfully registered"
-    )
+    return BaseResponseModel(data=user, message="User successfully registered")
 
 
-
-@router.post('/forgot-password', status_code=status.HTTP_204_NO_CONTENT)
+@router.post("/forgot-password", status_code=status.HTTP_204_NO_CONTENT)
 @inject
 async def forgot_password(
-        request: ForgotPasswordRequest,
-        auth_service: AuthService = Depends(Provide[Container.auth_service])
+    request: ForgotPasswordRequest,
+    auth_service: AuthService = Depends(Provide[Container.auth_service]),
 ):
     """Sifre sifirlama baglantisi gonderir.
 
@@ -110,22 +113,22 @@ async def forgot_password(
     await auth_service.request_password_reset(str(request.email))
 
 
-@router.post('/reset-password', status_code=status.HTTP_204_NO_CONTENT)
+@router.post("/reset-password", status_code=status.HTTP_204_NO_CONTENT)
 @inject
 async def reset_password(
-        request: ResetPasswordRequest,
-        auth_service: AuthService = Depends(Provide[Container.auth_service])
+    request: ResetPasswordRequest,
+    auth_service: AuthService = Depends(Provide[Container.auth_service]),
 ):
     """Token ile yeni sifreyi kaydeder ve acik oturumlari kapatir."""
     await auth_service.reset_password(request.token, request.password)
 
 
-@router.post('/change-password', response_model=BaseResponseModel[TokenResponse])
+@router.post("/change-password", response_model=BaseResponseModel[TokenResponse])
 @inject
 async def change_password(
-        request: ChangePasswordRequest,
-        current_user=Depends(get_current_user),
-        auth_service: AuthService = Depends(Provide[Container.auth_service])
+    request: ChangePasswordRequest,
+    current_user=Depends(get_current_user),
+    auth_service: AuthService = Depends(Provide[Container.auth_service]),
 ):
     """Giris yapmis kullanicinin kendi sifresini degistirmesi.
 
@@ -138,24 +141,22 @@ async def change_password(
 
     return BaseResponseModel(
         data=TokenResponse(
-            access_token=access_token,
-            refresh_token=refresh_token,
-            token_type="bearer"
+            access_token=access_token, refresh_token=refresh_token, token_type="bearer"
         ),
-        message="Password successfully changed"
+        message="Password successfully changed",
     )
 
 
 @router.post(
-    '/change-email',
+    "/change-email",
     response_model=BaseResponseModel[EmailChangeRequested],
     status_code=status.HTTP_202_ACCEPTED,
 )
 @inject
 async def change_email(
-        request: ChangeEmailRequest,
-        current_user=Depends(get_current_user),
-        auth_service: AuthService = Depends(Provide[Container.auth_service])
+    request: ChangeEmailRequest,
+    current_user=Depends(get_current_user),
+    auth_service: AuthService = Depends(Provide[Container.auth_service]),
 ):
     """E-posta adresi degistirme TALEBI.
 
@@ -170,15 +171,15 @@ async def change_email(
 
     return BaseResponseModel(
         data=EmailChangeRequested(pending_email=pending),
-        message="Confirmation link sent to the new address"
+        message="Confirmation link sent to the new address",
     )
 
 
-@router.post('/verify-email', response_model=BaseResponseModel[UserRead])
+@router.post("/verify-email", response_model=BaseResponseModel[UserRead])
 @inject
 async def verify_email(
-        request: VerifyEmailRequest,
-        auth_service: AuthService = Depends(Provide[Container.auth_service])
+    request: VerifyEmailRequest,
+    auth_service: AuthService = Depends(Provide[Container.auth_service]),
 ):
     """E-postadaki dogrulama baglantisini isler.
 
@@ -189,16 +190,17 @@ async def verify_email(
     user = await auth_service.verify_email(request.token)
 
     return BaseResponseModel(
-        data=UserRead.model_validate(user),
-        message="Email successfully verified"
+        data=UserRead.model_validate(user), message="Email successfully verified"
     )
 
 
-@router.post('/resend-verification', response_model=BaseResponseModel[EmailChangeRequested])
+@router.post(
+    "/resend-verification", response_model=BaseResponseModel[EmailChangeRequested]
+)
 @inject
 async def resend_verification(
-        current_user=Depends(get_current_user),
-        auth_service: AuthService = Depends(Provide[Container.auth_service])
+    current_user=Depends(get_current_user),
+    auth_service: AuthService = Depends(Provide[Container.auth_service]),
 ):
     """Dogrulama baglantisini yeniden gonderir.
 
@@ -208,6 +210,5 @@ async def resend_verification(
     hedef = await auth_service.resend_verification_email(current_user)
 
     return BaseResponseModel(
-        data=EmailChangeRequested(pending_email=hedef),
-        message="Confirmation link sent"
+        data=EmailChangeRequested(pending_email=hedef), message="Confirmation link sent"
     )

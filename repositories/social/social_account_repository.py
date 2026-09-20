@@ -116,6 +116,4 @@ class SocialAccountRepository(BaseRepository[SocialAccount]):
             )
             return result.scalars().first()
 
-        return await self.execute_query(
-            _get_platform, platform_id, transactional=False
-        )
+        return await self.execute_query(_get_platform, platform_id, transactional=False)

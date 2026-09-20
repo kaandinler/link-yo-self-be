@@ -32,3 +32,19 @@ ignore = [
 # import aninda okuyor. Bu yuzden import'lar dosyanin basinda olamiyor.
 # Gerekcenin tamami tests/conftest.py'nin modul docstring'inde.
 "tests/conftest.py" = ["E402"]
+
+[format]
+# alembic/versions BICIMLENDIRME DISINDA.
+#
+# NEDEN: bu dosyalari insan yazmiyor, "alembic revision --autogenerate"
+# uretiyor ve cikti bu bicimde gelmiyor (tek tirnak, duz arguman
+# listeleri). Bicimlendirme denetimi kapsasaydi her yeni migration'dan
+# sonra kanca duser, gelistirici de anlamsiz bir "ruff format ." adimi
+# atmak zorunda kalirdi. Ureticinin ciktisini oldugu gibi birakmak daha
+# durust: dosyalar zaten uretildikten sonra elle duzenlenmiyor.
+#
+# DIKKAT, BU YALNIZCA BICIMLENDIRME: exclude'u ust seviyeye koymak
+# "ruff check"i de kapsardi ve migration'lar lint edilmez olurdu.
+# Lint kapsami degismedi -- F821, UP gibi kurallar bu dosyalarda da
+# calismaya devam ediyor.
+exclude = ["alembic/versions/*.py"]

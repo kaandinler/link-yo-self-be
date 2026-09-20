@@ -27,9 +27,7 @@ MAX_LIMIT = 5000
 # segmentli oldugu icin tek segmentli profil adresiyle zaten cakismiyor,
 # ama tek segmentli yazilsaydi "sitemap" adli bir kullanicinin sayfasini
 # golgelerdi. Ayri bir segment bu riski tamamen kaldiriyor.
-@router.get(
-    "/sitemap/profiles", response_model=SuccessResponse[list[PublicProfileRef]]
-)
+@router.get("/sitemap/profiles", response_model=SuccessResponse[list[PublicProfileRef]])
 @inject
 async def list_public_profiles(
     user_service: Annotated[UserService, Depends(Provide[Container.user_service])],
@@ -51,9 +49,7 @@ async def list_public_profiles(
     )
 
 
-@router.get(
-    "/sitemap/count", response_model=SuccessResponse[PublicProfileCount]
-)
+@router.get("/sitemap/count", response_model=SuccessResponse[PublicProfileCount])
 @inject
 async def count_public_profiles(
     user_service: Annotated[UserService, Depends(Provide[Container.user_service])],

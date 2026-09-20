@@ -7,6 +7,7 @@ Tablo kasten dar: users'ta karsiligi olan kolonlar (arka plan, tema
 rengi, profil fotografi) b8c9d0e1f2a3 migration'inda dusuruldu. Burada
 kalan iki ayarin testleri var.
 """
+
 from tests.conftest import DEFAULT_USER, auth_header, login, register_user
 
 YOL = "/api/v1/profile/page-settings"

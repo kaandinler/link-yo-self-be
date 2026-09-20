@@ -175,13 +175,10 @@ def validate_background_value(
 
     if background_type == "image":
         if not _IMAGE_URL_PATTERN.match(background_value):
-            raise ValueError(
-                "Background image must be an http(s) URL"
-            )
+            raise ValueError("Background image must be an http(s) URL")
         if _CSS_UNSAFE_PATTERN.search(background_value):
             raise ValueError(
-                "Background image URL cannot contain quotes, parentheses "
-                "or backslashes"
+                "Background image URL cannot contain quotes, parentheses or backslashes"
             )
         return background_value
 

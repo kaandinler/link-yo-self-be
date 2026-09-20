@@ -32,8 +32,7 @@ router = APIRouter(tags=["profile"])
 async def get_my_profile(current_user: User = Depends(get_current_user)):
     """Get current user profile"""
     return SuccessResponse.create(
-        data=current_user,
-        message="Profile retrieved successfully"
+        data=current_user, message="Profile retrieved successfully"
     )
 
 
@@ -56,7 +55,11 @@ async def get_onboarding_status(current_user: User = Depends(get_current_user)):
         next_step = 3
 
     # Step 3: Social media
-    if current_user.twitter_username or current_user.instagram_username or current_user.linkedin_username:
+    if (
+        current_user.twitter_username
+        or current_user.instagram_username
+        or current_user.linkedin_username
+    ):
         completed_steps.append(3)
         next_step = 4
 
@@ -71,7 +74,7 @@ async def get_onboarding_status(current_user: User = Depends(get_current_user)):
         2: "Set Up Your Page",
         3: "Add Social Links",
         4: "Customize Appearance",
-        5: "Add Your First Links"
+        5: "Add Your First Links",
     }
 
     status = OnboardingStatus(
@@ -79,21 +82,18 @@ async def get_onboarding_status(current_user: User = Depends(get_current_user)):
         completed_steps=completed_steps,
         profile_completion_percentage=current_user.profile_completion_percentage,
         next_step_title=step_titles.get(next_step),
-        can_skip=True
+        can_skip=True,
     )
 
-    return SuccessResponse.create(
-        data=status,
-        message="Onboarding status retrieved"
-    )
+    return SuccessResponse.create(data=status, message="Onboarding status retrieved")
 
 
 @router.post("/complete-step-1", response_model=SuccessResponse[UserRead])
 @inject
 async def complete_profile_step_1(
-        profile_data: ProfileCompletionStep1,
-        current_user: User = Depends(get_current_user),
-        user_service: UserService = Depends(Provide[Container.user_service])
+    profile_data: ProfileCompletionStep1,
+    current_user: User = Depends(get_current_user),
+    user_service: UserService = Depends(Provide[Container.user_service]),
 ):
     """Complete profile step 1: Basic profile info"""
 
@@ -105,17 +105,16 @@ async def complete_profile_step_1(
     updated_user = await user_service.update_user(current_user)
 
     return SuccessResponse.create(
-        data=updated_user,
-        message="Profile step 1 completed successfully"
+        data=updated_user, message="Profile step 1 completed successfully"
     )
 
 
 @router.post("/complete-step-2", response_model=SuccessResponse[UserRead])
 @inject
 async def complete_profile_step_2(
-        profile_data: ProfileCompletionStep2,
-        current_user: User = Depends(get_current_user),
-        user_service: UserService = Depends(Provide[Container.user_service])
+    profile_data: ProfileCompletionStep2,
+    current_user: User = Depends(get_current_user),
+    user_service: UserService = Depends(Provide[Container.user_service]),
 ):
     """Complete profile step 2: Page settings"""
 
@@ -126,17 +125,16 @@ async def complete_profile_step_2(
     updated_user = await user_service.update_user(current_user)
 
     return SuccessResponse.create(
-        data=updated_user,
-        message="Profile step 2 completed successfully"
+        data=updated_user, message="Profile step 2 completed successfully"
     )
 
 
 @router.post("/complete-step-3", response_model=SuccessResponse[UserRead])
 @inject
 async def complete_profile_step_3(
-        profile_data: ProfileCompletionStep3,
-        current_user: User = Depends(get_current_user),
-        user_service: UserService = Depends(Provide[Container.user_service])
+    profile_data: ProfileCompletionStep3,
+    current_user: User = Depends(get_current_user),
+    user_service: UserService = Depends(Provide[Container.user_service]),
 ):
     """Complete profile step 3: Social media links"""
 
@@ -147,17 +145,16 @@ async def complete_profile_step_3(
     updated_user = await user_service.update_user(current_user)
 
     return SuccessResponse.create(
-        data=updated_user,
-        message="Profile step 3 completed successfully"
+        data=updated_user, message="Profile step 3 completed successfully"
     )
 
 
 @router.post("/complete-step-4", response_model=SuccessResponse[UserRead])
 @inject
 async def complete_profile_step_4(
-        profile_data: ProfileCompletionStep4,
-        current_user: User = Depends(get_current_user),
-        user_service: UserService = Depends(Provide[Container.user_service])
+    profile_data: ProfileCompletionStep4,
+    current_user: User = Depends(get_current_user),
+    user_service: UserService = Depends(Provide[Container.user_service]),
 ):
     """Complete profile step 4: Theme & appearance"""
 
@@ -168,16 +165,15 @@ async def complete_profile_step_4(
     updated_user = await user_service.update_user(current_user)
 
     return SuccessResponse.create(
-        data=updated_user,
-        message="Profile step 4 completed successfully"
+        data=updated_user, message="Profile step 4 completed successfully"
     )
 
 
 @router.post("/complete-onboarding", response_model=SuccessResponse[UserRead])
 @inject
 async def complete_onboarding(
-        current_user: User = Depends(get_current_user),
-        user_service: UserService = Depends(Provide[Container.user_service])
+    current_user: User = Depends(get_current_user),
+    user_service: UserService = Depends(Provide[Container.user_service]),
 ):
     """Mark onboarding as completed"""
 
@@ -188,18 +184,17 @@ async def complete_onboarding(
 
     return SuccessResponse.create(
         data=updated_user,
-        message="Onboarding completed successfully! Welcome to LinkYoSelf!"
+        message="Onboarding completed successfully! Welcome to LinkYoSelf!",
     )
-
 
 
 @router.get("/page-settings", response_model=SuccessResponse[PageSettingsRead])
 @inject
 async def get_page_settings(
-        current_user: User = Depends(get_current_user),
-        page_settings_service: PageSettingsService = Depends(
-            Provide[Container.page_settings_service]
-        )
+    current_user: User = Depends(get_current_user),
+    page_settings_service: PageSettingsService = Depends(
+        Provide[Container.page_settings_service]
+    ),
 ):
     """Kullanicinin sayfa ayarlari.
 
@@ -208,19 +203,18 @@ async def get_page_settings(
     """
     ayarlar = await page_settings_service.get_settings(current_user.id)
     return SuccessResponse.create(
-        data=ayarlar,
-        message="Page settings retrieved successfully"
+        data=ayarlar, message="Page settings retrieved successfully"
     )
 
 
 @router.put("/page-settings", response_model=SuccessResponse[PageSettingsRead])
 @inject
 async def update_page_settings(
-        settings_data: PageSettingsUpdate,
-        current_user: User = Depends(get_current_user),
-        page_settings_service: PageSettingsService = Depends(
-            Provide[Container.page_settings_service]
-        )
+    settings_data: PageSettingsUpdate,
+    current_user: User = Depends(get_current_user),
+    page_settings_service: PageSettingsService = Depends(
+        Provide[Container.page_settings_service]
+    ),
 ):
     """Sayfa ayarlarini gunceller; satir yoksa ilk yazmada olusuyor.
 
@@ -233,16 +227,16 @@ async def update_page_settings(
         current_user.id, settings_data
     )
     return SuccessResponse.create(
-        data=ayarlar,
-        message="Page settings updated successfully"
+        data=ayarlar, message="Page settings updated successfully"
     )
+
 
 @router.put("/update", response_model=SuccessResponse[UserRead])
 @inject
 async def update_profile(
-        profile_data: UserProfileUpdate,
-        current_user: User = Depends(get_current_user),
-        user_service: UserService = Depends(Provide[Container.user_service])
+    profile_data: UserProfileUpdate,
+    current_user: User = Depends(get_current_user),
+    user_service: UserService = Depends(Provide[Container.user_service]),
 ):
     """Update user profile (complete update)"""
 
@@ -253,16 +247,15 @@ async def update_profile(
     updated_user = await user_service.update_user(current_user)
 
     return SuccessResponse.create(
-        data=updated_user,
-        message="Profile updated successfully"
+        data=updated_user, message="Profile updated successfully"
     )
 
 
 @router.post("/skip-onboarding", response_model=SuccessResponse[UserRead])
 @inject
 async def skip_onboarding(
-        current_user: User = Depends(get_current_user),
-        user_service: UserService = Depends(Provide[Container.user_service])
+    current_user: User = Depends(get_current_user),
+    user_service: UserService = Depends(Provide[Container.user_service]),
 ):
     """Skip onboarding process"""
 
@@ -273,5 +266,5 @@ async def skip_onboarding(
 
     return SuccessResponse.create(
         data=updated_user,
-        message="Onboarding skipped. You can complete your profile later!"
+        message="Onboarding skipped. You can complete your profile later!",
     )

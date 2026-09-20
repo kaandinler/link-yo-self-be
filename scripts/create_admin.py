@@ -68,7 +68,9 @@ def _arguman_coz() -> argparse.Namespace:
 async def admin_olustur(username: str, email: str, password: str) -> str:
     """Kullaniciyi olusturur ya da admin yapar; ne yapildigini anlatir."""
     motor = create_async_engine(settings.database_url, future=True)
-    oturum_fabrikasi = async_sessionmaker(motor, class_=AsyncSession, expire_on_commit=False)
+    oturum_fabrikasi = async_sessionmaker(
+        motor, class_=AsyncSession, expire_on_commit=False
+    )
 
     try:
         async with oturum_fabrikasi() as oturum:

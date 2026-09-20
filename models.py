@@ -1,4 +1,3 @@
-
 from sqlalchemy import (
     JSON,
     Boolean,
@@ -22,13 +21,20 @@ class BaseModel(Base):
     __abstract__ = True
 
     id = Column(Integer, primary_key=True, index=True)
-    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
-    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=True)
+    created_at = Column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=True,
+    )
     is_deleted = Column(Boolean, default=False, nullable=False)
 
 
 class User(BaseModel):
-    __tablename__ = 'users'
+    __tablename__ = "users"
 
     # Temel kayıt bilgileri (zorunlu)
     username = Column(String(50), unique=True, nullable=False, index=True)
@@ -38,7 +44,9 @@ class User(BaseModel):
     # Profil bilgileri (opsiyonel - sonradan eklenebilir)
     first_name = Column(String(50), nullable=True)
     last_name = Column(String(50), nullable=True)
-    display_name = Column(String(100), nullable=True)  # Profil sayfasında görünecek isim
+    display_name = Column(
+        String(100), nullable=True
+    )  # Profil sayfasında görünecek isim
     bio = Column(Text, nullable=True)  # Kısa açıklama
     profile_image_url = Column(String(500), nullable=True)
 
@@ -54,7 +62,9 @@ class User(BaseModel):
 
     # Tema ayarları (default değerlerle)
     theme_color = Column(String(20), default="#1383eb", nullable=True)
-    background_type = Column(String(20), default="color", nullable=True)  # color, gradient, image
+    background_type = Column(
+        String(20), default="color", nullable=True
+    )  # color, gradient, image
     background_value = Column(String(500), default="#ffffff", nullable=True)
 
     # Profil completion tracking
@@ -74,16 +84,21 @@ class User(BaseModel):
 
     # İlişkiler
     social_accounts = relationship(
-        'SocialAccount', back_populates='user', cascade='all, delete-orphan'
+        "SocialAccount", back_populates="user", cascade="all, delete-orphan"
     )
 
     page_settings = relationship(
-        'PageSettings', uselist=False, back_populates='user', cascade='all, delete-orphan'
+        "PageSettings",
+        uselist=False,
+        back_populates="user",
+        cascade="all, delete-orphan",
     )
 
     links = relationship(
-        'Link', back_populates='user', cascade='all, delete-orphan',
-        order_by="Link.order_index"
+        "Link",
+        back_populates="user",
+        cascade="all, delete-orphan",
+        order_by="Link.order_index",
     )
 
     @property
@@ -108,9 +123,7 @@ class User(BaseModel):
             self.bio,
             self.profile_image_url,
             self.website,
-            self.twitter_username
-            or self.instagram_username
-            or self.linkedin_username,
+            self.twitter_username or self.instagram_username or self.linkedin_username,
             self.page_title,
             self.page_description,
             len(self.links) > 0,
@@ -121,38 +134,34 @@ class User(BaseModel):
 
 
 class Platform(BaseModel):
-    __tablename__ = 'platforms'
+    __tablename__ = "platforms"
 
     name = Column(String, unique=True, nullable=False, index=True)
     display_name = Column(String, nullable=True)
 
-    social_accounts = relationship(
-        'SocialAccount', back_populates='platform'
-    )
+    social_accounts = relationship("SocialAccount", back_populates="platform")
 
 
 class SocialAccount(BaseModel):
-    __tablename__ = 'social_accounts'
+    __tablename__ = "social_accounts"
 
     user_id = Column(
-        Integer,
-        ForeignKey('users.id', ondelete='CASCADE'),
-        nullable=False
+        Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
     )
     platform_id = Column(
-        Integer,
-        ForeignKey('platforms.id', ondelete='CASCADE'),
-        nullable=False
+        Integer, ForeignKey("platforms.id", ondelete="CASCADE"), nullable=False
     )
     username = Column(String, nullable=False)
     profile_url = Column(String, nullable=False)
 
     __table_args__ = (
-        UniqueConstraint('user_id', 'platform_id', 'username', name='uq_user_platform_username'),
+        UniqueConstraint(
+            "user_id", "platform_id", "username", name="uq_user_platform_username"
+        ),
     )
 
-    user = relationship('User', back_populates='social_accounts')
-    platform = relationship('Platform', back_populates='social_accounts')
+    user = relationship("User", back_populates="social_accounts")
+    platform = relationship("Platform", back_populates="social_accounts")
 
 
 class PageSettings(BaseModel):
@@ -171,11 +180,11 @@ class PageSettings(BaseModel):
     kapsamadigi iki ayar icin.
     """
 
-    __tablename__ = 'user_page_settings'
+    __tablename__ = "user_page_settings"
 
     user_id = Column(
         Integer,
-        ForeignKey('users.id', ondelete='CASCADE'),
+        ForeignKey("users.id", ondelete="CASCADE"),
         nullable=False,
         unique=True,
     )
@@ -186,18 +195,20 @@ class PageSettings(BaseModel):
     # alani kazara yayinlamak mumkun olurdu.
     extra_settings = Column(JSON, nullable=True)
 
-    user = relationship('User', back_populates='page_settings')
+    user = relationship("User", back_populates="page_settings")
 
 
 class RefreshToken(BaseModel):
-    __tablename__ = 'refresh_tokens'
+    __tablename__ = "refresh_tokens"
 
     token = Column(Text, nullable=False, unique=True, index=True)
-    user_id = Column(Integer, ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
+    user_id = Column(
+        Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
     expires_at = Column(DateTime(timezone=True), nullable=False)
     is_revoked = Column(Boolean, default=False, nullable=False)
 
-    user = relationship('User')
+    user = relationship("User")
 
 
 class PasswordResetToken(BaseModel):
@@ -207,14 +218,16 @@ class PasswordResetToken(BaseModel):
     biri (log, yedek, sizinti) ele gecirdigi kayitla sifre sifirlayamamali.
     """
 
-    __tablename__ = 'password_reset_tokens'
+    __tablename__ = "password_reset_tokens"
 
     token_hash = Column(String(64), nullable=False, unique=True, index=True)
-    user_id = Column(Integer, ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
+    user_id = Column(
+        Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
     expires_at = Column(DateTime(timezone=True), nullable=False)
     used_at = Column(DateTime(timezone=True), nullable=True)
 
-    user = relationship('User')
+    user = relationship("User")
 
 
 class EmailVerificationToken(BaseModel):
@@ -230,25 +243,25 @@ class EmailVerificationToken(BaseModel):
     tikladiginda gerceklesiyor.
     """
 
-    __tablename__ = 'email_verification_tokens'
+    __tablename__ = "email_verification_tokens"
 
     token_hash = Column(String(64), nullable=False, unique=True, index=True)
-    user_id = Column(Integer, ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
+    user_id = Column(
+        Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
     email = Column(String(255), nullable=False)
     expires_at = Column(DateTime(timezone=True), nullable=False)
     used_at = Column(DateTime(timezone=True), nullable=True)
 
-    user = relationship('User')
+    user = relationship("User")
 
 
 # Link modeli - EKLENDI
 class Link(BaseModel):
-    __tablename__ = 'links'
+    __tablename__ = "links"
 
     user_id = Column(
-        Integer,
-        ForeignKey('users.id', ondelete='CASCADE'),
-        nullable=False
+        Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
     )
     title = Column(String(255), nullable=False)
     url = Column(String(2048), nullable=False)  # URL'ler uzun olabilir
@@ -262,13 +275,13 @@ class Link(BaseModel):
     order_index = Column(Integer, default=0, nullable=False)  # Sıralama için
 
     # İlişkiler
-    user = relationship('User', back_populates='links')
+    user = relationship("User", back_populates="links")
 
 
 # Olay turleri. Sayaclar (Link.click_count, User.profile_view_count) toplami
 # tutmaya devam ediyor; buradaki satirlar "ne zaman" sorusunu cevapliyor.
-EVENT_LINK_CLICK = 'link_click'
-EVENT_PROFILE_VIEW = 'profile_view'
+EVENT_LINK_CLICK = "link_click"
+EVENT_PROFILE_VIEW = "profile_view"
 
 
 class AnalyticsEvent(BaseModel):
@@ -282,11 +295,11 @@ class AnalyticsEvent(BaseModel):
     migration'dan onceki gecmisi yalnizca onlar biliyor.
     """
 
-    __tablename__ = 'analytics_events'
+    __tablename__ = "analytics_events"
 
     user_id = Column(
         Integer,
-        ForeignKey('users.id', ondelete='CASCADE'),
+        ForeignKey("users.id", ondelete="CASCADE"),
         nullable=False,
     )
     event_type = Column(String(30), nullable=False)
@@ -295,7 +308,7 @@ class AnalyticsEvent(BaseModel):
     # silme yuzunden degismemeli. Bu yuzden CASCADE degil SET NULL.
     link_id = Column(
         Integer,
-        ForeignKey('links.id', ondelete='SET NULL'),
+        ForeignKey("links.id", ondelete="SET NULL"),
         nullable=True,
     )
 
@@ -313,5 +326,5 @@ class AnalyticsEvent(BaseModel):
     # Zaman serisi sorgusu her zaman "bir kullanicinin su tarihten sonraki
     # olaylari" seklinde; bilesik indeks tam bu erisim icin.
     __table_args__ = (
-        Index('ix_analytics_events_user_created', 'user_id', 'created_at'),
+        Index("ix_analytics_events_user_created", "user_id", "created_at"),
     )

@@ -25,7 +25,6 @@ class LinkService(BaseService):
         self.event_repository = event_repo
 
     async def create_link(self, user_id: int, link_data: LinkCreate) -> Link:
-
         """Kullanıcı için yeni link oluşturur"""
         # NOT: Onceki hali tum hatalari yakalayip bare Exception olarak
         # yeniden firlatiyordu; bu da NotFoundException/DatabaseException gibi
@@ -45,12 +44,14 @@ class LinkService(BaseService):
             text_color=link_data.text_color,
             border_radius=link_data.border_radius or 8,
             is_active=link_data.is_active if link_data.is_active is not None else True,
-            order_index=order_index
+            order_index=order_index,
         )
 
         return await self.repository.create_link(link)
 
-    async def get_user_links(self, user_id: int, include_inactive: bool = False) -> list[Link]:
+    async def get_user_links(
+        self, user_id: int, include_inactive: bool = False
+    ) -> list[Link]:
         """Kullanıcının linklerini sıralı şekilde getirir"""
         return await self.repository.get_links_by_user(user_id, include_inactive)
 
@@ -61,11 +62,15 @@ class LinkService(BaseService):
             raise NotFoundException(f"Link not found: {link_id}")
 
         if link.user_id != user_id:
-            raise PermissionDeniedException("You don't have permission to access this link")
+            raise PermissionDeniedException(
+                "You don't have permission to access this link"
+            )
 
         return link
 
-    async def update_link(self, link_id: int, user_id: int, link_data: LinkUpdate) -> Link:
+    async def update_link(
+        self, link_id: int, user_id: int, link_data: LinkUpdate
+    ) -> Link:
         """Link günceller, kullanıcı yetkisini kontrol eder"""
         link = await self.get_link_by_id(link_id, user_id)
 
@@ -81,10 +86,14 @@ class LinkService(BaseService):
         link = await self.get_link_by_id(link_id, user_id)
         await self.repository.delete_link(link)
 
-    async def reorder_links(self, user_id: int, reorder_data: LinkReorderRequest) -> list[Link]:
+    async def reorder_links(
+        self, user_id: int, reorder_data: LinkReorderRequest
+    ) -> list[Link]:
         """Kullanıcının linklerini yeniden sıralar"""
         # Kullanıcının tüm linklerinin bu listede olduğunu kontrol et
-        user_links = await self.repository.get_links_by_user(user_id, include_inactive=True)
+        user_links = await self.repository.get_links_by_user(
+            user_id, include_inactive=True
+        )
         user_link_ids = {link.id for link in user_links}
         request_link_ids = set(reorder_data.link_ids)
 

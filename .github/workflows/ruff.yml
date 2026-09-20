@@ -39,3 +39,13 @@ jobs:
 
       - name: Run ruff
         run: ruff check .
+
+      # NEDEN FORMAT DENETIMI DE BURADA: kanca (scripts/hooks/pre-commit)
+      # opt-in -- "git config core.hooksPath scripts/hooks" calistirmamis
+      # biri format bozuk kod push edebilir. Denetim yalnizca kancada
+      # olsaydi, bir seferlik yapilan bicimlendirme zamanla yine dagilirdi.
+      #
+      # Kanca ile bu adim AYNI komutlari kosuyor; biri degisirse digeri de
+      # degismeli.
+      - name: Check formatting
+        run: ruff format --check .

@@ -31,23 +31,22 @@ from utils.time_utils import utcnow
 
 
 class AuthService:
-
     def __init__(
-            self,
-            user_service: UserService,
-            user_repository: UserRepository,
-            refresh_token_repository: RefreshTokenRepository,
-            password_reset_repository: PasswordResetRepository,
-            email_verification_repository: EmailVerificationRepository,
-            email_sender: EmailSender,
-            secret_key: str,
-            algorithm: str,
-            expire_minutes: int,
-            frontend_url: str,
-            reset_expire_minutes: int = 60,
-            verification_expire_minutes: int = 60 * 24,
-            refresh_expire_days: int = 7,
-            db_session: AsyncSession = None,
+        self,
+        user_service: UserService,
+        user_repository: UserRepository,
+        refresh_token_repository: RefreshTokenRepository,
+        password_reset_repository: PasswordResetRepository,
+        email_verification_repository: EmailVerificationRepository,
+        email_sender: EmailSender,
+        secret_key: str,
+        algorithm: str,
+        expire_minutes: int,
+        frontend_url: str,
+        reset_expire_minutes: int = 60,
+        verification_expire_minutes: int = 60 * 24,
+        refresh_expire_days: int = 7,
+        db_session: AsyncSession = None,
     ):
         self.user_service = user_service
         self.user_repository = user_repository
@@ -99,11 +98,7 @@ class AuthService:
     async def verify_token(self, token: str) -> dict[str, Any]:
         """Verify and decode a JWT token"""
         try:
-            payload = jwt.decode(
-                token,
-                self.secret_key,
-                algorithms=[self.algorithm]
-            )
+            payload = jwt.decode(token, self.secret_key, algorithms=[self.algorithm])
             return payload
         except jwt.PyJWTError as hata:
             # "from hata": asil neden (sureli dolmus / imza tutmuyor / bozuk
@@ -114,7 +109,7 @@ class AuthService:
                 headers={"WWW-Authenticate": "Bearer"},
             ) from hata
 
-    async def register_user(self, user_in = UserCreate) -> User:
+    async def register_user(self, user_in=UserCreate) -> User:
         """Register a new user with hashed password"""
         # Create user with hashed password
         hashed_password = self.hash_password(user_in.password)
@@ -123,7 +118,7 @@ class AuthService:
         new_user = User(
             username=user_in.username,
             email=str(user_in.email),
-            hashed_password=hashed_password
+            hashed_password=hashed_password,
         )
 
         # Pass the User object to create_user
@@ -149,7 +144,7 @@ class AuthService:
             token=refresh_token_value,
             user_id=user.id,
             expires_at=expires_at,
-            is_revoked=False
+            is_revoked=False,
         )
 
         await self.refresh_token_repository.create_token(refresh_token)
@@ -159,7 +154,9 @@ class AuthService:
     async def refresh_access_token(self, refresh_token_value: str) -> str:
         """Refresh token kullanarak yeni bir access token oluşturur"""
         # Refresh token'ı veritabanında bul
-        refresh_token = await self.refresh_token_repository.get_valid_token(refresh_token_value)
+        refresh_token = await self.refresh_token_repository.get_valid_token(
+            refresh_token_value
+        )
 
         if not refresh_token:
             raise UnauthorizedException(detail="Invalid or expired refresh token")
@@ -382,4 +379,3 @@ class AuthService:
     async def revoke_all_user_tokens(self, user_id: int) -> None:
         """Kullanıcının tüm refresh token'larını geçersiz kılar (şifre değişikliği, vb.)"""
         await self.refresh_token_repository.revoke_all_user_tokens(user_id)
-

@@ -1,4 +1,5 @@
 """Kullanici endpoint'leri: /users/me, /users/{id}, /users/ (admin)."""
+
 from tests.conftest import DEFAULT_USER, auth_header, login, make_admin, register_user
 
 
@@ -88,14 +89,22 @@ class TestAdminKullaniciOlustur:
     async def test_normal_kullanici_403(self, auth_client):
         response = await auth_client.post(
             "/api/v1/users/",
-            json={"username": "yeni", "email": "yeni@example.com", "password": "Secret123"},
+            json={
+                "username": "yeni",
+                "email": "yeni@example.com",
+                "password": "Secret123",
+            },
         )
         assert response.status_code == 403
 
     async def test_tokensiz_401(self, client):
         response = await client.post(
             "/api/v1/users/",
-            json={"username": "yeni", "email": "yeni@example.com", "password": "Secret123"},
+            json={
+                "username": "yeni",
+                "email": "yeni@example.com",
+                "password": "Secret123",
+            },
         )
         assert response.status_code == 401
 
@@ -124,7 +133,11 @@ class TestAdminKullaniciOlustur:
     async def test_olusturulan_kullanici_giris_yapabilir(self, admin_client):
         await admin_client.post(
             "/api/v1/users/",
-            json={"username": "yeni", "email": "yeni@example.com", "password": "Secret123"},
+            json={
+                "username": "yeni",
+                "email": "yeni@example.com",
+                "password": "Secret123",
+            },
         )
 
         token = await login(admin_client, "yeni@example.com", "Secret123")
@@ -170,7 +183,11 @@ class TestAdminKullaniciOlustur:
         frontend rotasiyla cakisirsa o profil sayfasina hic ulasilamaz."""
         response = await admin_client.post(
             "/api/v1/users/",
-            json={"username": "dashboard", "email": "d@example.com", "password": "Secret123"},
+            json={
+                "username": "dashboard",
+                "email": "d@example.com",
+                "password": "Secret123",
+            },
         )
         assert response.status_code == 422
 
@@ -208,11 +225,17 @@ class TestAdminKullaniciGuncelle:
         assert data["last_name"] == "Soyad"
         assert data["email"] == "hedef@example.com"
 
-    async def test_sifre_degistirilince_yeni_sifreyle_girilir(self, admin_client, client):
+    async def test_sifre_degistirilince_yeni_sifreyle_girilir(
+        self, admin_client, client
+    ):
         hedef = (
             await admin_client.post(
                 "/api/v1/users/",
-                json={"username": "hedef", "email": "hedef@example.com", "password": "Secret123"},
+                json={
+                    "username": "hedef",
+                    "email": "hedef@example.com",
+                    "password": "Secret123",
+                },
             )
         ).json()["data"]
 
@@ -233,7 +256,11 @@ class TestAdminKullaniciGuncelle:
         hedef = (
             await admin_client.post(
                 "/api/v1/users/",
-                json={"username": "hedef", "email": "hedef@example.com", "password": "Secret123"},
+                json={
+                    "username": "hedef",
+                    "email": "hedef@example.com",
+                    "password": "Secret123",
+                },
             )
         ).json()["data"]
 
@@ -259,7 +286,11 @@ class TestAdminKullaniciGuncelle:
         hedef = (
             await admin_client.post(
                 "/api/v1/users/",
-                json={"username": "hedef", "email": "hedef@example.com", "password": "Secret123"},
+                json={
+                    "username": "hedef",
+                    "email": "hedef@example.com",
+                    "password": "Secret123",
+                },
             )
         ).json()["data"]
 
@@ -281,7 +312,9 @@ class TestAdminKullaniciGuncelle:
         assert response.status_code == 200, response.text
 
     async def test_olmayan_kullanici_404(self, admin_client):
-        response = await admin_client.patch("/api/v1/users/99999", json={"first_name": "X"})
+        response = await admin_client.patch(
+            "/api/v1/users/99999", json={"first_name": "X"}
+        )
         assert response.status_code == 404
 
 
@@ -297,14 +330,20 @@ class TestAdminKullaniciSil:
         hedef = (
             await admin_client.post(
                 "/api/v1/users/",
-                json={"username": "hedef", "email": "hedef@example.com", "password": "Secret123"},
+                json={
+                    "username": "hedef",
+                    "email": "hedef@example.com",
+                    "password": "Secret123",
+                },
             )
         ).json()["data"]
 
         response = await admin_client.delete(f"/api/v1/users/{hedef['id']}")
         assert response.status_code == 204
 
-        assert (await admin_client.get(f"/api/v1/users/{hedef['id']}")).status_code == 404
+        assert (
+            await admin_client.get(f"/api/v1/users/{hedef['id']}")
+        ).status_code == 404
 
         liste = (await admin_client.get("/api/v1/users/")).json()
         assert all(u["id"] != hedef["id"] for u in liste["data"])
@@ -315,7 +354,11 @@ class TestAdminKullaniciSil:
         hedef = (
             await admin_client.post(
                 "/api/v1/users/",
-                json={"username": "hedef", "email": "hedef@example.com", "password": "Secret123"},
+                json={
+                    "username": "hedef",
+                    "email": "hedef@example.com",
+                    "password": "Secret123",
+                },
             )
         ).json()["data"]
 
@@ -331,7 +374,11 @@ class TestAdminKullaniciSil:
         """Elindeki access/refresh token ile API'yi kullanmaya devam edememeli."""
         await admin_client.post(
             "/api/v1/users/",
-            json={"username": "hedef", "email": "hedef@example.com", "password": "Secret123"},
+            json={
+                "username": "hedef",
+                "email": "hedef@example.com",
+                "password": "Secret123",
+            },
         )
         giris = await client.post(
             "/api/v1/auth/token",
@@ -340,7 +387,9 @@ class TestAdminKullaniciSil:
         tokenlar = giris.json()["data"]
 
         hedef = (
-            await client.get("/api/v1/users/me", headers=auth_header(tokenlar["access_token"]))
+            await client.get(
+                "/api/v1/users/me", headers=auth_header(tokenlar["access_token"])
+            )
         ).json()["data"]
 
         await admin_client.delete(f"/api/v1/users/{hedef['id']}")
@@ -359,7 +408,11 @@ class TestAdminKullaniciSil:
     async def test_silinen_kullanicinin_public_profili_404(self, admin_client, client):
         await admin_client.post(
             "/api/v1/users/",
-            json={"username": "hedef", "email": "hedef@example.com", "password": "Secret123"},
+            json={
+                "username": "hedef",
+                "email": "hedef@example.com",
+                "password": "Secret123",
+            },
         )
         hedef = (await admin_client.get("/api/v1/users/")).json()["data"]
         hedef_id = next(u["id"] for u in hedef if u["username"] == "hedef")
@@ -387,14 +440,22 @@ class TestAdminKullaniciSil:
         hedef = (
             await admin_client.post(
                 "/api/v1/users/",
-                json={"username": "hedef", "email": "hedef@example.com", "password": "Secret123"},
+                json={
+                    "username": "hedef",
+                    "email": "hedef@example.com",
+                    "password": "Secret123",
+                },
             )
         ).json()["data"]
         await admin_client.delete(f"/api/v1/users/{hedef['id']}")
 
         response = await client.post(
             "/api/v1/auth/register",
-            json={"username": "hedef", "email": "yeni@example.com", "password": "Secret123"},
+            json={
+                "username": "hedef",
+                "email": "yeni@example.com",
+                "password": "Secret123",
+            },
         )
         assert response.status_code == 409
 

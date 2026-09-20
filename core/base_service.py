@@ -1,10 +1,9 @@
-
 from collections.abc import Sequence
 from typing import Generic, TypeVar
 
 from core.base_repository import BaseRepository
 
-T = TypeVar('T')
+T = TypeVar("T")
 
 
 class BaseService(Generic[T]):

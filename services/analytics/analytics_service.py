@@ -91,6 +91,7 @@ def aralik_kur(
         ),
     )
 
+
 # Kaynak listesinde ayri satir olarak gosterilecek en fazla host sayisi;
 # kalanlar tek bir "diger" satirinda toplaniyor. Uzun kuyruk panoda okunur
 # bir sey anlatmiyor, yalnizca listeyi uzatiyor.
@@ -214,17 +215,13 @@ class AnalyticsService:
                 sayaclar.setdefault(link_id, {}).get(gun, 0) + adet
             )
 
-        gunler = [
-            baslangic_gun + timedelta(days=gecen) for gecen in range(days)
-        ]
+        gunler = [baslangic_gun + timedelta(days=gecen) for gecen in range(days)]
 
         seriler = []
         for link in links:
             link_sayaclari = sayaclar.get(link.id, {})
             noktalar = [
-                LinkDayPoint(
-                    date=gun, clicks=link_sayaclari.get(gun.isoformat(), 0)
-                )
+                LinkDayPoint(date=gun, clicks=link_sayaclari.get(gun.isoformat(), 0))
                 for gun in gunler
             ]
             seriler.append(
@@ -280,9 +277,7 @@ class AnalyticsService:
         ]
 
         if dogrudan:
-            kaynaklar.append(
-                ReferrerSource(kind=ReferrerKind.DIRECT, clicks=dogrudan)
-            )
+            kaynaklar.append(ReferrerSource(kind=ReferrerKind.DIRECT, clicks=dogrudan))
 
         # Dogrudan satiri da siralamaya giriyor: cogu sitede en buyuk pay
         # onda ve listenin ortasinda kaybolmamali.
@@ -290,9 +285,7 @@ class AnalyticsService:
 
         kalan = sum(adet for _, adet in hostlar[MAX_SOURCES:])
         if kalan:
-            kaynaklar.append(
-                ReferrerSource(kind=ReferrerKind.OTHER, clicks=kalan)
-            )
+            kaynaklar.append(ReferrerSource(kind=ReferrerKind.OTHER, clicks=kalan))
 
         return ReferrerBreakdown(
             days=days,
