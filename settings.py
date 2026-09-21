@@ -42,5 +42,27 @@ class Settings(BaseSettings):
     allowed_hosts: list[str] | None = None
     allowed_origins: list[str] | None = None
 
+    # Hiz siniri.
+    #
+    # Kapatmak icin bir anahtar var cunku sinir SUREC ICI bellekte
+    # (bkz. core/rate_limit/limiter.py): yuk testi gibi durumlarda
+    # kapatilabilmesi gerekiyor. Varsayilan ACIK -- guvenligi varsayilan
+    # olarak kapali birakmak, unutuldugunda hic olmamasiyla ayni sey.
+    rate_limit_enabled: bool = True
+
+    # Onumuzde kac GUVENILIR ters vekil var?
+    #
+    # 0 (varsayilan): X-Forwarded-For hic okunmuyor, baglantinin kendi
+    # adresi kullaniliyor. Vekil arkasinda DEGILKEN dogrusu bu ve
+    # guvenli tarafta olan varsayilan: basligi koru korune okuyan bir
+    # sinirlayici, her istekte rastgele bir deger yazan saldirgan
+    # tarafindan tamamen atlatilir.
+    #
+    # Uygulama bir ters vekilin (nginx, Cloudflare, yuk dengeleyici)
+    # arkasindaysa BU DEGER AYARLANMALI, yoksa butun istekler vekilin
+    # tek adresinden geliyormus gibi gorunur ve tum kullanicilar ayni
+    # sayaci paylasir.
+    trusted_proxy_count: int = 0
+
 
 settings = Settings()

@@ -24,6 +24,7 @@ import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 
+from core.rate_limit import hiz_siniri
 from main import app as fastapi_app
 from models import Base
 
@@ -35,7 +36,18 @@ def app():
 
 @pytest_asyncio.fixture
 async def client(app):
-    """Her test icin bos bir veritabani ve ona bagli HTTP istemcisi."""
+    """Her test icin bos bir veritabani ve ona bagli HTTP istemcisi.
+
+    HIZ SINIRI SAYACLARI DA SIFIRLANIYOR. Sinir testlerde KAPATILMIYOR
+    -- kapatsaydik butun testler kodun sinirsiz halini kosar ve
+    sinirlayicinin mesru akislari bozup bozmadigini hicbir sey
+    olcmezdi. Bunun yerine her test temiz bir sayacla basliyor:
+    testler ASGI tasiyicisi uzerinden kostugu icin hepsi ayni istemci
+    adresini paylasiyor, sifirlamasaydik bir testin denemeleri
+    digerini duserdi.
+    """
+    hiz_siniri.sifirla()
+
     engine = app.container.engine()
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)

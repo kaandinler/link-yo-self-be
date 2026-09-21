@@ -81,6 +81,83 @@ Gelistirmede `ALLOWED_ORIGINS` bos birakilabilir; o zaman yalnizca
 `FRONTEND_URL` kabul edilir. Hicbir ortamda `*` kullanilmiyor --
 `allow_credentials=True` ile bir arada zaten bir sey kisitlamiyor.
 
+## Hiz siniri
+
+Sinir eklenmeden once **olculdu**; hicbir uc korunmuyordu:
+
+| Uc | Olcum |
+|---|---|
+| `POST /v1/auth/token` | 30 yanlis sifre -> 30x401, tek bir 429 yok. Ardisik 3.1 deneme/sn, yani saatte ~11.000 |
+| `POST /v1/auth/forgot-password` | 20 istek -> **20 e-posta**, hepsi ayni adrese |
+| `POST /v1/auth/register` | 15 deneme -> 15 hesap |
+
+Ayni saldirilar sinirdan sonra (calisan sunucuda):
+
+| Uc | Sonuc |
+|---|---|
+| Giris, 30 deneme | 10x401, **20x429** |
+| Sifirlama, 20 istek | 3x204, 17x429 -> **3 e-posta** |
+| Kayit, 15 deneme | **4 hesap**, 11 reddedildi |
+
+### Iki katman
+
+IP **ve** hesap ayri ayri sayiliyor; biri digerinin yerini tutmuyor.
+IP katmani dagitik olmayan denemeyi ve kayit spam'ini durduruyor
+(kayitta henuz bir hesap yok, sinirlanacak baska anahtar da yok).
+Hesap katmani ise tek bir hesaba yonelen denemeyi, saldirgan IP
+degistirse bile durduruyor.
+
+Sinirlar ve her birinin gerekcesi: `core/rate_limit/kurallar.py`.
+
+### Girişte yalnizca BASARISIZ denemeler sayiliyor
+
+Uc once bakiyor, sonra yalnizca kimlik dogrulama dustuyse
+isaretliyor. Her istegi saysaydik dogru sifreyle giren kullanici da
+kendi limitini yakar, sik giris yapan biri kendini disari
+kilitleyebilirdi.
+
+### Bilinen bedel: hedefli kilitleme
+
+Hesap bazli her sinir, baskasinin adresini bilen birinin bilerek
+yanlis sifre girip o kullaniciyi disari kilitlemesine kapi aciyor.
+Kacinmanin yolu sinirsiz birakmak olurdu ki daha kotu. Bedeli ucu
+birden kucultuyor: pencere kisa (15 dk), esik gunluk kullanimda
+gorulmeyecek kadar yuksek (10), ve asil yuk IP katmaninda.
+
+### X-Forwarded-For koru korune okunmuyor
+
+Basligi istemci uydurabilir; her istekte rastgele bir deger yazan biri
+ona guvenen bir sinirlayiciyi tamamen atlatir -- yani sinir tiyatroya
+doner. `TRUSTED_PROXY_COUNT` kac tane **guvenilir** ters vekil
+oldugunu soyluyor:
+
+- `0` (varsayilan): baslik hic okunmuyor, baglantinin kendi adresi
+  kullaniliyor. Vekil arkasinda degilken dogrusu bu.
+- `N > 0`: X-Forwarded-For'un **sagdan N.** elemani aliniyor. Vekiller
+  gordukleri adresi saga ekliyor, yani saldirganin yazabildigi kisim
+  solda kaliyor.
+
+Uygulama bir ters vekil arkasindaysa bu deger **ayarlanmali**, yoksa
+butun istekler vekilin tek adresinden geliyor gorunur ve tum
+kullanicilar ayni sayaci paylasir.
+
+### IP saklanmiyor
+
+Sayac anahtari IP'nin **SHA-256 ozeti** ve yalnizca surec ici bellekte,
+pencere suresince tutuluyor. Ham adres veritabanina da log'a da
+yazilmiyor. Bu, gizlilik politikasindaki "IP adresi saklanmiyor"
+ifadesiyle uyumlu; politika ayrica kotuye kullanimi engellemek icin
+adresin **gecici olarak islendigini** soyluyor.
+
+### Sinirlar SUREC BASINA
+
+Sayaclar surec ici bellekte (bu yiginda Redis yok ve yalnizca bunun
+icin isletilecek ikinci bir servis eklemek istenmedi). Uygulama N isci
+ile kosarsa gercek sinir N katina cikar, surec yeniden baslayinca
+sayaclar sifirlanir. Sinirsiz olmaktan cok daha iyi ama Redis'li bir
+cozumle ayni sey degil; kalici bir sinir gerektiginde
+`core/rate_limit/limiter.py` yerine paylasilan bir depo konmali.
+
 ## Testler
 
 ```bash

@@ -1,9 +1,22 @@
 from dependency_injector.wiring import Provide, inject
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Request, status
 from fastapi.security import OAuth2PasswordRequestForm
 
 from core.auth.auth_service import AuthService
-from core.exceptions import AlreadyExistsException
+from core.exceptions import AlreadyExistsException, InvalidCredentialsException
+from core.rate_limit import (
+    GIRIS_HESAP,
+    GIRIS_IP,
+    KAYIT_IP,
+    SIFIRLAMA_HESAP,
+    SIFIRLAMA_IP,
+    TOKEN_IP,
+    YENIDEN_GONDER_KULLANICI,
+    basarisizligi_isaretle,
+    dogrula,
+    say_ve_dogrula,
+    say_ve_dogrula_hesap,
+)
 from core.schemas.response import BaseResponseModel
 from deps import get_current_user
 from di.container import Container
@@ -26,10 +39,32 @@ router = APIRouter(tags=["auth"])
 @router.post("/token", response_model=BaseResponseModel[TokenResponse])
 @inject
 async def login(
+    http_request: Request,
     form_data: OAuth2PasswordRequestForm = Depends(),
     auth_service: AuthService = Depends(Provide[Container.auth_service]),
 ):
-    user = await auth_service.authenticate_user(form_data.username, form_data.password)
+    """Giris.
+
+    HIZ SINIRI YALNIZCA BASARISIZ DENEMELERI SAYIYOR. Once bakiliyor
+    (`dogrula`), sonra yalnizca kimlik dogrulama dustuyse
+    isaretleniyor. Her istegi saysaydik dogru sifreyle giren kullanici
+    da kendi limitini yakar, sik giris yapan biri kendini disari
+    kilitleyebilirdi.
+
+    Iki katman birden: hesap basina (tek bir hesaba yonelen deneme) ve
+    IP basina (cok sayida hesaba yayilan deneme).
+    """
+    dogrula(http_request, form_data.username, "giris", GIRIS_IP, GIRIS_HESAP)
+
+    try:
+        user = await auth_service.authenticate_user(
+            form_data.username, form_data.password
+        )
+    except InvalidCredentialsException:
+        basarisizligi_isaretle(
+            http_request, form_data.username, "giris", GIRIS_IP, GIRIS_HESAP
+        )
+        raise
 
     # Access token ve refresh token oluştur
     access_token, refresh_token = await auth_service.create_tokens(user)
@@ -77,10 +112,15 @@ async def logout(
 )
 @inject
 async def register(
+    http_request: Request,
     user_in: UserCreateMinimal,
     auth_service: AuthService = Depends(Provide[Container.auth_service,]),
     user_service: UserService = Depends(Provide[Container.user_service]),
 ):
+    # Kayitta henuz bir hesap yok, yani IP'den baska sinirlanacak bir
+    # anahtar da yok.
+    say_ve_dogrula(http_request, "kayit", KAYIT_IP)
+
     # DIKKAT: get_by_username/get_by_email silinmis kayitlari filtreliyor
     # (silinmis kullanici giris yapamasin diye). Musaitlik kontrolu ise
     # silinmis kayitlari da gormeli: satir tabloda duruyor ve username/email
@@ -102,6 +142,7 @@ async def register(
 @router.post("/forgot-password", status_code=status.HTTP_204_NO_CONTENT)
 @inject
 async def forgot_password(
+    http_request: Request,
     request: ForgotPasswordRequest,
     auth_service: AuthService = Depends(Provide[Container.auth_service]),
 ):
@@ -109,17 +150,31 @@ async def forgot_password(
 
     E-posta kayitli olmasa bile 204 doner. Farkli yanit vermek, bir adresin
     sistemde kayitli olup olmadigini ogrenmeye yarardi.
+
+    HIZ SINIRI HER ISTEGI SAYIYOR (giristen farkli olarak): bu ucta
+    "basarili/basarisiz" diye bir sey yok, istegin yapilmis olmasi
+    zaten bir e-posta demek. Adres basina sinir, saldirgan IP
+    degistirse bile tek bir adrese bombardimani durduruyor.
+
+    SIZDIRMIYOR: sayaclar cagiranin kendi istek sayisina bakiyor,
+    adresin kayitli olup olmadigina degil.
     """
+    say_ve_dogrula(http_request, "sifirlama", SIFIRLAMA_IP)
+    say_ve_dogrula_hesap(str(request.email), "sifirlama", SIFIRLAMA_HESAP)
+
     await auth_service.request_password_reset(str(request.email))
 
 
 @router.post("/reset-password", status_code=status.HTTP_204_NO_CONTENT)
 @inject
 async def reset_password(
+    http_request: Request,
     request: ResetPasswordRequest,
     auth_service: AuthService = Depends(Provide[Container.auth_service]),
 ):
     """Token ile yeni sifreyi kaydeder ve acik oturumlari kapatir."""
+    say_ve_dogrula(http_request, "token", TOKEN_IP)
+
     await auth_service.reset_password(request.token, request.password)
 
 
@@ -178,6 +233,7 @@ async def change_email(
 @router.post("/verify-email", response_model=BaseResponseModel[UserRead])
 @inject
 async def verify_email(
+    http_request: Request,
     request: VerifyEmailRequest,
     auth_service: AuthService = Depends(Provide[Container.auth_service]),
 ):
@@ -187,6 +243,8 @@ async def verify_email(
     istemiyor: kullanici baglantiya baska bir cihazdan/tarayicidan tiklamis
     olabilir.
     """
+    say_ve_dogrula(http_request, "token", TOKEN_IP)
+
     user = await auth_service.verify_email(request.token)
 
     return BaseResponseModel(
@@ -207,6 +265,12 @@ async def resend_verification(
     Onay bekleyen bir adres degisikligi varsa baglanti yine o adrese gider;
     yoksa kullanicinin mevcut adresine.
     """
+    # Anahtar dogrudan kullanicinin kendisi: uc giris istiyor, yani
+    # IP'ye gerek yok ve NAT arkasindaki baskalarini etkilemiyor.
+    say_ve_dogrula_hesap(
+        str(current_user.id), "yeniden_gonder", YENIDEN_GONDER_KULLANICI
+    )
+
     hedef = await auth_service.resend_verification_email(current_user)
 
     return BaseResponseModel(
