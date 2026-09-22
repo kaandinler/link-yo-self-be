@@ -125,3 +125,73 @@ class SocialAccountService(BaseService):
             raise AlreadyExistsException(
                 detail="This account is already linked for that platform"
             )
+
+    # --- Platform yonetimi (admin) ---------------------------------------
+
+    async def list_platforms_for_admin(self) -> list[Platform]:
+        """Emekliye ayrilmislar dahil, yanlarinda kullanim sayisiyla.
+
+        Sayi, yoneticinin emekliye ayirmadan once kac kullaniciyi
+        etkileyecegini gormesi icin.
+        """
+        return await self.repository.list_platforms_all()
+
+    async def platform_kullanim_sayisi(self, platform_id: int) -> int:
+        return await self.repository.count_accounts_for_platform(platform_id)
+
+    async def create_platform(self, name: str, display_name: str | None) -> Platform:
+        """Yeni platform; ayni adli emekli bir kayit varsa onu geri getirir.
+
+        NEDEN GERI GETIRIYOR, YENISINI ACMIYOR: `name` kolonu UNIQUE.
+        Emekliye ayrilmis bir platformun adiyla INSERT denemek
+        IntegrityError ile patlar ve istemci 500 gorur. Ustelik yeni bir
+        satir acmak DOGRU DA OLMAZDI: eski satira bagli sosyal hesaplar
+        eski id'yi tasiyor; "instagram"i geri getirmek, o hesaplarin
+        yeniden gorunur olmasi demek.
+        """
+        mevcut = await self.repository.get_platform_by_name(name)
+
+        if mevcut and not mevcut.is_deleted:
+            raise AlreadyExistsException(f"Platform already exists: {name}")
+
+        if mevcut:
+            mevcut.is_deleted = False
+            if display_name is not None:
+                mevcut.display_name = display_name
+            return await self.repository.update_platform(mevcut)
+
+        return await self.repository.create_platform(
+            Platform(name=name, display_name=display_name)
+        )
+
+    async def update_platform(
+        self, platform_id: int, display_name: str | None
+    ) -> Platform:
+        """Yalnizca gosterim adini degistirir (bkz. PlatformUpdate)."""
+        platform = await self._yonetilebilir_platform(platform_id)
+        platform.display_name = display_name
+        return await self.repository.update_platform(platform)
+
+    async def retire_platform(self, platform_id: int) -> None:
+        """Platformu emekliye ayirir. SERT SILME DEGIL.
+
+        NEDEN: social_accounts.platform_id FOREIGN KEY ve ondelete
+        CASCADE. Satiri gercekten silmek, o platformdaki BUTUN
+        kullanicilarin sosyal hesaplarini sessizce yok ederdi --
+        yoneticinin bir listeden bir satir kaldirmakla yapmayi
+        bekleyecegi son sey.
+
+        Emekli platform secim listesinden cikiyor (list_platforms
+        is_deleted filtreliyor) ama mevcut hesaplar yerinde kaliyor ve
+        herkese acik profillerde gorunmeye devam ediyor. Geri getirmek
+        icin ayni adla create_platform yeterli.
+        """
+        platform = await self._yonetilebilir_platform(platform_id)
+        platform.is_deleted = True
+        await self.repository.update_platform(platform)
+
+    async def _yonetilebilir_platform(self, platform_id: int) -> Platform:
+        platform = await self.repository.get_platform_any(platform_id)
+        if not platform:
+            raise NotFoundException(f"Platform not found: {platform_id}")
+        return platform
