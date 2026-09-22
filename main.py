@@ -24,6 +24,7 @@ from routers import (
     analytics_router,
     auth_router,
     link_router,
+    platform_router,
     profile_router,
     public_router,
     social_account_router,
@@ -207,6 +208,8 @@ def create_app() -> FastAPI:
             "routers.v1.analytics_router",
             "routers.social_account_router",
             "routers.v1.social_account_router",
+            "routers.platform_router",
+            "routers.v1.platform_router",
             "deps",
         ]
     )
@@ -219,6 +222,7 @@ def create_app() -> FastAPI:
     wrapped_public_router = add_response_model(public_router.router)
     wrapped_analytics_router = add_response_model(analytics_router.router)
     wrapped_social_account_router = add_response_model(social_account_router.router)
+    wrapped_platform_router = add_response_model(platform_router.router)
 
     # V1 API router'ı oluştur
     api_v1_router = APIRouter(prefix="/api/v1")
@@ -231,6 +235,7 @@ def create_app() -> FastAPI:
     api_v1_router.include_router(wrapped_public_router)
     api_v1_router.include_router(wrapped_analytics_router)
     api_v1_router.include_router(wrapped_social_account_router)
+    api_v1_router.include_router(wrapped_platform_router)
 
     # API v1 router'ı uygulamaya ekle
     app.include_router(api_v1_router)

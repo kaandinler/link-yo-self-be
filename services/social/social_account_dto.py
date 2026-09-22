@@ -96,3 +96,84 @@ class SocialAccountRead(BaseModel):
     profile_url: str
 
     model_config = ConfigDict(from_attributes=True)
+
+
+# --- Platform yonetimi (admin) -------------------------------------------
+
+# Platform adi bir SLUG: kucuk harf, rakam, tire ve nokta. Seed'deki 20
+# kayit da bu bicimde ("x", "tiktok", "linkedin"). Gosterim adi ayri bir
+# kolon oldugu icin buranin okunabilir olmasi gerekmiyor; tekilligin ve
+# istikrarin tasiyicisi bu.
+PLATFORM_ADI_DESENI = re.compile(r"^[a-z0-9][a-z0-9.\-]*$")
+
+
+def _platform_adi_dogrula(name: str) -> str:
+    ad = name.strip().lower()
+    if not PLATFORM_ADI_DESENI.match(ad):
+        raise ValueError(
+            "Platform name must be lowercase letters, digits, dots or hyphens"
+        )
+    return ad
+
+
+class PlatformAdminRead(BaseModel):
+    """Yonetim ekraninin gordugu platform.
+
+    PlatformRead'den iki alan fazla ve ikisi de karar icin:
+      - `is_retired`: emekliye ayrilmis mi (kullaniciya gosterilen
+        listede bu kayitlar hic gorunmuyor).
+      - `account_count`: kac kullanici bu platformu kullaniyor.
+        Yonetici, emekliye ayirmanin kimi etkileyecegini gormeden
+        karar vermemeli.
+    """
+
+    id: int
+    name: str
+    display_name: str | None = None
+    is_retired: bool
+    account_count: int
+
+
+class PlatformCreate(BaseModel):
+    """Yeni platform.
+
+    NEDEN AD KUCUK HARFE CEVRILIYOR: kolon UNIQUE ve "TikTok" ile
+    "tiktok" veritabani icin iki ayri kayit. Ikisi birden var olsaydi
+    secim listesinde ayni platform iki kez gorunurdu.
+    """
+
+    name: str = Field(..., min_length=1, max_length=50)
+    display_name: str | None = Field(default=None, max_length=100)
+
+    @field_validator("name", mode="before")
+    @classmethod
+    def adi_dogrula(cls, name: str) -> str:
+        return _platform_adi_dogrula(name) if isinstance(name, str) else name
+
+    @field_validator("display_name", mode="before")
+    @classmethod
+    def gosterim_adini_kirp(cls, deger: str | None) -> str | None:
+        if not isinstance(deger, str):
+            return deger
+        kirpilmis = deger.strip()
+        return kirpilmis or None
+
+
+class PlatformUpdate(BaseModel):
+    """Platform guncelleme.
+
+    AD DEGISTIRILEMIYOR ve bu bilincli: ad, sosyal hesaplarin bagli
+    oldugu kimligin okunabilir tarafi ve herkese acik profilde ikon
+    secimine kadar her yerde kullaniliyor. Degistirmek isteyen yeni bir
+    platform acip eskisini emekliye ayirabilir. Gosterim adi serbest.
+    """
+
+    display_name: str | None = Field(default=None, max_length=100)
+
+    @field_validator("display_name", mode="before")
+    @classmethod
+    def gosterim_adini_kirp(cls, deger: str | None) -> str | None:
+        if not isinstance(deger, str):
+            return deger
+        kirpilmis = deger.strip()
+        return kirpilmis or None

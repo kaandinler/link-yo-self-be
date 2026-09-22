@@ -211,6 +211,46 @@ sayac kullaniliyor (`core/rate_limit/limiter.py`). Dolayisiyla ayni
 sinirlar gecerli: sayaclar **surec ici** bellekte, yani N isci ile
 kosulursa tekillestirme de isci basina calisir.
 
+## Platform yonetimi
+
+Sosyal hesap eklerken secilen 20 platform bir seed migration'iyla
+geliyordu ve yeni bir platform eklemek **yeni bir migration yazip
+dagitim yapmak** demekti. Artik admin uclari var:
+
+| Uc | Is |
+|---|---|
+| `GET /v1/platforms/` | Emekliye ayrilmislar dahil hepsi, yanlarinda kullanim sayisi |
+| `POST /v1/platforms/` | Yeni platform; ayni adli emekli kayit varsa onu geri getirir |
+| `PATCH /v1/platforms/{id}` | Yalnizca gosterim adi |
+| `DELETE /v1/platforms/{id}` | **Emekliye ayirir**, satiri silmez |
+
+Kullaniciya gosterilen secim listesi eskisi gibi
+`GET /v1/social-accounts/platforms` ve emeklileri filtreliyor.
+
+### DELETE neden gercekten silmiyor
+
+`social_accounts.platform_id` FOREIGN KEY ve **ondelete CASCADE**.
+Satiri gercekten silmek, o platformdaki butun kullanicilarin sosyal
+hesaplarini sessizce yok ederdi -- yoneticinin bir listeden bir satir
+kaldirirken yapmayi bekleyecegi son sey, ve geri donusu yok.
+
+Emekli platform secim listesinden cikiyor ama mevcut hesaplar yerinde
+kaliyor ve herkese acik profillerde gorunmeye devam ediyor. Bunu olcen
+bir test var (`test_silme_KULLANICI_HESAPLARINI_YOK_ETMIYOR`);
+olculdu, servis gercekten silecek sekilde degistirildiginde duruyor.
+
+### Ad degistirilemiyor, gosterim adi degisebilir
+
+`name` sosyal hesaplarin bagli oldugu kimligin okunabilir tarafi.
+Degistirmek isteyen yeni bir platform acip eskisini emekliye ayirabilir.
+
+### Ayni adla ekleme = geri getirme
+
+`name` UNIQUE. Emekli bir platformun adiyla INSERT denemek
+IntegrityError verir (500). Ustelik yeni satir acmak **dogru da
+olmazdi**: eski satira bagli sosyal hesaplar eski id'yi tasiyor, yani
+"instagram"i geri getirmek o hesaplarin yeniden gorunur olmasi demek.
+
 ## Testler
 
 ```bash
