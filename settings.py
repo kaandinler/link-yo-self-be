@@ -64,5 +64,32 @@ class Settings(BaseSettings):
     # sayaci paylasir.
     trusted_proxy_count: int = 0
 
+    # Ayni ziyaretcinin ayni linke tiklamasi kac saniye icinde TEK
+    # sayilsin? 0 = tekillestirme kapali.
+    #
+    # OLCULDU: tekillestirme yokken tek bir ziyaretcinin ~2 saniyede
+    # yaptigi 10 istek 10 tiklama olarak sayiliyordu.
+    #
+    # NEDEN 30 SANIYE -- pencerenin KAPSAMASI gerekenler:
+    #   - Cift tiklama (tarayici esigi ~500 ms).
+    #   - Sabirsiz tekrar dokunuslar ("acilmadi galiba"), 2-5 saniye.
+    #   - Geri gelip yeniden tiklama.
+    #
+    # ...ve YUTMAMASI gerekenler, asil kisit bu: ANAHTAR IP, yani
+    # ziyaretci kimligi yok. Ayni adresin arkasinda (okul, ofis,
+    # mobil operatorun CGNAT'i) bircok gercek kisi olabilir. Pencere
+    # uzadikca ayni linke tiklayan FARKLI kisiler tek kisi sayilmaya
+    # baslar; 30 dakikalik bir "oturum" penceresi (Google Analytics
+    # varsayilani) onlarca gercek tiklamayi tek tiklamaya indirirdi.
+    #
+    # Bu metrigin isi "kac FARKLI KISI tikladi" degil, "linke ne kadar
+    # trafik gitti" -- yani hedef tekil ziyaretci saymak degil,
+    # KAZALARI temizlemek. Kisa pencere tam olarak bunu yapiyor.
+    #
+    # BU BIR KOTUYE KULLANIM ONLEMI DEGIL: 30 saniye, sayiyi bilerek
+    # sisirmek isteyen birini dakikada 2 tiklamada tutuyor (gunde
+    # ~2.880). Sayiyi kazalardan koruyor, kasittan degil.
+    click_dedup_seconds: int = 30
+
 
 settings = Settings()

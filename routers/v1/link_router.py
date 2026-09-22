@@ -1,8 +1,9 @@
 # routers/v1/link_router.py
 
 from dependency_injector.wiring import Provide, inject
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, Query, Request, status
 
+from core.rate_limit import tekrar_mi
 from core.schemas.response import SuccessResponse
 from deps import get_current_user
 from di.container import Container
@@ -15,6 +16,7 @@ from services.link.link_service_dto import (
     LinkReorderRequest,
     LinkUpdate,
 )
+from settings import settings
 
 router = APIRouter(tags=["links"])
 
@@ -120,6 +122,7 @@ async def toggle_link_status(
 @inject
 async def click_link(
     link_id: int,
+    http_request: Request,
     payload: LinkClickRequest | None = None,
     link_service: LinkService = Depends(Provide[Container.link_service]),
 ):
@@ -129,9 +132,22 @@ async def click_link(
     hangi siteden geldigini soyluyor. Istegin kendi Referer basligi bunun
     yerine gecemiyor: o her zaman bizim profil sayfamiz
     (bkz. services/link/link_service_dto.py).
+
+    TEKILLESTIRME: ayni ziyaretcinin ayni linke kisa arayla yaptigi
+    tekrar tiklamalar SAYILMIYOR (pencere: settings.click_dedup_seconds).
+    Olculdu: tekillestirme yokken tek bir ziyaretcinin ~2 saniyede
+    yaptigi 10 istek 10 tiklama olarak sayiliyordu.
+
+    YANIT DEGISMIYOR. Tekrarlanan tiklama da 200 ve redirect_url aliyor;
+    tekillestirilen sey SAYI. 429 ya da hata dondurmek, olcumu duzeltmek
+    icin ziyaretcinin linke gitmesini engellemek olurdu.
     """
+    tekrar = tekrar_mi(http_request, link_id, settings.click_dedup_seconds)
+
     link = await link_service.increment_click_count(
-        link_id, referrer=payload.referrer if payload else None
+        link_id,
+        referrer=payload.referrer if payload else None,
+        sayilsin=not tekrar,
     )
     return SuccessResponse.create(
         data={"redirect_url": link.url}, message="Click recorded successfully"

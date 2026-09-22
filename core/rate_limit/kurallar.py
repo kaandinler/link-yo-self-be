@@ -80,3 +80,14 @@ TOKEN_IP = Kural(limit=10, pencere_sn=SAAT)
 # Giris yapmis kullanici cagiriyor, yani anahtar dogrudan kullanicinin
 # kendisi. Yine e-posta uretiyor.
 YENIDEN_GONDER_KULLANICI = Kural(limit=3, pencere_sn=SAAT)
+
+# --- Tiklama tekillestirme ------------------------------------------------
+#
+# Burada bir Kural YOK, cunku pencere yapilandirilabilir:
+# settings.click_dedup_seconds. Sayi ve secimin gerekcesi orada.
+#
+# AMAC FARKLI, MEKANIZMA AYNI: yukaridaki kurallar kotuye kullanimi
+# engelliyor, tekillestirme ise OLCUMU duzeltiyor. "Pencerede en fazla
+# 1" demek limit=1 olan bir hiz kurali demek, o yuzden ayni sayac
+# kullaniliyor (bkz. deps.tekrar_mi). Ayri bir duzenek yazmak ayni
+# mantigin ikinci bir kopyasi olurdu.

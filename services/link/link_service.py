@@ -107,9 +107,9 @@ class LinkService(BaseService):
         return await self.repository.get_links_by_user(user_id, include_inactive=True)
 
     async def increment_click_count(
-        self, link_id: int, referrer: str | None = None
+        self, link_id: int, referrer: str | None = None, sayilsin: bool = True
     ) -> Link:
-        """Link tiklanma sayisini artirir ve olayi kaydeder.
+        """Linki bulur, tiklanma sayisini artirir ve olayi kaydeder.
 
         Sayac toplami, olay ise zamani tutuyor: pano toplami sayactan,
         "son N gun" grafigi olaylardan okuyor.
@@ -126,10 +126,22 @@ class LinkService(BaseService):
         hedef adresi dondurmeye ve tiklamayi kapali hesabin istatistigine
         yazmaya devam ediyordu. Gorunmeyen link artik yok sayiliyor;
         404 "gizli" ile "hic yok"u ayirt ettirmiyor.
+
+        `sayilsin=False` ise link YINE DE bulunup donuyor, yalnizca sayac
+        ve olay yazilmiyor. Tekillestirme icin: ayni ziyaretcinin kisa
+        arayla tekrarlanan tiklamasi SAYILMIYOR ama ziyaretci hedefe
+        gitmeye devam ediyor. Karari cagiran veriyor; bu katman istegin
+        nereden geldigini bilmiyor (bkz. routers/v1/link_router.py).
+
+        Sayac ve olay BIRLIKTE atlaniyor. Yalnizca biri atlansaydi pano
+        toplami ile "son N gun" grafigi birbirini tutmazdi.
         """
         link = await self.repository.get_public_link(link_id)
         if not link:
             raise NotFoundException(f"Link not found: {link_id}")
+
+        if not sayilsin:
+            return link
 
         link.click_count += 1
         guncel = await self.repository.update_link(link)
