@@ -86,3 +86,21 @@ def basarisizligi_isaretle(
 
     hiz_siniri.isaretle(ip_anahtari(request, kapsam), ip_kurali.pencere_sn)
     hiz_siniri.isaretle(hesap_anahtari(tanimlayici, kapsam), hesap_kurali.pencere_sn)
+
+
+def tekrar_mi(request: Request, link_id: int, pencere_sn: int) -> bool:
+    """Bu tiklama ayni ziyaretciden gelen bir TEKRAR mi?
+
+    True donerse sayilmamali. Ziyaretcinin linke gitmesi yine de
+    engellenmiyor -- tekillestirilen sey SAYI, yanit degil.
+
+    pencere_sn <= 0 ise tekillestirme kapali.
+
+    Anahtar linke ozel: ayni ziyaretcinin iki FARKLI linke tiklamasi
+    iki ayri tiklama, tek bir "bu kisi bugun tikladi" degil.
+    """
+    if pencere_sn <= 0:
+        return False
+
+    anahtar = ip_anahtari(request, f"tiklama:{link_id}")
+    return not hiz_siniri.dene(anahtar, 1, pencere_sn).izinli

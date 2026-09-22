@@ -3,6 +3,7 @@ from core.rate_limit.deps import (
     dogrula,
     say_ve_dogrula,
     say_ve_dogrula_hesap,
+    tekrar_mi,
 )
 from core.rate_limit.kurallar import (
     GIRIS_HESAP,
@@ -30,4 +31,5 @@ __all__ = [
     "hiz_siniri",
     "say_ve_dogrula",
     "say_ve_dogrula_hesap",
+    "tekrar_mi",
 ]

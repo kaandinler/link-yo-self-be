@@ -158,6 +158,59 @@ sayaclar sifirlanir. Sinirsiz olmaktan cok daha iyi ama Redis'li bir
 cozumle ayni sey degil; kalici bir sinir gerektiginde
 `core/rate_limit/limiter.py` yerine paylasilan bir depo konmali.
 
+## Tiklama tekillestirme
+
+OLCULDU: tekillestirme yokken tek bir ziyaretcinin ~2 saniyede yaptigi
+10 istek **10 tiklama** olarak sayiliyordu. Cift tiklama, sabirsiz
+tekrar dokunuslar ve geri gelip yeniden tiklama, sahibinin gordugu
+sayiyi oldugundan buyuk gosteriyordu.
+
+Ayni ziyaretcinin ayni linke tiklamasi `CLICK_DEDUP_SECONDS` (varsayilan
+30) icinde **tek** sayiliyor. Ayni olcum tekillestirmeden sonra: 10
+istek -> sayac **+1**, ve on yanitin hepsi 200 + `redirect_url`.
+
+### Yanit degismiyor, yalnizca SAYI
+
+Tekrarlanan tiklama da 200 ve hedef adresi aliyor. 429 ya da hata
+dondurmek, olcumu duzeltmek icin ziyaretcinin linke gitmesini
+engellemek olurdu.
+
+Sayac ve olay **birlikte** atlaniyor: pano toplami sayactan, "son N
+gun" grafigi olaylardan okuyor; yalnizca biri tekillestirilseydi iki
+ekran farkli sayi gosterirdi.
+
+### Neden 30 saniye
+
+Pencerenin **kapsamasi** gerekenler: cift tiklama (tarayici esigi
+~500 ms), sabirsiz tekrar dokunuslar (2-5 sn), geri gelip yeniden
+tiklama.
+
+Pencerenin **yutmamasi** gerekenler -- asil kisit bu: anahtar IP, yani
+ziyaretci kimligi yok. Ayni adresin arkasinda (okul, ofis, mobil
+operatorun CGNAT'i) bircok gercek kisi olabilir. Pencere uzadikca ayni
+linke tiklayan FARKLI kisiler tek kisi sayilmaya baslar; 30 dakikalik
+bir "oturum" penceresi (Google Analytics varsayilani) onlarca gercek
+tiklamayi tek tiklamaya indirirdi.
+
+Bu metrigin isi "kac FARKLI KISI tikladi" degil, "linke ne kadar trafik
+gitti" -- yani hedef tekil ziyaretci saymak degil, **kazalari
+temizlemek**. Uzun pencere baska bir metrik olurdu ve adi yanlis
+olurdu.
+
+### Kotuye kullanim onlemi DEGIL
+
+30 saniyelik pencere, sayiyi bilerek sisirmek isteyen birini dakikada 2
+tiklamada tutuyor -- gunde ~2.880. Sayiyi **kazalardan** koruyor,
+kasittan degil. Kasit ayri bir is (tiklama ucunun kendisine hiz siniri)
+ve bu surumde yok.
+
+### Mekanizma hiz siniriyla ortak
+
+"Pencerede en fazla 1" demek, limit=1 olan bir hiz kurali demek; ayni
+sayac kullaniliyor (`core/rate_limit/limiter.py`). Dolayisiyla ayni
+sinirlar gecerli: sayaclar **surec ici** bellekte, yani N isci ile
+kosulursa tekillestirme de isci basina calisir.
+
 ## Testler
 
 ```bash

@@ -23,7 +23,7 @@ class TestAnalyticsOzeti:
         assert data["profile_view_count"] == 0
         assert data["links"] == []
 
-    async def test_toplamlar_ve_siralama(self, auth_client):
+    async def test_toplamlar_ve_siralama(self, auth_client, tekillestirme_kapali):
         bir = await create_link(auth_client, title="Bir")
         iki = await create_link(auth_client, title="Iki")
         await auth_client.patch(f"/api/v1/links/{iki['id']}/toggle")
@@ -165,7 +165,7 @@ class TestAnalyticsZamanSerisi:
         assert gunler[0] == data["start_date"]
         assert gunler[-1] == data["end_date"]
 
-    async def test_tiklama_bugune_yaziliyor(self, auth_client):
+    async def test_tiklama_bugune_yaziliyor(self, auth_client, tekillestirme_kapali):
         link = await create_link(auth_client, title="Olculen")
         await auth_client.post(f"/api/v1/links/{link['id']}/click")
         await auth_client.post(f"/api/v1/links/{link['id']}/click")
@@ -263,7 +263,9 @@ class TestLinkZamanSerisi:
         assert len(seri["points"]) == 7
         assert all(nokta["clicks"] == 0 for nokta in seri["points"])
 
-    async def test_tiklamalar_dogru_linke_yaziliyor(self, auth_client):
+    async def test_tiklamalar_dogru_linke_yaziliyor(
+        self, auth_client, tekillestirme_kapali
+    ):
         bir = await create_link(auth_client, title="Bir")
         iki = await create_link(auth_client, title="Iki")
         await auth_client.post(f"/api/v1/links/{bir['id']}/click")
@@ -281,7 +283,7 @@ class TestLinkZamanSerisi:
         assert seriler["Bir"]["points"][-1]["clicks"] == 2
         assert all(nokta["clicks"] == 0 for nokta in seriler["Bir"]["points"][:-1])
 
-    async def test_en_cok_tiklanan_basta(self, auth_client):
+    async def test_en_cok_tiklanan_basta(self, auth_client, tekillestirme_kapali):
         az = await create_link(auth_client, title="Az")
         cok = await create_link(auth_client, title="Cok")
         await auth_client.post(f"/api/v1/links/{az['id']}/click")
@@ -399,7 +401,9 @@ class TestTrafikKaynaklari:
             {"kind": "host", "host": "instagram.com", "clicks": 1}
         ]
 
-    async def test_ayni_kaynak_tek_satirda_toplaniyor(self, auth_client):
+    async def test_ayni_kaynak_tek_satirda_toplaniyor(
+        self, auth_client, tekillestirme_kapali
+    ):
         link = await create_link(auth_client)
         # Farkli yol, farkli sorgu, "www." var/yok: hepsi ayni kaynak.
         await tikla(auth_client, link["id"], "https://instagram.com/p/bir")
@@ -438,7 +442,7 @@ class TestTrafikKaynaklari:
         )
         assert response.status_code == 422
 
-    async def test_en_cok_getiren_kaynak_basta(self, auth_client):
+    async def test_en_cok_getiren_kaynak_basta(self, auth_client, tekillestirme_kapali):
         link = await create_link(auth_client)
         await tikla(auth_client, link["id"], "https://t.co/a")
         for _ in range(3):
@@ -467,7 +471,9 @@ class TestTrafikKaynaklari:
             kaynak["clicks"] for kaynak in data["sources"]
         )
 
-    async def test_uzun_kuyruk_diger_satirinda_ve_sonda(self, auth_client):
+    async def test_uzun_kuyruk_diger_satirinda_ve_sonda(
+        self, auth_client, tekillestirme_kapali
+    ):
         from services.analytics.analytics_service import MAX_SOURCES
 
         link = await create_link(auth_client)

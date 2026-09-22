@@ -20,6 +20,17 @@ os.environ["ACCESS_TOKEN_EXPIRE_MINUTES"] = "30"
 os.environ["ENVIRONMENT"] = "development"
 os.environ["DB_ECHO"] = "false"
 
+# ASAGIDAKI IKISI BILINCLI OLARAK ACIKCA YAZILIYOR.
+#
+# pydantic-settings once ortam degiskenine, sonra .env dosyasina
+# bakiyor. Gelistiricinin .env'inde bu anahtarlardan biri kapaliysa
+# (ornegin yerel E2E kosusu icin RATE_LIMIT_ENABLED=false) suit
+# sessizce BASKA BIR KODU olcerdi -- olculdu: tam olarak bu oldu ve
+# test_rate_limit.py'nin 7 testi dustu. Degerleri burada sabitlemek
+# suiti .env'den bagimsiz kiliyor.
+os.environ["RATE_LIMIT_ENABLED"] = "true"
+os.environ["CLICK_DEDUP_SECONDS"] = "30"
+
 import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
@@ -56,6 +67,24 @@ async def client(app):
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
         yield ac
+
+
+@pytest.fixture
+def tekillestirme_kapali(monkeypatch):
+    """Tiklama tekillestirmesini kapatir.
+
+    NEDEN GEREKLI: tekillestirme IP'ye gore calisiyor ve ASGI
+    tasiyicisindaki butun istekler ayni adresten geliyor. "Iki farkli
+    kisi tikladi" demek isteyen bir toplama testi, tekillestirme
+    acikken aslinda "ayni kisi iki kez tikladi" der ve ikinci tiklama
+    sayilmaz.
+
+    Tekillestirmenin KENDISI tests/test_click_dedup.py'de, acikken
+    test ediliyor; burada kapatmak kapsamda bosluk birakmiyor.
+    """
+    from settings import settings as ayarlar
+
+    monkeypatch.setattr(ayarlar, "click_dedup_seconds", 0)
 
 
 # --- Yardimcilar ---------------------------------------------------------
