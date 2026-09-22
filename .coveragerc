@@ -22,11 +22,12 @@ omit =
 # Esik BUGUNKU degerin bir puan altinda.
 #
 # NEDEN MANDAL (ratchet) OLARAK: hedef bir sayiya ulasmak degil,
-# geriye gitmemek. Bugun %91; 90 esigi kucuk bir yeniden duzenlemenin
+# geriye gitmemek. Bugun %93; 92 esigi kucuk bir yeniden duzenlemenin
 # derlemeyi kirmasina izin vermiyor ama gercek bir gerilemeyi
 # yakaliyor. Kapsam yukseldikce esik de yukseltilmeli, yoksa mandal
-# gevser.
-fail_under = 90
+# gevser -- bu yuzden %91 -> %93 ile birlikte esik de 90'dan 92'ye
+# cikarildi.
+fail_under = 92
 show_missing = True
 # Tam kapsanan dosyalar listede yer kaplamasin; ilgilendigimiz
 # eksikler.
