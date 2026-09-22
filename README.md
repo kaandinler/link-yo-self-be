@@ -271,7 +271,7 @@ semasini siler ve ikisi de anlamsiz hatalar verir. Tek kosu temizdir.
 pytest --cov          # rapor + esik denetimi
 ```
 
-Su an **%91** (2433 ifade, 218'i kapsanmamis). Ayarlar `.coveragerc`'de.
+Su an **%93** (2651 ifade, 183'u kapsanmamis). Ayarlar `.coveragerc`'de.
 
 Rakam iki sey sayilmadigi icin bu: testlerin kendisi ve `alembic/`.
 Testler dahil edilseydi %95 cikardi -- kendi test dosyalarini sayan bir
@@ -280,10 +280,11 @@ kendi kendini calistirdigini olcer. Migration'lar ise gercek bir
 veritabanina karsi calisiyor, birim suitinde degil; olcmek yuzlerce
 hic yurutulmeyen satirla sayiyi anlamsizlastirirdi.
 
-`fail_under = 90` bir **mandal**: hedef bir sayiya ulasmak degil,
+`fail_under = 92` bir **mandal**: hedef bir sayiya ulasmak degil,
 geriye gitmemek. Bugunku degerin bir puan altinda -- kucuk bir yeniden
 duzenleme derlemeyi kirmiyor, gercek bir gerileme yakalaniyor. Kapsam
-yukseldikce esik de yukseltilmeli, yoksa mandal gevser.
+yukseldikce esik de yukseltilmeli, yoksa mandal gevser; %91 -> %93 ile
+birlikte esik de 90'dan 92'ye cikarildi.
 
 Olcum **CI adiminda**, `pytest.ini`'deki `addopts`'ta degil. Addopts'a
 konsaydi her yerel `pytest` cagrisi -- tek bir dosyayi kosturmak
@@ -376,6 +377,21 @@ Tum yanitlar ortak bir zarf kullanir:
 ```json
 { "status": "success", "message": "...", "data": { } }
 ```
+
+Zarfi ureten bir **sihir yok**: her endpoint imzasinda
+`response_model=SuccessResponse[...]` yaziyor ve govdesinde
+`SuccessResponse.create(...)` donduruyor. Bir donem `core/utils/
+response_wrapper.py` bunu router metotlarini degistirerek otomatik
+yapmaya calisiyordu; router metotlari degistirildiginde rotalar
+`@router.get(...)` ile ZATEN kaydedilmis oldugu icin o kod hic
+calismiyordu. Olculdu (58 rota, sarmalayici govdesi 0 kez calisti;
+sarmalayici tamamen kaldirildiginda OpenAPI semasi 41 yol icin birebir
+ayni cikti) ve modul silindi. Yeni bir endpoint yazarken zarfi acikca
+yazin.
+
+Hata yanitlari ayni zarfi `status: "error"` ile kullanir; bunu
+`core/middleware/error_handler.py` sagliyor. Beklenmeyen bir hatanin
+metni istemciye GITMEZ -- yalnizca loglanir.
 
 ## Endpoint'ler
 

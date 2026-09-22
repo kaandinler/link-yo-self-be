@@ -18,7 +18,6 @@ from core.exceptions import (
 )
 from core.middleware.error_handler import setup_exception_handlers
 from core.schemas.response import ErrorResponse
-from core.utils.response_wrapper import add_response_model
 from di.container import Container
 from routers import (
     analytics_router,
@@ -214,28 +213,34 @@ def create_app() -> FastAPI:
         ]
     )
 
-    # Router'ları BaseResponseModel ile sarmalama
-    wrapped_user_router = add_response_model(user_router.router)
-    wrapped_auth_router = add_response_model(auth_router.router)
-    wrapped_link_router = add_response_model(link_router.router)
-    wrapped_profile_router = add_response_model(profile_router.router)
-    wrapped_public_router = add_response_model(public_router.router)
-    wrapped_analytics_router = add_response_model(analytics_router.router)
-    wrapped_social_account_router = add_response_model(social_account_router.router)
-    wrapped_platform_router = add_response_model(platform_router.router)
-
-    # V1 API router'ı oluştur
+    # V1 API router'i olustur
     api_v1_router = APIRouter(prefix="/api/v1")
 
-    # Router'ları API v1 router'a ekle
-    api_v1_router.include_router(wrapped_user_router)
-    api_v1_router.include_router(wrapped_auth_router)
-    api_v1_router.include_router(wrapped_link_router)
-    api_v1_router.include_router(wrapped_profile_router)
-    api_v1_router.include_router(wrapped_public_router)
-    api_v1_router.include_router(wrapped_analytics_router)
-    api_v1_router.include_router(wrapped_social_account_router)
-    api_v1_router.include_router(wrapped_platform_router)
+    # Router'lari API v1 router'a ekle.
+    #
+    # ONCEDEN her biri add_response_model(...) ile "sarmalaniyordu".
+    # O sarmalayici HICBIR SEY YAPMIYORDU ve kaldirildi: router
+    # metotlarini (router.get/post/...) degistiriyordu, ama rotalar
+    # modul import edilirken @router.get(...) dekoratoruyle ZATEN
+    # kaydedilmis oluyordu -- yani degistirilen metotlar hic cagrilmadi.
+    #
+    # Olculdu: 58 rotanin hicbirinde sarmalayicinin govdesi calismadi
+    # (wrap_response cagrilma sayisi: 0) ve sarmalayici tamamen devre
+    # disi birakildiginda uretilen OpenAPI semasi 41 yol icin BIREBIR
+    # ayni cikti.
+    #
+    # Yanitlarin SuccessResponse zarfina girmesini saglayan sey bu degil;
+    # her uc bunu kendi imzasinda acikca yaziyor
+    # (response_model=SuccessResponse[...]) ve govdede
+    # SuccessResponse.create(...) donduruyor.
+    api_v1_router.include_router(user_router.router)
+    api_v1_router.include_router(auth_router.router)
+    api_v1_router.include_router(link_router.router)
+    api_v1_router.include_router(profile_router.router)
+    api_v1_router.include_router(public_router.router)
+    api_v1_router.include_router(analytics_router.router)
+    api_v1_router.include_router(social_account_router.router)
+    api_v1_router.include_router(platform_router.router)
 
     # API v1 router'ı uygulamaya ekle
     app.include_router(api_v1_router)
