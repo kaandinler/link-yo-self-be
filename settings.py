@@ -64,6 +64,12 @@ class Settings(BaseSettings):
     # sayaci paylasir.
     trusted_proxy_count: int = 0
 
+    # Hiz siniri deposu. Bos ise surec ici bellek: sinirlar SUREC BASINA
+    # ve uygulama N isciyle kosarsa gercek sinir ~N katina cikiyor
+    # (olculdu: 1/2/4 isci -> 10/20/31-33, kural 10). Birden fazla isci ya da
+    # sunucu varsa verilmeli, ornegin "redis://localhost:6379/0".
+    redis_url: str | None = None
+
     # Ayni ziyaretcinin ayni linke tiklamasi kac saniye icinde TEK
     # sayilsin? 0 = tekillestirme kapali.
     #

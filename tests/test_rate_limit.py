@@ -314,6 +314,41 @@ class TestKapatmaAnahtari:
 
         assert 429 not in kodlar, kodlar
 
+    async def test_kapaliyken_kayit_ve_sifirlama_da_serbest(self, client, monkeypatch):
+        """FE'nin E2E is akisi RATE_LIMIT_ENABLED=false ile kosuyor, cunku
+        yuzlerce test kullanicisi kaydediyor ve kayit siniri onlari
+        dusuruyordu. Anahtar yalnizca giriste calissaydi o is akisi
+        yeniden kirilirdi -- ve bu yol daha once hic olculmemisti."""
+        from core.rate_limit import deps
+
+        monkeypatch.setattr(deps.settings, "rate_limit_enabled", False)
+
+        kayitlar = [
+            (
+                await client.post(
+                    "/api/v1/auth/register",
+                    json={
+                        "username": f"kapali{i}",
+                        "email": f"kapali{i}@example.com",
+                        "password": "Secret123",
+                    },
+                )
+            ).status_code
+            for i in range(KAYIT_IP.limit + 3)
+        ]
+        sifirlamalar = [
+            (
+                await client.post(
+                    "/api/v1/auth/forgot-password",
+                    json={"email": "kapali0@example.com"},
+                )
+            ).status_code
+            for _ in range(SIFIRLAMA_HESAP.limit + 3)
+        ]
+
+        assert 429 not in kayitlar, kayitlar
+        assert 429 not in sifirlamalar, sifirlamalar
+
 
 class TestBellekTavani:
     """Sayac belleginin saldirgan tarafindan buyutulememesi.
@@ -325,9 +360,9 @@ class TestBellekTavani:
     """
 
     def test_tavan_asilmiyor(self):
-        from core.rate_limit.limiter import HizSiniri
+        from core.rate_limit.limiter import BellekDeposu
 
-        h = HizSiniri(anahtar_tavani=10)
+        h = BellekDeposu(anahtar_tavani=10)
 
         for i in range(200):
             h.dene(f"ip-{i}", limit=5, pencere_sn=60)
@@ -340,9 +375,9 @@ class TestBellekTavani:
         Aksi halde tavan dolunca aktif bir kullanicinin sayaci
         silinirdi ve sinir onun icin sifirlanirdi.
         """
-        from core.rate_limit.limiter import HizSiniri
+        from core.rate_limit.limiter import BellekDeposu
 
-        h = HizSiniri(anahtar_tavani=3)
+        h = BellekDeposu(anahtar_tavani=3)
 
         # Suresi cok kisa: damgalar hemen eskiyor.
         h.dene("eski-1", limit=5, pencere_sn=0)
@@ -358,10 +393,46 @@ class TestBellekTavani:
 
     def test_suresi_gecen_damga_hak_geri_veriyor(self):
         """Pencere kayiyor mu -- sinirin kalici bir yasak olmadigi."""
-        from core.rate_limit.limiter import HizSiniri
+        from core.rate_limit.limiter import BellekDeposu
 
-        h = HizSiniri()
+        h = BellekDeposu()
 
         assert h.dene("a", limit=1, pencere_sn=0).izinli
         # pencere_sn=0 ile onceki damga aninda eskiyor.
         assert h.dene("a", limit=1, pencere_sn=0).izinli
+
+    def test_suresi_dolmus_anahtar_canli_sayactan_once_gidiyor(self):
+        """REGRESYON: tavan dolunca CANLI bir sayac siliniyor ve hakki
+        sifirlaniyordu. Yalnizca kuyrugu bos anahtarlar "suresi dolmus"
+        sayiliyordu; kuyruk ise ancak dokunulunca temizleniyor. Ayrica
+        "en eski dokunulan" aslinda en eski EKLENENDI.
+        """
+        import time
+
+        from core.rate_limit.limiter import BellekDeposu
+
+        h = BellekDeposu(anahtar_tavani=3)
+        h.dene("canli", limit=1, pencere_sn=3600)  # hakki bitti
+        h.dene("eski-1", limit=5, pencere_sn=1)
+        h.dene("eski-2", limit=5, pencere_sn=1)
+        time.sleep(1.1)  # eskilerin suresi doldu, kuyruklari hala dolu
+
+        h.dene("yeni", limit=5, pencere_sn=3600)  # tavan dolu -> yer ac
+
+        assert not h.dene("canli", limit=1, pencere_sn=3600).izinli
+
+    def test_dokunulan_anahtar_tahliye_sirasinda_one_gecmiyor(self):
+        """Hicbiri suresi dolmamisken, en uzun suredir DOKUNULMAYAN gider.
+        Aktif bir saldirinin sayaci en son dokunulandir; o korunmali."""
+        from core.rate_limit.limiter import BellekDeposu
+
+        h = BellekDeposu(anahtar_tavani=3)
+        h.dene("hedef", limit=1, pencere_sn=3600)
+        h.dene("b", limit=5, pencere_sn=3600)
+        h.dene("c", limit=5, pencere_sn=3600)
+        h.dene("hedef", limit=1, pencere_sn=3600)  # saldirgan tekrar denedi
+
+        h.dene("d", limit=5, pencere_sn=3600)  # tavan dolu, suresi dolan yok
+
+        assert "b" not in h._damgalar
+        assert not h.dene("hedef", limit=1, pencere_sn=3600).izinli

@@ -142,7 +142,7 @@ async def click_link(
     tekillestirilen sey SAYI. 429 ya da hata dondurmek, olcumu duzeltmek
     icin ziyaretcinin linke gitmesini engellemek olurdu.
     """
-    tekrar = tekrar_mi(http_request, link_id, settings.click_dedup_seconds)
+    tekrar = await tekrar_mi(http_request, link_id, settings.click_dedup_seconds)
 
     link = await link_service.increment_click_count(
         link_id,
