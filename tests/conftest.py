@@ -57,7 +57,7 @@ async def client(app):
     adresini paylasiyor, sifirlamasaydik bir testin denemeleri
     digerini duserdi.
     """
-    hiz_siniri.sifirla()
+    await hiz_siniri.sifirla()
 
     engine = app.container.engine()
     async with engine.begin() as conn:

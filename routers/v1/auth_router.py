@@ -54,14 +54,14 @@ async def login(
     Iki katman birden: hesap basina (tek bir hesaba yonelen deneme) ve
     IP basina (cok sayida hesaba yayilan deneme).
     """
-    dogrula(http_request, form_data.username, "giris", GIRIS_IP, GIRIS_HESAP)
+    await dogrula(http_request, form_data.username, "giris", GIRIS_IP, GIRIS_HESAP)
 
     try:
         user = await auth_service.authenticate_user(
             form_data.username, form_data.password
         )
     except InvalidCredentialsException:
-        basarisizligi_isaretle(
+        await basarisizligi_isaretle(
             http_request, form_data.username, "giris", GIRIS_IP, GIRIS_HESAP
         )
         raise
@@ -119,7 +119,7 @@ async def register(
 ):
     # Kayitta henuz bir hesap yok, yani IP'den baska sinirlanacak bir
     # anahtar da yok.
-    say_ve_dogrula(http_request, "kayit", KAYIT_IP)
+    await say_ve_dogrula(http_request, "kayit", KAYIT_IP)
 
     # DIKKAT: get_by_username/get_by_email silinmis kayitlari filtreliyor
     # (silinmis kullanici giris yapamasin diye). Musaitlik kontrolu ise
@@ -159,8 +159,8 @@ async def forgot_password(
     SIZDIRMIYOR: sayaclar cagiranin kendi istek sayisina bakiyor,
     adresin kayitli olup olmadigina degil.
     """
-    say_ve_dogrula(http_request, "sifirlama", SIFIRLAMA_IP)
-    say_ve_dogrula_hesap(str(request.email), "sifirlama", SIFIRLAMA_HESAP)
+    await say_ve_dogrula(http_request, "sifirlama", SIFIRLAMA_IP)
+    await say_ve_dogrula_hesap(str(request.email), "sifirlama", SIFIRLAMA_HESAP)
 
     await auth_service.request_password_reset(str(request.email))
 
@@ -173,7 +173,7 @@ async def reset_password(
     auth_service: AuthService = Depends(Provide[Container.auth_service]),
 ):
     """Token ile yeni sifreyi kaydeder ve acik oturumlari kapatir."""
-    say_ve_dogrula(http_request, "token", TOKEN_IP)
+    await say_ve_dogrula(http_request, "token", TOKEN_IP)
 
     await auth_service.reset_password(request.token, request.password)
 
@@ -243,7 +243,7 @@ async def verify_email(
     istemiyor: kullanici baglantiya baska bir cihazdan/tarayicidan tiklamis
     olabilir.
     """
-    say_ve_dogrula(http_request, "token", TOKEN_IP)
+    await say_ve_dogrula(http_request, "token", TOKEN_IP)
 
     user = await auth_service.verify_email(request.token)
 
@@ -267,7 +267,7 @@ async def resend_verification(
     """
     # Anahtar dogrudan kullanicinin kendisi: uc giris istiyor, yani
     # IP'ye gerek yok ve NAT arkasindaki baskalarini etkilemiyor.
-    say_ve_dogrula_hesap(
+    await say_ve_dogrula_hesap(
         str(current_user.id), "yeniden_gonder", YENIDEN_GONDER_KULLANICI
     )
 

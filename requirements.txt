@@ -20,5 +20,9 @@ passlib~=1.7.4
 bcrypt~=4.0.1                 # DIKKAT: passlib 1.7.4 bcrypt >= 4.1 ile uyumsuz,
                               # yukseltilirse register 500 verir.
 
+# Hiz siniri deposu (istege bagli: yalnizca REDIS_URL verilirse
+# kullaniliyor; verilmezse surec ici bellek). redis.asyncio icin.
+redis~=6.4.0
+
 # DI
 dependency-injector~=4.46.0

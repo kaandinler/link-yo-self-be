@@ -20,7 +20,7 @@ def _reddet(yeniden_dene: int) -> None:
     )
 
 
-def say_ve_dogrula(request: Request, kapsam: str, kural: Kural) -> None:
+async def say_ve_dogrula(request: Request, kapsam: str, kural: Kural) -> None:
     """IP basina sayar; limit asilmissa 429.
 
     Her istegin kendi bedeli olan uclar icin (e-posta gonderen, hesap
@@ -30,24 +30,26 @@ def say_ve_dogrula(request: Request, kapsam: str, kural: Kural) -> None:
     if _kapali_mi():
         return
 
-    karar = hiz_siniri.dene(ip_anahtari(request, kapsam), kural.limit, kural.pencere_sn)
+    karar = await hiz_siniri.dene(
+        ip_anahtari(request, kapsam), kural.limit, kural.pencere_sn
+    )
     if not karar.izinli:
         _reddet(karar.yeniden_dene)
 
 
-def say_ve_dogrula_hesap(tanimlayici: str, kapsam: str, kural: Kural) -> None:
+async def say_ve_dogrula_hesap(tanimlayici: str, kapsam: str, kural: Kural) -> None:
     """Hesap (e-posta / kullanici adi) basina sayar."""
     if _kapali_mi():
         return
 
-    karar = hiz_siniri.dene(
+    karar = await hiz_siniri.dene(
         hesap_anahtari(tanimlayici, kapsam), kural.limit, kural.pencere_sn
     )
     if not karar.izinli:
         _reddet(karar.yeniden_dene)
 
 
-def dogrula(
+async def dogrula(
     request: Request,
     tanimlayici: str,
     kapsam: str,
@@ -68,12 +70,12 @@ def dogrula(
         (ip_anahtari(request, kapsam), ip_kurali),
         (hesap_anahtari(tanimlayici, kapsam), hesap_kurali),
     ):
-        karar = hiz_siniri.bak(anahtar, kural.limit, kural.pencere_sn)
+        karar = await hiz_siniri.bak(anahtar, kural.limit, kural.pencere_sn)
         if not karar.izinli:
             _reddet(karar.yeniden_dene)
 
 
-def basarisizligi_isaretle(
+async def basarisizligi_isaretle(
     request: Request,
     tanimlayici: str,
     kapsam: str,
@@ -84,11 +86,13 @@ def basarisizligi_isaretle(
     if _kapali_mi():
         return
 
-    hiz_siniri.isaretle(ip_anahtari(request, kapsam), ip_kurali.pencere_sn)
-    hiz_siniri.isaretle(hesap_anahtari(tanimlayici, kapsam), hesap_kurali.pencere_sn)
+    await hiz_siniri.isaretle(ip_anahtari(request, kapsam), ip_kurali.pencere_sn)
+    await hiz_siniri.isaretle(
+        hesap_anahtari(tanimlayici, kapsam), hesap_kurali.pencere_sn
+    )
 
 
-def tekrar_mi(request: Request, link_id: int, pencere_sn: int) -> bool:
+async def tekrar_mi(request: Request, link_id: int, pencere_sn: int) -> bool:
     """Bu tiklama ayni ziyaretciden gelen bir TEKRAR mi?
 
     True donerse sayilmamali. Ziyaretcinin linke gitmesi yine de
@@ -103,4 +107,4 @@ def tekrar_mi(request: Request, link_id: int, pencere_sn: int) -> bool:
         return False
 
     anahtar = ip_anahtari(request, f"tiklama:{link_id}")
-    return not hiz_siniri.dene(anahtar, 1, pencere_sn).izinli
+    return not (await hiz_siniri.dene(anahtar, 1, pencere_sn)).izinli

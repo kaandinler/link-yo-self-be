@@ -21,6 +21,25 @@ concurrency:
 jobs:
   pytest:
     runs-on: ubuntu-latest
+
+    # Hiz sinirinin Redis deposu gercek bir Redis'e karsi test ediliyor
+    # (tests/test_rate_limit_redis.py). Yerelde Redis yoksa o testler
+    # atlaniyor; CI'da ise TEST_REDIS_URL yoksa DUSUYOR -- sessizce
+    # atlanan bir test, hic yazilmamis bir testten farksiz.
+    services:
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 2s
+          --health-timeout 2s
+          --health-retries 15
+
+    env:
+      TEST_REDIS_URL: redis://localhost:6379/15
+
     steps:
       - uses: actions/checkout@v7
 

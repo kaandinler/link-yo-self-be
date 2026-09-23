@@ -149,14 +149,37 @@ yazilmiyor. Bu, gizlilik politikasindaki "IP adresi saklanmiyor"
 ifadesiyle uyumlu; politika ayrica kotuye kullanimi engellemek icin
 adresin **gecici olarak islendigini** soyluyor.
 
-### Sinirlar SUREC BASINA
+### Birden fazla isci: `REDIS_URL`
 
-Sayaclar surec ici bellekte (bu yiginda Redis yok ve yalnizca bunun
-icin isletilecek ikinci bir servis eklemek istenmedi). Uygulama N isci
-ile kosarsa gercek sinir N katina cikar, surec yeniden baslayinca
-sayaclar sifirlanir. Sinirsiz olmaktan cok daha iyi ama Redis'li bir
-cozumle ayni sey degil; kalici bir sinir gerektiginde
-`core/rate_limit/limiter.py` yerine paylasilan bir depo konmali.
+Varsayilan depo surec ici bellek ve sinirlar **surec basina**. Olculdu --
+hesap basina 10 yanlis sifre kuralinda, 60 denemeden sifre kontrolune
+ulasan (429'lar yok sayilarak, gercek bir saldirgan gibi):
+
+| Isci | Bellek | Redis |
+|---|---|---|
+| 1 | 10 | 10 |
+| 2 | 20 | 10 |
+| 4 | 31-33 | 10 |
+
+Uygulama birden fazla isciyle (`--workers`) ya da birden fazla sunucuda
+kosacaksa `REDIS_URL` verilmeli:
+
+```bash
+REDIS_URL=redis://localhost:6379/0
+```
+
+Redis'le sayaclar butun surecler arasinda paylasiliyor ve **yeniden
+baslatmadan etkilenmiyor**. Kontrol ve sayma tek bir Lua betiginde,
+yani atomik: es zamanli 100 istekte limit 10 ise tam 10 geciyor (ayri
+komutlarla yazilmis bir surum ayni testte 90 gecirdi). Saat Redis'in
+saati; sunucular arasi saat farki pencereyi kaydirmiyor.
+
+**Redis duserse** bellek deposuna dusuluyor ve dakikada bir uyari
+yaziliyor. Kesinti sirasinda sinirlar yeniden surec basina -- ama sifir
+degil. Iki alternatif de daha kotuydu: her seyi kabul etmek kaba kuvvete
+kapi acar, her seyi reddetmek kimsenin giris yapamamasi demek.
+
+Tek isciyle kosuyorsaniz Redis'e gerek yok; davranis ayni.
 
 ## Tiklama tekillestirme
 
