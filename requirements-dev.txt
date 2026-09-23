@@ -7,3 +7,4 @@ pytest-cov~=7.1.0             # kapsam olcumu; bkz. .coveragerc
 httpx~=0.28.1
 aiosqlite~=0.22.1             # testlerde SQLite async driver
 ruff~=0.16.7
+aiosmtpd~=1.4.6              # testlerde gercek SMTP sunucusu (bkz. tests/test_email_sender.py)

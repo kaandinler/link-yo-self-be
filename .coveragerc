@@ -6,6 +6,14 @@
 
 [run]
 source = .
+# SQLAlchemy'nin async katmani greenlet uzerinde calisiyor. Bu ayar
+# olmadan coverage, bir `await session.execute(...)`ten SONRAKI
+# satirlari kaybediyordu: calistiklari halde "kapsanmamis" gorunuyordu.
+# Olculdu, link_repository.py ayni testlerle: ayarsiz 46, 60, 80 ve
+# 137. satirlar eksik (%64); ayarla hepsi kapsaniyor ve geriye YALNIZCA
+# hic cagrilmayan metotlar kaliyordu. Yani rakam hem yanlis hem de
+# asil sorunu (olu kodu) gurultunun icinde sakliyordu.
+concurrency = thread,greenlet
 omit =
     # Testlerin kendisi sayilmiyor. Sayilsaydi rakam sisecekti: ilk
     # olcumde dahil oldugunda %95 cikti, cikarilinca %91. Ikincisi
@@ -22,12 +30,16 @@ omit =
 # Esik BUGUNKU degerin bir puan altinda.
 #
 # NEDEN MANDAL (ratchet) OLARAK: hedef bir sayiya ulasmak degil,
-# geriye gitmemek. Bugun %93; 92 esigi kucuk bir yeniden duzenlemenin
-# derlemeyi kirmasina izin vermiyor ama gercek bir gerilemeyi
-# yakaliyor. Kapsam yukseldikce esik de yukseltilmeli, yoksa mandal
-# gevser -- bu yuzden %91 -> %93 ile birlikte esik de 90'dan 92'ye
-# cikarildi.
-fail_under = 92
+# geriye gitmemek. Bugun %95,8; 95 esigi kucuk bir yeniden
+# duzenlemenin derlemeyi kirmasina izin vermiyor ama gercek bir
+# gerilemeyi yakaliyor. Kapsam yukseldikce esik de yukseltilmeli, yoksa
+# mandal gevser.
+#
+# Gecmis: 90 -> 92 (%91 -> %93), sonra 92 -> 95. Ikinci artisin ~1
+# puani OLCUM duzeltmesi (greenlet, yukarida): eski kod dogru olculunce
+# %93 degil %94 cikiyordu. Kalan ~2 puan gercek is: olu kodun silinmesi
+# ve SMTP / islem sinirlari testleri (kapsanmayan satir 155 -> 109).
+fail_under = 95
 show_missing = True
 # Tam kapsanan dosyalar listede yer kaplamasin; ilgilendigimiz
 # eksikler.

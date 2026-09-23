@@ -271,7 +271,13 @@ semasini siler ve ikisi de anlamsiz hatalar verir. Tek kosu temizdir.
 pytest --cov          # rapor + esik denetimi
 ```
 
-Su an **%93** (2651 ifade, 183'u kapsanmamis). Ayarlar `.coveragerc`'de.
+Su an **%95,8** (2621 ifade, 109'u kapsanmamis). Ayarlar `.coveragerc`'de.
+
+**Olcum greenlet'i izliyor** (`concurrency = thread,greenlet`). SQLAlchemy'nin
+async katmani greenlet uzerinde calisiyor; bu ayar olmadan bir
+`await session.execute(...)`ten sonraki satirlar calistiklari halde
+"kapsanmamis" gorunuyordu. Eski rakam (%93) bu yuzden yanlisti; ayni kod
+dogru olculunce %94 cikiyor.
 
 Rakam iki sey sayilmadigi icin bu: testlerin kendisi ve `alembic/`.
 Testler dahil edilseydi %95 cikardi -- kendi test dosyalarini sayan bir
@@ -280,11 +286,11 @@ kendi kendini calistirdigini olcer. Migration'lar ise gercek bir
 veritabanina karsi calisiyor, birim suitinde degil; olcmek yuzlerce
 hic yurutulmeyen satirla sayiyi anlamsizlastirirdi.
 
-`fail_under = 92` bir **mandal**: hedef bir sayiya ulasmak degil,
+`fail_under = 95` bir **mandal**: hedef bir sayiya ulasmak degil,
 geriye gitmemek. Bugunku degerin bir puan altinda -- kucuk bir yeniden
 duzenleme derlemeyi kirmiyor, gercek bir gerileme yakalaniyor. Kapsam
-yukseldikce esik de yukseltilmeli, yoksa mandal gevser; %91 -> %93 ile
-birlikte esik de 90'dan 92'ye cikarildi.
+yukseldikce esik de yukseltilmeli, yoksa mandal gevser (gecmisi
+`.coveragerc`'de).
 
 Olcum **CI adiminda**, `pytest.ini`'deki `addopts`'ta degil. Addopts'a
 konsaydi her yerel `pytest` cagrisi -- tek bir dosyayi kosturmak

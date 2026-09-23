@@ -209,7 +209,7 @@ class AuthService:
         await self.password_reset_repository.create_token(reset_token)
 
         link = f"{self.frontend_url.rstrip('/')}/password-change?token={raw_token}"
-        self.email_sender.send(
+        await self.email_sender.send(
             to=str(user.email),
             subject="Reset your LinkYoSelf password",
             body=(
@@ -325,7 +325,7 @@ class AuthService:
 
         link = f"{self.frontend_url.rstrip('/')}/confirm-email?token={raw_token}"
         saat = max(1, self.verification_expire_minutes // 60)
-        self.email_sender.send(
+        await self.email_sender.send(
             to=hedef,
             subject="Confirm your LinkYoSelf email address",
             body=(
