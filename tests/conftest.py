@@ -197,9 +197,13 @@ def yakala_epostalar(app):
     gonderilen: list[dict] = []
     sender = app.container.email_sender()
     orijinal = sender.send
-    sender.send = lambda to, subject, body: gonderilen.append(
-        {"to": to, "subject": subject, "body": body}
-    )
+
+    # send artik async (bkz. core/email/sender.py); yakalayici da oyle
+    # olmali, yoksa cagiran `await None` ile duser.
+    async def yakala(to, subject, body):
+        gonderilen.append({"to": to, "subject": subject, "body": body})
+
+    sender.send = yakala
     try:
         yield gonderilen
     finally:

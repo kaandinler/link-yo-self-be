@@ -1,7 +1,7 @@
-from collections.abc import AsyncGenerator, Callable
+from collections.abc import Callable
 from typing import TypeVar
 
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+from sqlalchemy.ext.asyncio import async_sessionmaker
 
 T = TypeVar("T")
 
@@ -20,20 +20,6 @@ def get_session_factory() -> async_sessionmaker:
     if _session_factory is None:
         raise RuntimeError("Session factory not initialized")
     return _session_factory
-
-
-async def get_db() -> AsyncGenerator[AsyncSession, None]:
-    """
-    Provides a database session as an async generator with automatic transaction management.
-    """
-    factory = get_session_factory()
-    async with factory() as session:
-        try:
-            yield session
-            await session.commit()
-        except Exception:
-            await session.rollback()
-            raise
 
 
 async def run_in_transaction(func: Callable[..., T], *args, **kwargs) -> T:

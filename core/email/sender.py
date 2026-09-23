@@ -6,6 +6,7 @@ de uctan uca calisir ve test edilebilir; canliya cikarken settings'e SMTP
 bilgilerini girmek yeterli.
 """
 
+import asyncio
 import logging
 import smtplib
 from email.message import EmailMessage
@@ -36,12 +37,25 @@ class EmailSender:
     def is_configured(self) -> bool:
         return bool(self.host)
 
-    def send(self, to: str, subject: str, body: str) -> None:
+    async def send(self, to: str, subject: str, body: str) -> None:
         """E-postayi gonderir; SMTP yapilandirilmamissa log'a yazar.
 
         Gonderim hatasi cagiran tarafa yansitilmaz: sifre sifirlama ucu, mail
         gidip gitmediginden bagimsiz olarak ayni yaniti donmeli (bkz.
         AuthService.request_password_reset).
+
+        NEDEN ASYNC + IS PARCACIGI: smtplib senkron. Onceki hali async
+        uclarin icinden dogrudan cagriliyordu, yani SMTP konusmasi boyunca
+        OLAY DONGUSU DURUYORDU -- o surede sunucu baska hicbir kullaniciya
+        yanit vermiyordu. Olculdu: her mesaji 2 sn'de kabul eden bir SMTP
+        sunucusuyla, sifre sifirlama istegi havadayken atilan alakasiz bir
+        GET / 1732 ms bekledi. Gercek bir saglayicida bir gonderim
+        genellikle 0,5-2 sn; askida kalan bir sunucuda timeout (10 sn)
+        her socket islemi icin ayri isliyor.
+
+        Konusma artik asyncio.to_thread ile ayri bir is parcaciginda;
+        cagiran istek yine gonderimin bitmesini bekliyor (davranis ayni),
+        ama digerleri beklemiyor.
         """
         if not self.is_configured:
             logger.warning(
@@ -60,14 +74,18 @@ class EmailSender:
         message.set_content(body)
 
         try:
-            with smtplib.SMTP(self.host, self.port, timeout=10) as smtp:
-                if self.use_tls:
-                    smtp.starttls()
-                if self.username and self.password:
-                    smtp.login(self.username, self.password)
-                smtp.send_message(message)
+            await asyncio.to_thread(self._smtp_ile_gonder, message)
         except Exception:
             logger.exception("E-posta gonderilemedi. Alici: %s", to)
+
+    def _smtp_ile_gonder(self, message: EmailMessage) -> None:
+        """SMTP konusmasinin kendisi. Bloklayici; olay dongusunde CAGRILMAZ."""
+        with smtplib.SMTP(self.host, self.port, timeout=10) as smtp:
+            if self.use_tls:
+                smtp.starttls()
+            if self.username and self.password:
+                smtp.login(self.username, self.password)
+            smtp.send_message(message)
 
 
 def build_email_sender() -> EmailSender:
