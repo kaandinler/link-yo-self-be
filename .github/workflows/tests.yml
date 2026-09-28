@@ -1,0 +1,65 @@
+name: Tests
+
+# push'ta yalnizca dev ve main: bir dalda acik PR varken hem push hem
+# pull_request tetikleniyordu ve ayni commit icin butun is iki kez
+# kosuyordu (ornegin 3ae7e78 icin 70 ve 71 numarali calismalar). Dal
+# calismalari artik PR uzerinden geliyor; kapsamda kayip yok, kontrol
+# PR acilinca kosuyor. (main henuz yok, ileride acilirsa kapsanmis olsun
+# diye listede.)
+on:
+  push:
+    branches: [dev, main]
+  pull_request:
+
+concurrency:
+  # Art arda push yapildiginda yalnizca son commit'in sonucu onemli;
+  # eskisini iptal etmek hem runner'i hem sirayi bosaltiyor. dev ve
+  # main'de iptal yok: oradaki her commit'in kendi kaydi kalsin.
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/dev' && github.ref != 'refs/heads/main' }}
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+
+    # Hiz sinirinin Redis deposu gercek bir Redis'e karsi test ediliyor
+    # (tests/test_rate_limit_redis.py). Yerelde Redis yoksa o testler
+    # atlaniyor; CI'da ise TEST_REDIS_URL yoksa DUSUYOR -- sessizce
+    # atlanan bir test, hic yazilmamis bir testten farksiz.
+    services:
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 2s
+          --health-timeout 2s
+          --health-retries 15
+
+    env:
+      TEST_REDIS_URL: redis://localhost:6379/15
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements-dev.txt
+
+      # Kapsam BURADA olculuyor, pytest.ini'deki addopts'ta degil.
+      #
+      # NEDEN: addopts'a konsaydi her yerel `pytest` cagrisi -- tek bir
+      # dosyayi kosturmak dahil -- olcum bedelini oderdi (olculdu: 211
+      # -> 224 saniye) ve o tek dosyanin urettigi yaniltici bir
+      # kapsam raporu basardi. Esigi zorlamak CI'in isi; gelistirici
+      # istediginde `pytest --cov` diyebiliyor.
+      #
+      # Esik .coveragerc'de (fail_under) ve bir mandal: bugunku
+      # degerin bir puan altinda, amaci geriye gitmeyi yakalamak.
+      - name: Run tests with coverage
+        run: pytest --cov -q

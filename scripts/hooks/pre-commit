@@ -1,0 +1,45 @@
+#!/bin/sh
+# Commit oncesi denetim.
+#
+# NEDEN VAR: bu depoda hic kanca yoktu. Lint hatasi ancak CI'da,
+# push'tan sonra goruluyordu -- oysa "ruff check ." 33 milisaniye
+# suruyor, yani beklemenin bir bedeli yok.
+#
+# NEDEN TAM OLARAK CI'IN KOMUTLARI: kanca gecerse Ruff Check is
+# akisinin da gececegi garanti olsun diye. Farkli bir komut
+# kosturmak, yerelde yesil ama CI'da kirmizi durumunu geri getirirdi.
+# Bu iki dosya birlikte degistirilmeli (.github/workflows/ruff.yml).
+#
+# NEDEN pytest YOK: paket ~3.5 dakika suruyor; her commit'te
+# kosturmak kancayi atlatilan bir seye cevirirdi. Testleri CI kosuyor.
+if ! ruff check .; then
+  echo ""
+  echo "Commit durduruldu: 'ruff check .' basarisiz."
+  echo "Otomatik duzeltilebilenler icin: ruff check --fix ."
+  exit 1
+fi
+
+# FORMAT DENETIMI.
+#
+# Onceden burada degildi ve sebebi yaziliydi: deponun 79 dosyasindan
+# 57'si "ruff format"tan gecmiyordu, yani kancaya format eklemek
+# ilgisiz 57 dosyayi yeniden bicimlendirmeden once her commit'i
+# durdururdu. O 57 dosya tek seferde bicimlendirildi ve denetim
+# CI'a da eklendi; artik kural isliyor.
+#
+# NEDEN --check, YANI DUZELTMIYOR: kanca kendiliginden dosya
+# degistirseydi, commit edilen sey gelistiricinin gordugu sey
+# olmazdi -- "git add" edilmis icerikle commit'e giden icerik
+# ayrisirdi. Kanca yalnizca durduruyor, duzeltmeyi cagiran yapiyor.
+#
+# ALEMBIC: migration'lar bicimlendirme denetiminin DISINDA
+# (ruff.toml, [format] exclude). Ureten "alembic revision
+# --autogenerate"; cikti bu bicimde gelmiyor ve denetim kapsasaydi her
+# yeni migration'dan sonra bu adim duserdi. Lint kapsami degismedi:
+# "ruff check" o dosyalari hala goruyor.
+if ! ruff format --check .; then
+  echo ""
+  echo "Commit durduruldu: 'ruff format --check .' basarisiz."
+  echo "Duzeltmek icin: ruff format ."
+  exit 1
+fi

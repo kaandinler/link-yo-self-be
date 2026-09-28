@@ -1,0 +1,55 @@
+# Test kapsami olcumu.
+#
+# NEDEN OLCULUYOR: 366 test vardi ama kapsam hic olculmemisti, yani
+# "nerede ince oldugumuz" tahmindi. Rakam, sonraki is secimlerini
+# tahmine dayanmaktan cikariyor.
+
+[run]
+source = .
+# SQLAlchemy'nin async katmani greenlet uzerinde calisiyor. Bu ayar
+# olmadan coverage, bir `await session.execute(...)`ten SONRAKI
+# satirlari kaybediyordu: calistiklari halde "kapsanmamis" gorunuyordu.
+# Olculdu, link_repository.py ayni testlerle: ayarsiz 46, 60, 80 ve
+# 137. satirlar eksik (%64); ayarla hepsi kapsaniyor ve geriye YALNIZCA
+# hic cagrilmayan metotlar kaliyordu. Yani rakam hem yanlis hem de
+# asil sorunu (olu kodu) gurultunun icinde sakliyordu.
+concurrency = thread,greenlet
+omit =
+    # Testlerin kendisi sayilmiyor. Sayilsaydi rakam sisecekti: ilk
+    # olcumde dahil oldugunda %95 cikti, cikarilinca %91. Ikincisi
+    # uygulama kodunun gercek durumu.
+    tests/*
+    # Migration'lar gercek bir veritabanina karsi calisiyor, birim
+    # suitinde degil. Olcmek gurultu uretir: hic calismayan yuzlerce
+    # satir kapsami sistematik olarak asagi ceker ve sayiyi
+    # anlamsizlastirir. (Migration'lar elle uretimde dogrulaniyor.)
+    alembic/*
+    .venv/*
+
+[report]
+# Esik BUGUNKU degerin bir puan altinda.
+#
+# NEDEN MANDAL (ratchet) OLARAK: hedef bir sayiya ulasmak degil,
+# geriye gitmemek. Bugun %95,8; 95 esigi kucuk bir yeniden
+# duzenlemenin derlemeyi kirmasina izin vermiyor ama gercek bir
+# gerilemeyi yakaliyor. Kapsam yukseldikce esik de yukseltilmeli, yoksa
+# mandal gevser.
+#
+# Gecmis: 90 -> 92 (%91 -> %93), sonra 92 -> 95. Ikinci artisin ~1
+# puani OLCUM duzeltmesi (greenlet, yukarida): eski kod dogru olculunce
+# %93 degil %94 cikiyordu. Kalan ~2 puan gercek is: olu kodun silinmesi
+# ve SMTP / islem sinirlari testleri (kapsanmayan satir 155 -> 109).
+fail_under = 95
+show_missing = True
+# Tam kapsanan dosyalar listede yer kaplamasin; ilgilendigimiz
+# eksikler.
+skip_covered = True
+
+exclude_lines =
+    pragma: no cover
+    # Betiklerin giris noktasi: testler modulu import ediyor,
+    # calistirmiyor. Kapsanmamasi bir eksiklik degil.
+    if __name__ == .__main__.:
+    # Yalnizca tip denetleyici icin var, calisma zamaninda hic
+    # yurutulmuyor.
+    if TYPE_CHECKING:
