@@ -181,6 +181,23 @@ kapi acar, her seyi reddetmek kimsenin giris yapamamasi demek.
 
 Tek isciyle kosuyorsaniz Redis'e gerek yok; davranis ayni.
 
+**Ayaga kalkarken** hangi deponun kullanildigi log'a yaziliyor:
+
+| Durum | Log |
+|---|---|
+| `REDIS_URL` var, Redis ulasilabilir | `INFO` Redis deposu |
+| `REDIS_URL` var, Redis ulasilamiyor | `ERROR` -- uygulama yine ayaga kalkiyor, sinirlar bellekte |
+| `REDIS_URL` yok, `WEB_CONCURRENCY` > 1 | `WARNING` -- gercek sinir ~N kati |
+| `REDIS_URL` yok, tek isci | `INFO` bellek deposu |
+| `RATE_LIMIT_ENABLED=false` | `WARNING` hiz siniri kapali |
+
+Onceden iki yanlis yapilandirma da sessizdi; yanlis bir Redis adresi
+ancak biri giris yapmaya calistiginda bir uyari uretiyordu. Isci sayisi
+`WEB_CONCURRENCY`'den okunuyor (uvicorn ve gunicorn ikisi de onu
+kullaniyor). `--workers N` komut satirindan verilirse ya da uygulama
+birden fazla sunucuda kosuyorsa bu bilinemez; o durumda `REDIS_URL`'i
+vermek dagitimin sorumlulugu.
+
 ## Tiklama tekillestirme
 
 OLCULDU: tekillestirme yokken tek bir ziyaretcinin ~2 saniyede yaptigi

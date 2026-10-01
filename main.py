@@ -17,6 +17,7 @@ from core.exceptions import (
     PermissionDeniedException,
 )
 from core.middleware.error_handler import setup_exception_handlers
+from core.rate_limit.limiter import hiz_siniri, isci_sayisi
 from core.schemas.response import ErrorResponse
 from di.container import Container
 from routers import (
@@ -44,7 +45,14 @@ async def lifespan(app: FastAPI):
     context manager'i hem baslangici hem kapanisi tek yerde tutuyor.
     """
     logger.info("Starting LinkYoSelf API")
+    if settings.rate_limit_enabled:
+        await hiz_siniri.baslangic_raporu(isci_sayisi())
+    else:
+        # Yuk testi icin var; uretimde acik kalmasi kaba kuvvete kapi
+        # acar. Sessiz kalmasin.
+        logger.warning("Hiz siniri KAPALI (RATE_LIMIT_ENABLED=false).")
     yield
+    await hiz_siniri.kapat()
     logger.info("Shutting down LinkYoSelf API")
 
 
