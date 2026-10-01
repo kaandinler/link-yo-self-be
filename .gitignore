@@ -172,3 +172,6 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+
+# Yerelde calistirilan redis-server anlik goruntusu
+dump.rdb

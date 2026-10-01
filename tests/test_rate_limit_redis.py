@@ -57,6 +57,19 @@ def anahtar() -> str:
     return f"test:{uuid.uuid4().hex}"
 
 
+class TestBaslangicRaporu:
+    async def test_redis_ulasilabiliyorsa_redis_deposu_bildiriliyor(
+        self, isciler, caplog
+    ):
+        h = isciler()
+        with caplog.at_level(logging.INFO, logger="core.rate_limit.limiter"):
+            await h.baslangic_raporu(isci_sayisi=4)
+
+        # Redis varken isci sayisi onemsiz: uyari yok.
+        assert [k.levelno for k in caplog.records] == [logging.INFO]
+        assert "Redis deposu" in caplog.records[0].getMessage()
+
+
 class TestTemelDavranis:
     async def test_limite_kadar_izin_sonra_red(self, isciler):
         h = isciler()

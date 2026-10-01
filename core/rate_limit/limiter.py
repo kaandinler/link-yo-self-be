@@ -33,6 +33,7 @@ ikisi de bundan kotu.
 """
 
 import logging
+import os
 import time
 import uuid
 from collections import OrderedDict, deque
@@ -260,6 +261,9 @@ class RedisDeposu:
         async for anahtar in self._istemci.scan_iter(match=_ONEK + "*"):
             await self._istemci.delete(anahtar)
 
+    async def ping(self) -> None:
+        await self._istemci.ping()
+
     async def kapat(self) -> None:
         await self._istemci.aclose()
 
@@ -330,6 +334,49 @@ class HizSiniri:
                 self._redis_dustu(hata)
         self._bellek.isaretle(anahtar, pencere_sn)
 
+    async def baslangic_raporu(self, isci_sayisi: int) -> None:
+        """Ayaga kalkarken hangi deponun kullanildigini log'a yazar.
+
+        NEDEN: iki yanlis yapilandirma da SESSIZDI. Olculdu, uvicorn
+        WEB_CONCURRENCY=2 ile:
+          - REDIS_URL yok: log'da hiz sinirina dair tek satir yok, oysa
+            gercek sinir iki katina cikmis durumda.
+          - REDIS_URL yanlis (kapali port): yine tek satir yok. Ilk uyari
+            ancak biri giris yapmaya calistiginda geliyordu.
+        Ikisi de ancak bir saldiri sirasinda fark edilecek seylerdi.
+
+        Redis'e ulasilamamasi ayaga kalkmayi ENGELLEMIYOR: calisma
+        sirasindaki geri dusus kararinin aynisi (bkz. sinifin aciklamasi).
+        Dagitim anindaki kisa bir Redis kesintisi API'yi baslatmamak icin
+        yeterli bir sebep degil; ama ERROR seviyesinde gorunur olmali.
+        """
+        if self._redis:
+            try:
+                await self._redis.ping()
+            except Exception as hata:  # noqa: BLE001 - yalnizca rapor
+                logger.error(
+                    "Hiz siniri: REDIS_URL verilmis ama Redis'e ulasilamiyor (%s). "
+                    "Ulasilana kadar sinirlar surec ici bellekte ve SUREC BASINA.",
+                    hata,
+                )
+                return
+            logger.info("Hiz siniri: Redis deposu; butun isciler ayni sayaci goruyor.")
+            return
+
+        if isci_sayisi > 1:
+            logger.warning(
+                "Hiz siniri: %d isci var ama REDIS_URL verilmemis. Sinirlar surec "
+                "basina, yani gercek sinir yaklasik %d kati. REDIS_URL verin "
+                "(bkz. README, 'Birden fazla isci').",
+                isci_sayisi,
+                isci_sayisi,
+            )
+            return
+        logger.info(
+            "Hiz siniri: surec ici bellek deposu. Tek isci icin dogru; birden "
+            "fazla isci ya da sunucu varsa REDIS_URL verilmeli."
+        )
+
     async def sifirla(self) -> None:
         """Butun sayaclari siler. Testler icin."""
         self._bellek.sifirla()
@@ -341,6 +388,24 @@ class HizSiniri:
         dongusu ayri ve havuz olustugu donguye bagli."""
         if self._redis:
             await self._redis.kapat()
+
+
+def isci_sayisi(ortam: dict[str, str] | None = None) -> int:
+    """Uvicorn/gunicorn'un isci sayisi, bilinebildigi kadariyla.
+
+    Ikisi de WEB_CONCURRENCY'yi okuyor (uvicorn: config.py, --workers
+    verilmemisse). `--workers N` komut satirindan verilirse ya da ayni
+    uygulama birden fazla sunucuda kosuyorsa BURADAN BILINEMEZ; o yuzden
+    tek isci raporu da "birden fazla varsa REDIS_URL" diyor.
+
+    Anlamsiz deger 1 sayiliyor: bu yalnizca bir rapor, ayaga kalkmayi
+    bozmamali.
+    """
+    ham = (os.environ if ortam is None else ortam).get("WEB_CONCURRENCY", "")
+    try:
+        return max(1, int(ham))
+    except ValueError:
+        return 1
 
 
 def _olustur() -> HizSiniri:
