@@ -81,6 +81,101 @@ Gelistirmede `ALLOWED_ORIGINS` bos birakilabilir; o zaman yalnizca
 `FRONTEND_URL` kabul edilir. Hicbir ortamda `*` kullanilmiyor --
 `allow_credentials=True` ile bir arada zaten bir sey kisitlamiyor.
 
+## Docker ile
+
+Butun yigin (Postgres, Redis, API, frontend) tek komutla:
+
+```bash
+# iki depo yan yana olmali:
+#   ./link-yo-self-be
+#   ./link-yo-self-fe     (baska yerdeyse: FRONTEND_DIR=/yol/link-yo-self-fe)
+cp .env.example .env      # en azindan SECRET_KEY'i doldurun
+docker compose up --build
+```
+
+- Frontend: <http://localhost:3000>
+- API: <http://localhost:8000> (Swagger: `/docs`)
+
+Yalnizca backend icin `docker compose up api`; frontend derlenmiyor.
+
+Ilk admin:
+
+```bash
+docker compose run --rm api python -m scripts.create_admin \
+    --username kaan --email kaan@example.com --password 'Gizli.Parola1'
+```
+
+### Neler oluyor
+
+| Servis | Gorevi |
+|---|---|
+| `db` | Postgres 16; veri `pgdata` biriminde. Port disari acilmiyor. |
+| `redis` | Hiz siniri sayaclari. Diske yazmiyor. |
+| `migrate` | `alembic upgrade head`, bir kez calisip cikiyor. |
+| `api` | `migrate` basariyla bitmeden kalkmiyor. |
+| `web` | Next standalone ciktisi (`node server.js`). |
+
+**Migration neden ayri bir servis:** imajin baslangicina konsaydi her
+kopya (`WEB_CONCURRENCY>1` ya da birden fazla konteyner) ayni anda
+migration denerdi.
+
+**`SECRET_KEY` neden zorunlu:** yoksa `docker compose` hicbir konteyner
+baslatmadan duruyor. Varsayilan bir anahtar konmadi: bilinen bir
+anahtarla imzalanan token'i herkes uretebilir.
+
+`.env` dosyasindaki her ayar (SMTP, `ALLOWED_*`, `TRUSTED_PROXY_COUNT`...)
+konteynere oldugu gibi geciyor. Compose yalnizca konteynerin icinde
+farkli olmasi gerekenleri eziyor: `DATABASE_URL` ve `REDIS_URL`.
+`.env`'deki `localhost` konteynerde konteynerin kendisi demek.
+
+### Frontend'in iki API adresi
+
+| Degisken | Kimin icin | Ne zaman |
+|---|---|---|
+| `NEXT_PUBLIC_API_URL` | **Tarayici** (tiklama sayaci) | Derleme aninda gomuluyor |
+| `API_URL` | **Next sunucusu** (vekil, oturum, profil sayfasi) | Calisma aninda |
+
+Ikisi ayri, cunku konteynerde `localhost:8000` Next'in kendi konteyneri;
+yigin icinden backend'e `http://api:8000/api` ile gidiliyor, tarayici
+ise o adi cozemiyor. `NEXT_PUBLIC_*` degistirildiginde
+`docker compose build web` gerekiyor.
+
+### Uretimde
+
+`.env` icinde en azindan:
+
+```bash
+ENVIRONMENT=production
+SECRET_KEY=...                                   # uzun, rastgele
+POSTGRES_PASSWORD=...
+ALLOWED_HOSTS=["api.linkyoself.com"]
+ALLOWED_ORIGINS=["https://linkyoself.com"]
+FRONTEND_URL=https://linkyoself.com
+TRUSTED_PROXY_COUNT=1                            # TLS'i sonlandiran vekil
+FORWARDED_ALLOW_IPS=*                            # ya da vekilin adresi
+WEB_CONCURRENCY=2
+
+NEXT_PUBLIC_API_URL=https://api.linkyoself.com/api
+NEXT_PUBLIC_SITE_URL=https://linkyoself.com
+API_URL=https://api.linkyoself.com/api
+```
+
+Dikkat edilecekler:
+
+- **TLS yigin disinda.** Imajlar duz HTTP konusuyor; onlerine TLS'i
+  sonlandiran bir ters vekil (Caddy, nginx, Traefik, bulut yuk
+  dengeleyicisi) konmali.
+- **`FORWARDED_ALLOW_IPS` ayarlanmali.** Uretimde `HTTPSRedirectMiddleware`
+  acik. Uvicorn vekilin `X-Forwarded-Proto` basligina guvenmezse
+  https ile gelen istegi de http saniyor ve sonsuz yonlendirmeye
+  giriyor. Port disari acik degilse ve tek giris vekil ise `*`
+  kabul edilebilir; degilse vekilin adresi yazilmali.
+- **Uretimde `API_URL` herkese acik https adres olmali.** Yigin ici
+  `http://api:8000` uretimde iki kontrole takiliyor: Host basligi `api`,
+  `ALLOWED_HOSTS`'ta yok (400), ve duz HTTP oldugu icin https'e
+  yonlendiriliyor (307).
+- Konteynerler root olarak calismiyor (uid 10001).
+
 ## Hiz siniri
 
 Sinir eklenmeden once **olculdu**; hicbir uc korunmuyordu:
