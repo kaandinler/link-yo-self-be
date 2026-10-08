@@ -1,0 +1,128 @@
+# LinkYoSelf: butun yigin tek komutla.
+#
+#   cp .env.example .env      # en azindan SECRET_KEY'i doldurun
+#   docker compose up --build
+#
+#   Frontend: http://localhost:3000
+#   API:      http://localhost:8000  (Swagger: /docs)
+#
+# Frontend imaji KARDES DIZINDEKI depodan derleniyor:
+#
+#   ./link-yo-self-be   <- bu dosya
+#   ./link-yo-self-fe
+#
+# Baska bir yerdeyse FRONTEND_DIR ile gosterin. Yalnizca backend icin:
+# `docker compose up api` (frontend derlenmez).
+#
+# Ilk admin:
+#
+#   docker compose run --rm api python -m scripts.create_admin \
+#       --username kaan --email kaan@example.com --password '...'
+#
+# Uretime alirken README'deki "Docker ile" bolumune bakin: tarayicinin
+# gordugu adresler ve ENVIRONMENT=production ayarlari orada.
+
+name: linkyoself
+
+# api ve migrate AYNI ortamla kosmali: migration'in baglandigi veritabani
+# uygulamanin baglandigi veritabani olsun.
+x-api: &api
+  build: .
+  image: linkyoself-api
+  # .env'deki her sey (SMTP, ALLOWED_*, TRUSTED_PROXY_COUNT ...) oldugu
+  # gibi geciyor; tek tek listelenseydi yeni bir ayar eklendiginde
+  # burada unutulurdu. Asagidaki `environment` yalnizca konteynerin
+  # icinde FARKLI olmasi gerekenleri eziyor: .env'deki DATABASE_URL
+  # "localhost"u gosteriyor, konteynerde ise o adres konteynerin kendisi.
+  env_file:
+    - path: .env
+      required: false
+  environment:
+    DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-linkyoself}
+    # Bos ya da eksik SECRET_KEY ile kalkmasin: bilinen bir anahtarla
+    # imzalanan token'i herkes uretebilir. Hata `up` aninda, hicbir
+    # konteyner baslamadan veriliyor.
+    SECRET_KEY: ${SECRET_KEY:?SECRET_KEY tanimli degil -- .env dosyasina yazin}
+    # Redis zaten yigida var; hiz siniri WEB_CONCURRENCY>1'de de dogru
+    # saysin diye her zaman kullaniliyor.
+    REDIS_URL: redis://redis:6379/0
+  depends_on:
+    db:
+      condition: service_healthy
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-linkyoself}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    # Port disari acilmiyor: yalnizca yigin icinden erisiliyor ve
+    # makinede kosan yerel bir Postgres'le cakismiyor.
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    # Yalnizca hiz siniri sayaclari tutuluyor; omurleri dakikalar.
+    # Diske yazmaya gerek yok -- yeniden baslatmada sayaclarin
+    # sifirlanmasi kabul edilebilir.
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  migrate:
+    <<: *api
+    command: ["alembic", "upgrade", "head"]
+    restart: "no"
+
+  api:
+    <<: *api
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    ports:
+      - "${API_PORT:-8000}:8000"
+    restart: unless-stopped
+
+  web:
+    build:
+      context: ${FRONTEND_DIR:-../link-yo-self-fe}
+      # NEXT_PUBLIC_* degerleri DERLEME ANINDA istemci paketine gomuluyor;
+      # calisma aninda degistirmek ise yaramaz. Degistirince
+      # `docker compose build web` gerekiyor.
+      args:
+        # Tarayicinin backend'e ulastigi adres (tiklama sayaci dogrudan
+        # buraya gidiyor). Yigin icindeki "api" adi tarayicida cozulmez.
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000/api}
+        NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-http://localhost:3000}
+        NEXT_PUBLIC_IS_SIGN_UP_ENABLED: ${NEXT_PUBLIC_IS_SIGN_UP_ENABLED:-true}
+    image: linkyoself-web
+    environment:
+      # Next sunucusunun backend'e ulastigi adres (vekil, oturum, profil
+      # sayfasi). Yigin icinden gidiyor; tarayicinin adresi buradan
+      # gecerli degil, cunku konteynerde "localhost" konteynerin kendisi.
+      API_URL: ${API_URL:-http://api:8000/api}
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "${WEB_PORT:-3000}:3000"
+    restart: unless-stopped
+
+volumes:
+  pgdata:

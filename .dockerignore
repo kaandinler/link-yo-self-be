@@ -1,0 +1,34 @@
+# Imaja yalnizca uygulamanin calismasi icin gerekenler giriyor.
+
+.git
+.github
+.gitignore
+
+# Ortam dosyalari ASLA imaja girmesin: icinde SECRET_KEY ve veritabani
+# parolasi var ve imaj bir kayit defterine itildiginde onlar da gider.
+# Degerler calisma aninda ortam degiskeni olarak veriliyor.
+.env
+.env.*
+
+.venv
+venv
+**/__pycache__
+**/*.py[cod]
+
+# Testler ve gelistirme araclarinin ciktilari
+tests
+.pytest_cache
+.ruff_cache
+.coverage
+.coveragerc
+htmlcov
+pytest.ini
+requirements-dev.txt
+test_main.http
+
+# Yerel Redis anlik goruntusu
+dump.rdb
+
+Dockerfile
+.dockerignore
+docker-compose*.yml
