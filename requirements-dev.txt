@@ -8,3 +8,4 @@ httpx~=0.28.1
 aiosqlite~=0.22.1             # testlerde SQLite async driver
 ruff~=0.16.7
 aiosmtpd~=1.4.6              # testlerde gercek SMTP sunucusu (bkz. tests/test_email_sender.py)
+moto[s3]~=5.2.3              # S3 deposu testleri; sahte S3 (bkz. tests/test_storage.py)

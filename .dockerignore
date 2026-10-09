@@ -29,6 +29,9 @@ test_main.http
 # Yerel Redis anlik goruntusu
 dump.rdb
 
+# Yerel avatar deposu: gelistiricinin yukledigi dosyalar imaja girmesin
+media
+
 Dockerfile
 .dockerignore
 docker-compose*.yml

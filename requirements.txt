@@ -26,3 +26,9 @@ redis~=6.4.0
 
 # DI
 dependency-injector~=4.46.0
+
+# Avatar: yuklenen gorsel yeniden kodlaniyor (bkz. services/user/avatar.py)
+Pillow~=12.3.0
+# S3 uyumlu depo (STORAGE_BACKEND=s3). Yalnizca o secildiginde import
+# ediliyor; yerel depoyla calisan kurulum onu yuklemiyor.
+boto3~=1.43.110
