@@ -1,5 +1,7 @@
 # settings.py
 
+from typing import Literal
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -96,6 +98,38 @@ class Settings(BaseSettings):
     # sisirmek isteyen birini dakikada 2 tiklamada tutuyor (gunde
     # ~2.880). Sayiyi kazalardan koruyor, kasittan degil.
     click_dedup_seconds: int = 30
+
+    # --- Dosya deposu (avatarlar) -----------------------------------------
+    #
+    # "local": dosyalar MEDIA_ROOT'a yaziliyor ve uygulama onlari /media
+    # altindan kendisi sunuyor. Tek sunucu ve gelistirme icin; birden
+    # fazla sunucuda her biri kendi diskini gorur.
+    #
+    # "s3": S3 uyumlu bir servis (AWS S3, Cloudflare R2, MinIO). Dosyalari
+    # uygulama SUNMUYOR; S3_PUBLIC_URL'deki adres (kovanin herkese acik
+    # alan adi ya da onundeki CDN) sunuyor.
+    storage_backend: Literal["local", "s3"] = "local"
+
+    # local: dosyalarin yazildigi dizin ve tarayicinin onlara ulastigi
+    # adres. MEDIA_URL, uygulamanin /media yolunun DISARIDAN gorunen hali
+    # olmali (uretimde orn. https://api.linkyoself.com/media).
+    media_root: str = "media"
+    media_url: str = "http://localhost:8000/media"
+
+    # s3: kimlik bilgileri bossa boto3'un kendi zinciri (AWS_* ortam
+    # degiskenleri, IAM rolu) kullaniliyor. R2/MinIO icin endpoint
+    # verilmeli; AWS S3'te bos birakilir.
+    s3_bucket: str | None = None
+    s3_endpoint_url: str | None = None
+    s3_region: str | None = None
+    s3_access_key_id: str | None = None
+    s3_secret_access_key: str | None = None
+    s3_public_url: str | None = None
+
+    # Yuklenen ham dosyanin ust siniri. Telefon fotograflari 3-6 MB
+    # arasinda geliyor; 8 MB onlari reddetmiyor. Saklanan dosya bu degil:
+    # sunucu 400x400 JPEG/PNG olarak yeniden yaziyor (12 MP fotograftan ~25 KB).
+    avatar_max_bytes: int = 8 * 1024 * 1024
 
 
 settings = Settings()

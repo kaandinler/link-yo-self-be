@@ -32,9 +32,14 @@ RUN pip install -r requirements.txt
 
 COPY . .
 
-# Root olarak kosmasin. Uygulama diske yazmiyor (log stdout'a), yani
-# /app'in sahibini degistirmeye gerek yok.
-RUN useradd --system --uid 10001 --no-create-home app
+# Root olarak kosmasin. Uygulamanin yazdigi tek yer yerel avatar deposu
+# (STORAGE_BACKEND=local); /app'in geri kalani salt okunur kaliyor.
+# docker-compose bu dizine bir birim bagliyor; birim ilk olusturuldugunda
+# Docker icerigi ve SAHIBINI imajdaki dizinden kopyaliyor, yani buradaki
+# chown birime de geciyor.
+RUN useradd --system --uid 10001 --no-create-home app \
+    && mkdir -p /app/media && chown app /app/media
+ENV MEDIA_ROOT=/app/media
 USER app
 
 EXPOSE 8000

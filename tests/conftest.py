@@ -31,6 +31,13 @@ os.environ["DB_ECHO"] = "false"
 os.environ["RATE_LIMIT_ENABLED"] = "true"
 os.environ["CLICK_DEDUP_SECONDS"] = "30"
 
+# Avatar deposu: ayni gerekce. Gelistiricinin .env'i S3'u gosteriyorsa
+# suit gercek bir kovaya yazardi. Testler gecici bir dizine yaziyor.
+TEST_MEDIA_ROOT = pathlib.Path(tempfile.mkdtemp(prefix="linkyoself_media_"))
+os.environ["STORAGE_BACKEND"] = "local"
+os.environ["MEDIA_ROOT"] = str(TEST_MEDIA_ROOT)
+os.environ["MEDIA_URL"] = "http://test/media"
+
 import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
