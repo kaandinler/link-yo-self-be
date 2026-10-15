@@ -1,9 +1,23 @@
 # routers/v1/profile_router.py
 
-from dependency_injector.wiring import Provide, inject
-from fastapi import APIRouter, Depends
+import logging
 
+from dependency_injector.wiring import Provide, inject
+from fastapi import APIRouter, Depends, Request
+from starlette.concurrency import run_in_threadpool
+
+# fastapi.UploadFile DEGIL: request.form() Starlette'in sinifini donduruyor ve
+# FastAPI'ninki onun alt sinifi, yani isinstance kontrolu hep dusuyordu.
+from starlette.datastructures import UploadFile
+
+from core.exceptions import (
+    LengthRequiredException,
+    PayloadTooLargeException,
+    ValidationException,
+)
+from core.rate_limit import AVATAR_KULLANICI, say_ve_dogrula_hesap
 from core.schemas.response import SuccessResponse
+from core.storage import Depo, avatar_anahtari
 from deps import get_current_user
 from di.container import Container
 from models import User
@@ -12,6 +26,7 @@ from services.page_settings.page_settings_dto import (
     PageSettingsUpdate,
 )
 from services.page_settings.page_settings_service import PageSettingsService
+from services.user.avatar import GecersizGorsel, avatar_isle
 from services.user.user_service import UserService
 from services.user.user_service_dto import (
     OnboardingStatus,
@@ -22,6 +37,9 @@ from services.user.user_service_dto import (
     UserProfileUpdate,
     UserRead,
 )
+from settings import settings
+
+logger = logging.getLogger(__name__)
 
 # Prefix dışarıdaki routers/profile_router.py tarafından veriliyor (/profile),
 # burada tekrar tanımlanırsa /api/v1/profile/profile/... oluşur.
@@ -268,3 +286,118 @@ async def skip_onboarding(
         data=updated_user,
         message="Onboarding skipped. You can complete your profile later!",
     )
+
+
+# Multipart zarfinin (sinir dizgileri, alan basliklari, dosya adi) payi.
+# Govdenin geri kalani dosyanin kendisi.
+_MULTIPART_PAYI = 64 * 1024
+
+
+async def _eski_avatari_sil(depo: Depo, eski_adres: str | None, kullanici_id: int):
+    """Eski avatar bu depodaki bu kullanicinin dosyasiysa siler.
+
+    Silinemezse istek DUSMUYOR, yalnizca log: kullanicinin yeni avatari
+    zaten kaydedildi; geride kalan sahipsiz bir dosya, basarili bir
+    yuklemeyi hata gibi gostermekten daha az zararli.
+    """
+    anahtar = depo.anahtar_bul(eski_adres, kullanici_id)
+    if not anahtar:
+        return
+    try:
+        await depo.sil(anahtar)
+    except Exception:
+        logger.warning("Eski avatar silinemedi: %s", anahtar, exc_info=True)
+
+
+@router.post("/avatar", response_model=SuccessResponse[UserRead])
+@inject
+async def upload_avatar(
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    user_service: UserService = Depends(Provide[Container.user_service]),
+    depo: Depo = Depends(Provide[Container.depo]),
+):
+    """Avatar yukler (multipart, alan adi `file`).
+
+    Dosya oldugu gibi saklanmiyor: kare kirpilip JPEG/PNG olarak yeniden
+    yaziliyor ve EXIF siliniyor (bkz. services/user/avatar.py). Eski avatar bu
+    depodaysa siliniyor.
+
+    NEDEN UploadFile PARAMETRESI DEGIL: FastAPI govdeyi ucun govdesine
+    girmeden once ayristiriyor ve Starlette dosyalari BOYUT SINIRI
+    OLMADAN diske yaziyor. Sinir ondan sonra kontrol edilseydi 2 GB'lik
+    bir istek once diske inerdi. Burada Content-Length ayristirmadan
+    ONCE kontrol ediliyor.
+    """
+    await say_ve_dogrula_hesap(str(current_user.id), "avatar", AVATAR_KULLANICI)
+
+    sinir = settings.avatar_max_bytes
+    try:
+        uzunluk = int(request.headers["content-length"])
+    except (KeyError, ValueError):
+        # Uzunluksuz (chunked) govdede sinir onceden bilinemez.
+        # Tarayicilar FormData gonderirken uzunlugu hep yaziyor.
+        raise LengthRequiredException() from None
+    if uzunluk > sinir + _MULTIPART_PAYI:
+        raise PayloadTooLargeException(
+            detail=f"Image must be at most {sinir // (1024 * 1024)} MB."
+        )
+
+    async with request.form(max_files=1, max_fields=0) as form:
+        dosya = form.get("file")
+        if not isinstance(dosya, UploadFile):
+            raise ValidationException(detail="A file field named 'file' is required.")
+        # Content-Length'e guvenilmiyor; okunan bayt da sinirli.
+        ham = await dosya.read(sinir + 1)
+
+    if len(ham) > sinir:
+        raise PayloadTooLargeException(
+            detail=f"Image must be at most {sinir // (1024 * 1024)} MB."
+        )
+
+    try:
+        avatar = await run_in_threadpool(avatar_isle, ham)
+    except GecersizGorsel as hata:
+        raise ValidationException(detail=str(hata)) from None
+
+    anahtar = avatar_anahtari(current_user.id, avatar.uzanti)
+    adres = await depo.kaydet(anahtar, avatar.veri, avatar.icerik_turu)
+
+    eski_adres = current_user.profile_image_url
+    current_user.profile_image_url = adres
+    try:
+        guncel = await user_service.update_user(current_user)
+    except Exception:
+        # Kayit dustu: yazilan dosya hicbir kullaniciya bagli degil.
+        # Silme de duserse ASIL hata (kayit) yukari gitmeli, onu
+        # gizlememeli.
+        try:
+            await depo.sil(anahtar)
+        except Exception:
+            logger.warning("Sahipsiz avatar silinemedi: %s", anahtar, exc_info=True)
+        raise
+
+    await _eski_avatari_sil(depo, eski_adres, current_user.id)
+
+    return SuccessResponse.create(data=guncel, message="Avatar uploaded successfully")
+
+
+@router.delete("/avatar", response_model=SuccessResponse[UserRead])
+@inject
+async def delete_avatar(
+    current_user: User = Depends(get_current_user),
+    user_service: UserService = Depends(Provide[Container.user_service]),
+    depo: Depo = Depends(Provide[Container.depo]),
+):
+    """Avatari kaldirir; profil bas harflere doner.
+
+    Eski serbest alandan kalma bir DIS adres de buradan kaldiriliyor
+    (dosyasi bizde olmadigi icin yalnizca alan temizleniyor).
+    """
+    eski_adres = current_user.profile_image_url
+    current_user.profile_image_url = None
+    guncel = await user_service.update_user(current_user)
+
+    await _eski_avatari_sil(depo, eski_adres, current_user.id)
+
+    return SuccessResponse.create(data=guncel, message="Avatar removed")

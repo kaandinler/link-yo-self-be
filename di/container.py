@@ -3,6 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 
 from core.auth.auth_service import AuthService
 from core.email.sender import build_email_sender
+from core.storage import depo_olustur
 from repositories.analytics.analytics_event_repository import (
     AnalyticsEventRepository,
 )
@@ -80,6 +81,9 @@ class Container(containers.DeclarativeContainer):
     )
 
     email_sender = providers.Singleton(build_email_sender)
+
+    # Avatar deposu (yerel disk ya da S3); bkz. core/storage.
+    depo = providers.Singleton(depo_olustur)
 
     # Link repository EKLENDI
     link_repository = providers.Factory(

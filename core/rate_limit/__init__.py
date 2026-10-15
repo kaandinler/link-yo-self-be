@@ -6,6 +6,7 @@ from core.rate_limit.deps import (
     tekrar_mi,
 )
 from core.rate_limit.kurallar import (
+    AVATAR_KULLANICI,
     GIRIS_HESAP,
     GIRIS_IP,
     KAYIT_IP,
@@ -18,6 +19,7 @@ from core.rate_limit.kurallar import (
 from core.rate_limit.limiter import hiz_siniri
 
 __all__ = [
+    "AVATAR_KULLANICI",
     "GIRIS_HESAP",
     "GIRIS_IP",
     "KAYIT_IP",

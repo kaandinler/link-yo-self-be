@@ -1,4 +1,5 @@
 import logging
+import os
 from contextlib import asynccontextmanager
 
 from fastapi import APIRouter, FastAPI, Request
@@ -19,6 +20,7 @@ from core.exceptions import (
 from core.middleware.error_handler import setup_exception_handlers
 from core.rate_limit.limiter import hiz_siniri, isci_sayisi
 from core.schemas.response import ErrorResponse
+from core.storage.yerel import MedyaDosyalari
 from di.container import Container
 from routers import (
     analytics_router,
@@ -252,6 +254,16 @@ def create_app() -> FastAPI:
 
     # API v1 router'ı uygulamaya ekle
     app.include_router(api_v1_router)
+
+    # Yerel depodaki avatarlar uygulamanin kendisinden sunuluyor. S3'te
+    # dosyalari kova (ya da onundeki CDN) sunuyor, bu yol hic acilmiyor.
+    #
+    # Dizin burada olusturuluyor: StaticFiles ilk istekte dizin yoksa
+    # 404 degil RuntimeError (500) veriyor, ve ilk avatar yuklenene
+    # kadar dizin yok.
+    if settings.storage_backend == "local":
+        os.makedirs(settings.media_root, exist_ok=True)
+        app.mount("/media", MedyaDosyalari(directory=settings.media_root), name="media")
 
     return app
 
