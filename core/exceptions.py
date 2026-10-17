@@ -121,6 +121,20 @@ class ExternalServiceException(BaseAppException):
     detail = "External service error occurred."
 
 
+class PayloadTooLargeException(BaseAppException):
+    """Istek govdesi izin verilenden buyuk"""
+
+    status_code = status.HTTP_413_REQUEST_ENTITY_TOO_LARGE
+    detail = "Request body is too large."
+
+
+class LengthRequiredException(BaseAppException):
+    """Govde uzunlugu (Content-Length) bildirilmemis"""
+
+    status_code = status.HTTP_411_LENGTH_REQUIRED
+    detail = "Content-Length header is required."
+
+
 class RateLimitException(BaseAppException):
     """Request limit exceeded error"""
 

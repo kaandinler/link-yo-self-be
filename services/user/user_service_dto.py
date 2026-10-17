@@ -129,9 +129,8 @@ class ProfileCompletionStep1(BaseModel):
         None, max_length=100, description="Display name on profile page"
     )
     bio: str | None = Field(None, max_length=500, description="Short bio/description")
-    profile_image_url: str | None = Field(
-        None, max_length=500, description="Profile image URL"
-    )
+    # profile_image_url bilerek YOK: avatar yalnizca POST /profile/avatar
+    # ile yukleniyor (bkz. profile_router.upload_avatar).
 
 
 class ProfileCompletionStep2(BaseModel):
@@ -211,7 +210,7 @@ class UserProfileUpdate(BaseModel):
     last_name: str | None = Field(None, max_length=50)
     display_name: str | None = Field(None, max_length=100)
     bio: str | None = Field(None, max_length=500)
-    profile_image_url: str | None = Field(None, max_length=500)
+    # profile_image_url bilerek YOK; bkz. ProfileCompletionStep1.
     page_title: str | None = Field(None, max_length=100)
     page_description: str | None = Field(None, max_length=500)
     website: str | None = Field(None, max_length=500)

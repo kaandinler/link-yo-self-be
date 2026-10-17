@@ -154,6 +154,8 @@ FRONTEND_URL=https://linkyoself.com
 TRUSTED_PROXY_COUNT=1                            # TLS'i sonlandiran vekil
 FORWARDED_ALLOW_IPS=*                            # ya da vekilin adresi
 WEB_CONCURRENCY=2
+MEDIA_URL=https://api.linkyoself.com/media       # yerel avatar deposu
+                                                 # (ya da STORAGE_BACKEND=s3, bkz. Avatar)
 
 NEXT_PUBLIC_API_URL=https://api.linkyoself.com/api
 NEXT_PUBLIC_SITE_URL=https://linkyoself.com
@@ -175,6 +177,78 @@ Dikkat edilecekler:
   `ALLOWED_HOSTS`'ta yok (400), ve duz HTTP oldugu icin https'e
   yonlendiriliyor (307).
 - Konteynerler root olarak calismiyor (uid 10001).
+
+## Avatar
+
+Avatar yalnizca yukleniyor: `POST /api/v1/profile/avatar` (multipart,
+alan adi `file`). Profil uclari (`/profile/update`, `/complete-step-1`)
+`profile_image_url`'i artik kabul etmiyor; gonderilirse yok sayiliyor.
+
+**Neden serbest URL kaldirildi:** alan herhangi bir adresi kabul
+ediyordu.
+
+- Profil sayfasi gorseli o adresten yukluyordu, yani adresin sahibi
+  sayfayi ziyaret eden herkesin IP'sini goruyordu.
+- Paylasim karti (frontend, `opengraph-image.tsx`) o adresi **sunucuda**
+  indiriyordu. Tek kontrol `http(s)://` ile baslamasiydi; `http://api:8000/...`
+  ya da bulut metadata adresi yazmak, sunucumuza ic aga istek attirmak
+  demekti (SSRF).
+
+Daha once dis adres yazmis kullanicilarin degeri silinmedi; sayfada
+gorunmeye devam ediyor ve `DELETE /profile/avatar` ile kaldirilabiliyor.
+
+### Dosya oldugu gibi saklanmiyor
+
+`services/user/avatar.py` her yuklemeyi yeniden kodluyor:
+
+- Tur uzantidan ya da istemcinin content-type'indan degil, dosyanin
+  kendisinden okunuyor. JPEG, PNG, WebP, GIF (ilk kare).
+- EXIF'teki yon uygulaniyor, sonra kare kirpilip en fazla 400x400'e
+  indiriliyor. Kucuk gorsel buyutulmuyor.
+- JPEG olarak (saydamlik varsa PNG) yeniden yaziliyor. Yeni dosyada
+  yalnizca pikseller var: EXIF (GPS konumu dahil) ve gorselin icine
+  gizlenmis baska icerik tasinmiyor.
+- Olculdu, 12 MP bir fotograf: saklanan dosya ~25 KB, isleme ~45 ms.
+
+**Neden WebP degil:** paylasim kartini cizen Satori (frontend, `next/og`)
+WebP'yi cozemiyor; avatarli kart istegi dusuyordu (e2e'de olculdu).
+JPEG ve PNG'yi hem tarayicilar hem Satori okuyor.
+
+Sinirlar: ham dosya en fazla 8 MB (`AVATAR_MAX_BYTES`), gorsel en fazla
+40 MP (basliktan, **cozulmeden once** bakiliyor: birkac KB'lik bir dosya
+acildiginda gigabaytlarca bellek tutabilir). Kullanici basina saatte 10
+yukleme.
+
+**Content-Length ayristirmadan once kontrol ediliyor.** Uc `UploadFile`
+parametresi almiyor, cunku FastAPI govdeyi ucun govdesine girmeden
+ayristiriyor ve Starlette dosyalari boyut siniri olmadan diske yaziyor.
+Uzunluk bildirmeyen (chunked) istek 411 aliyor.
+
+### Depo: yerel disk ya da S3
+
+`STORAGE_BACKEND` ile seciliyor (bkz. `.env.example`):
+
+| | `local` (varsayilan) | `s3` |
+|---|---|---|
+| Nereye | `MEDIA_ROOT` dizini | S3 uyumlu kova (AWS S3, Cloudflare R2, MinIO) |
+| Kim sunuyor | API, `/media` altindan | Kova ya da onundeki CDN (`S3_PUBLIC_URL`) |
+| Ne zaman | Gelistirme, tek sunucu | Birden fazla sunucu, CDN |
+
+Docker'da yerel depo `media` birimine yaziliyor. `s3` secilip
+`S3_BUCKET` ya da `S3_PUBLIC_URL` eksikse uygulama ayaga kalkmiyor.
+
+**`s3` secilirse frontend'e de `NEXT_PUBLIC_MEDIA_URL=<S3_PUBLIC_URL>`
+verilmeli** (derleme aninda). Paylasim karti avatari sunucuda indiriyor
+ve yalnizca medya kokunden indiriyor; kok verilmezse API'nin `/media`
+yolu varsayiliyor, S3 adresleri reddediliyor ve kart avatarsiz (bas
+harflerle) ciziliyor. Profil sayfasi etkilenmiyor.
+
+Her yukleme yeni bir dosya adi aliyor (`avatars/<kullanici-id>/<rastgele>.jpg|png`).
+Bu sayede dosyalar `immutable` olarak onbelleklenebiliyor: ayni adresin
+icerigi hic degismiyor. Eski avatar yeni yuklemede ya da kaldirmada
+siliniyor. Yalnizca bu depodaki ve **bu kullaniciya ait** bir dosya
+siliniyor; serbest alan zamaninda biri kendi alanina baskasinin avatar
+adresini yazmis olabilir.
 
 ## Hiz siniri
 
@@ -562,6 +636,8 @@ Tum yollar `/api/v1` onekiyle servis edilir.
 | GET | `/profile/onboarding-status` | Hangi adimda oldugu |
 | POST | `/profile/complete-step-1..4` | Onboarding adimlari |
 | PUT | `/profile/update` | Profili topluca guncelle |
+| POST | `/profile/avatar` | Avatar yukle (multipart, `file`) |
+| DELETE | `/profile/avatar` | Avatari kaldir |
 | POST | `/profile/complete-onboarding` | Onboarding'i tamamla |
 | POST | `/profile/skip-onboarding` | Onboarding'i atla |
 

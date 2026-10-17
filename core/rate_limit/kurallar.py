@@ -91,3 +91,13 @@ YENIDEN_GONDER_KULLANICI = Kural(limit=3, pencere_sn=SAAT)
 # 1" demek limit=1 olan bir hiz kurali demek, o yuzden ayni sayac
 # kullaniliyor (bkz. deps.tekrar_mi). Ayri bir duzenek yazmak ayni
 # mantigin ikinci bir kopyasi olurdu.
+
+# --- Avatar yukleme ------------------------------------------------------
+#
+# Her yukleme bir gorselin cozulup yeniden kodlanmasi (CPU) ve depoya bir
+# yazma demek. Giris yapmis kullanici cagiriyor, anahtar kullanicinin
+# kendisi.
+#
+# Saatte 10: bir kisi avatarini birkac kez deneyip begenmeyince
+# degistirebilir; saatte onuncu degisiklik artik deneme degil.
+AVATAR_KULLANICI = Kural(limit=10, pencere_sn=SAAT)

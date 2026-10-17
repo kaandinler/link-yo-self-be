@@ -46,6 +46,9 @@ x-api: &api
     # Redis zaten yigida var; hiz siniri WEB_CONCURRENCY>1'de de dogru
     # saysin diye her zaman kullaniliyor.
     REDIS_URL: redis://redis:6379/0
+    # .env'deki MEDIA_ROOT yerel calisma icin goreli bir yol olabilir;
+    # konteynerde avatarlar birimin bagli oldugu dizine yazilmali.
+    MEDIA_ROOT: /app/media
   depends_on:
     db:
       condition: service_healthy
@@ -97,6 +100,11 @@ services:
         condition: service_completed_successfully
     ports:
       - "${API_PORT:-8000}:8000"
+    # Yerel avatar deposu (STORAGE_BACKEND=local, varsayilan). Birim
+    # olmasaydi avatarlar konteyner yeniden olusturulunca kaybolurdu.
+    # STORAGE_BACKEND=s3 iken bos kalir.
+    volumes:
+      - media:/app/media
     restart: unless-stopped
 
   web:
@@ -111,6 +119,10 @@ services:
         NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000/api}
         NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-http://localhost:3000}
         NEXT_PUBLIC_IS_SIGN_UP_ENABLED: ${NEXT_PUBLIC_IS_SIGN_UP_ENABLED:-true}
+        # Yalnizca STORAGE_BACKEND=s3 ise: avatarlarin kovadaki/CDN'deki
+        # koku. Bossa API'nin /media yolu varsayiliyor; Next sunucusu o
+        # dosyalara API_URL uzerinden (yigin icinden) ulasiyor.
+        NEXT_PUBLIC_MEDIA_URL: ${NEXT_PUBLIC_MEDIA_URL:-}
     image: linkyoself-web
     environment:
       # Next sunucusunun backend'e ulastigi adres (vekil, oturum, profil
@@ -126,3 +138,4 @@ services:
 
 volumes:
   pgdata:
+  media:
