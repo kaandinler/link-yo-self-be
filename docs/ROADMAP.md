@@ -27,59 +27,22 @@ _(pm agent'i siradaki isi buraya yazar)_
 
 ## Siradaki
 
-1. **istemci-ip** (be + fe) — **URETIMI BLOKLUYOR, tasarimi Kaan onaylamali.**
-
-   Sorun: frontend'in butun API cagrilari (`src/services/api/config.ts`:
-   `API_URL = "/api/proxy"`) ve giris (`/api/auth/session`) Next SUNUCUSU
-   uzerinden backend'e gidiyor ve istemcinin IP'si iletilmiyor. Backend'in
-   gordugu adres her kullanici icin ayni: web konteyneri. Hiz sinirinin IP
-   katmani (`core/rate_limit/kurallar.py`) butun site icin TEK sayaca
-   dusuyor:
-   - `GIRIS_IP` (15 dk'da 20 basarisiz): sitedeki herhangi biri 20 yanlis
-     sifre girince 15 dakika boyunca HERKESIN girisi 429 aliyor.
-   - `KAYIT_IP` (saatte 5): butun site saatte 5 hesap acabiliyor.
-   - `SIFIRLAMA_IP` (saatte 5): butun site saatte 5 sifirlama e-postasi.
-   E2E bunu yakalamiyor cunku orada hiz siniri kapali; backend suiti
-   dogrudan backend'e istek attigi icin yakalamiyor. Uretim katmanindan
-   (#46) bagimsiz, mevcut bir sorun; dev ortaminda da var ama orada tek
-   kullanici oldugu icin gorunmuyor.
-
-   Onerilen tasarim (iki secenek, ikisi de once dogrulanmali):
-   - **A (onerilen): Next -> backend yigin icinden.** `API_URL=http://api:8000/api`.
-     Next, Caddy'nin ona verdigi `X-Forwarded-For`'u (Caddy guvenilmeyen
-     istemcinin gonderdigini atip gercek adresi yaziyor) ve
-     `X-Forwarded-Proto: https`'i backend'e iletir. Backend'de
-     `ALLOWED_HOSTS`'a `api` eklenir (port disari kapali oldugu icin
-     disaridan bu Host'la gelinemiyor). `TRUSTED_PROXY_COUNT=1` iki yolda da
-     dogru adresi veriyor: tarayici -> Caddy -> api ve tarayici -> Caddy ->
-     Next -> api. Dokunulacak yer: Next'te sunucu tarafinda backend'e giden
-     her `fetch` (vekil, oturum, profil sayfasi, onbellek temizleme) -- ortak
-     bir yardimciya toplanmali.
-   - **B: Caddy uzerinden, `trusted_proxies` ile.** Caddy'ye yalnizca web
-     konteynerinin SABIT IP'sine guvenmesi soylenir (sabit alt agli ozel bir
-     ag), api sitesinde `X-Forwarded-For {client_ip}`. Daha az Next kodu ama
-     Caddy'nin `trusted_proxies`/`trusted_proxies_strict` davranisina bagli
-     ve genis bir ozel aralik (`private_ranges`) GUVENLI DEGIL: IPv6 ile
-     gelen istekler docker-proxy uzerinden Docker'in gecit adresiyle (ozel
-     aralik) gorunebilir ve sahte `X-Forwarded-For` kabul edilir.
-
-   Kabul kriterleri: iki farkli istemci IP'sinden Next uzerinden gelen
-   basarisiz girisler AYRI sayilmali; istemcinin kendi yazdigi
-   `X-Forwarded-For` hicbir yolda sayaci etkilememeli; bunu gercek yigin
-   (Caddy dahil) uzerinde olcen bir test.
-2. **prod-oncesi-tarama (devami)** — ilk tarama (2026-10-25) temiz cikti: dev'de
+1. **prod-oncesi-tarama (devami)** — ilk tarama (2026-10-25) temiz cikti: dev'de
    BE testleri, FE lint/typecheck ve e2e yesil; admin uclari `is_admin` ile
    korunuyor ve testli. Geriye kalan: hata sayfalarinin (500/404) uretim
    derlemesinde elle kontrolu, `@faker-js/faker`'in `dependencies` yerine
    `devDependencies`'e alinmasi (istemci paketine girip girmedigi olculmeli).
 
-Acik PR'lar (merge sirasi): #46 deploy-compose -> #47 deploy-sunucu -> #48 deploy-cd
--> #49 prod-smoke. Log rotasyonu #46'nin, duman testi #49'un icinde.
-
 ## Bitti
 
-- **prod-swagger**: uretimde `/docs`, `/redoc`, `/openapi.json` kapali (Kaan onayladi);
+- **prod-swagger** (#51): uretimde `/docs`, `/redoc`, `/openapi.json` kapali (Kaan onayladi);
   gelistirmede acik. `tests/test_api_docs.py`.
+- **istemci-ip** (#50, FE #94): vekil ve oturum ucu backend'e
+  yigin icinden (`API_URL_INTERNAL`) ve istemcinin `X-Forwarded-For`'uyla gidiyor;
+  hiz sinirinin IP katmani artik istemci basina. Tasarim A, Kaan onayladi. Olcum
+  README'de ("Frontend'in iki API adresi").
+- Uretim hazirligi: agent sistemi (#45, FE #93), prod katmani + Caddy (#46), sunucu
+  kurulumu + yedek (#47), onayli yayin + geri donus (#48), duman testi (#49).
 
 - Ozellik seti MVP'yi gecti: auth, e-posta dogrulama, sifre sifirlama, link/sosyal
   hesap CRUD, `@username` public sayfa + OG karti, analytics, avatar (local/S3),

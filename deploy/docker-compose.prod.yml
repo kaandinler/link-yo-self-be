@@ -34,7 +34,11 @@ x-logging: &logging
 x-prod-env: &prod-env
   ENVIRONMENT: production
   DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD tanimli degil -- .env dosyasina yazin}@db:5432/${POSTGRES_DB:-linkyoself}
-  ALLOWED_HOSTS: '["api.${DOMAIN:?DOMAIN tanimli degil -- .env dosyasina yazin}"]'
+  # "api": web'in sunucu tarafi istemci adina giden cagrilari (vekil,
+  # oturum) yigin icinden http://api:8000 ile yapiyor (bkz. asagida web).
+  # Disaridan bu Host'la gelinemiyor: api'nin portu kapali ve Caddy
+  # yalnizca DOMAIN / api.DOMAIN sitelerine yanit veriyor.
+  ALLOWED_HOSTS: '["api.${DOMAIN:?DOMAIN tanimli degil -- .env dosyasina yazin}", "api"]'
   ALLOWED_ORIGINS: '["https://${DOMAIN}"]'
   FRONTEND_URL: https://${DOMAIN}
   MEDIA_URL: https://api.${DOMAIN}/media
@@ -110,6 +114,14 @@ services:
         NEXT_PUBLIC_SITE_URL: https://${DOMAIN}
     environment:
       API_URL: https://api.${DOMAIN}/api
+      # Istemci ADINA giden cagrilar (vekil, oturum ucu) Caddy'yi atlayip
+      # dogrudan api'ye gidiyor ve istemcinin adresini tasiyor; yoksa hiz
+      # sinirinin IP katmani butun site icin tek sayaca dusuyordu (olculdu;
+      # bkz. frontend src/services/api/backend-istegi.ts). Caddy uzerinden
+      # gitseydi Caddy, web'i guvenilmeyen istemci sayip X-Forwarded-For'u
+      # web'in adresiyle ezerdi. Profil sayfasi, kart, sitemap API_URL'de
+      # kaliyor: hiz sinirina tabi degiller.
+      API_URL_INTERNAL: http://api:8000/api
     ports: !reset []
 
 volumes:
