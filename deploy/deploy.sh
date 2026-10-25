@@ -20,7 +20,8 @@
 #   3. Imajlari DERLE (calisan konteynerlere dokunmadan)
 #   4. up -d: migrate -> api -> web -> caddy
 #   5. Saglik kontrolu: https://api.DOMAIN/ ve https://DOMAIN/
-#   6. 3-5'ten biri duserse: onceki surumlere don, yeniden kaldir, 1 ile cik
+#   6. Duman testi (deploy/smoke.sh, salt okuma)
+#   7. 3-6'dan biri duserse: onceki surumlere don, yeniden kaldir, 1 ile cik
 #
 # BILINEN SINIR: geri donus migration'lari GERI ALMIYOR. Yeni surumun
 # migration'i calistiysa eski kod yeni semayla kosar. Migration'larin
@@ -147,6 +148,13 @@ main() {
     # --- 5. Saglik ---------------------------------------------------------------
     adim "Saglik kontrolu: https://api.$DOMAIN/ ve https://$DOMAIN/"
     saglikli_mi || { compose ps; compose logs --tail 50 api web caddy; geri_don; }
+
+    # --- 6. Duman testi ------------------------------------------------------
+    # Saglik kontrolu "ayakta" diyor; duman testi "calisiyor" diyor: API
+    # veritabanina, web API'ye ulasiyor mu, https ve HSTS yerinde mi. Salt
+    # okuma (bkz. deploy/smoke.sh).
+    adim "Duman testi"
+    bash "$BE/deploy/smoke.sh" || { compose logs --tail 50 api web; geri_don; }
 
     docker image prune -f > /dev/null
     adim "Yayinda: be ${YENI_BE:0:7}, fe ${YENI_FE:0:7}"

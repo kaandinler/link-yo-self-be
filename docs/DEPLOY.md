@@ -124,9 +124,12 @@ Her yayin:
 3. Onay isteyen isi onaylayin.
 
 `deploy/deploy.sh` sirasiyla: yedek -> iki depoyu istenen surume al ->
-imajlari derle (calisan site etkilenmez) -> `up -d` -> saglik kontrolu.
-Derleme duserse calisan surume dokunulmuyor; yayin ya da saglik kontrolu
-duserse onceki surume donuluyor ve is kirmizi bitiyor.
+imajlari derle (calisan site etkilenmez) -> `up -d` -> saglik kontrolu ->
+duman testi (`deploy/smoke.sh`: API -> veritabani, web -> API, https
+yonlendirmesi, HSTS; salt okuma). Web -> API kontrolu icin `.env`'e
+`SMOKE_USERNAME` (en az bir linki olan kendi profiliniz) yazin.
+Derleme duserse calisan surume dokunulmuyor; yayin, saglik kontrolu ya da
+duman testi duserse onceki surume donuluyor ve is kirmizi bitiyor.
 
 **Geri donus migration'lari geri almiyor.** Bkz. betigin basi; uyumsuz
 bir migration sonrasi `deploy/restore.md`.
