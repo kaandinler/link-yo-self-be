@@ -39,7 +39,7 @@ dc exec -T db sh -c 'pg_restore -U "$POSTGRES_USER" -d "$POSTGRES_DB" --clean --
 
 ```bash
 docker run --rm -v linkyoself_media:/hedef -v /srv/linkyoself/backups:/yedek:ro alpine \
-    sh -c 'rm -rf /hedef/* && tar xzf /yedek/media-20261025T031500Z.tgz -C /hedef && chown -R 10001 /hedef'
+    sh -c 'find /hedef -mindepth 1 -delete && tar xzf /yedek/media-20261025T031500Z.tgz -C /hedef && chown -R 10001 /hedef'
 ```
 
 `chown 10001`: api konteyneri root olmayan `app` kullanicisiyla (uid 10001)
@@ -50,7 +50,7 @@ calisiyor ve bu dizine yaziyor.
 ```bash
 dc start api web
 dc ps
-curl -fsS https://api.$DOMAIN/ && echo
+curl -fsS "https://api.$(grep -E '^DOMAIN=' .env | cut -d= -f2)/" && echo
 ```
 
 Bir hesapla giris yapip bir profil sayfasini acin.
@@ -77,7 +77,7 @@ Sunucunun kendisi kaybolursa yerel yedekler de gider. Cloudflare R2
 (10 GB'a kadar ucretsiz) icin:
 
 ```bash
-sudo apt-get install -y rclone
+ssh root@<sunucu-ip> apt-get install -y rclone   # deploy'un sudo yetkisi yok
 rclone config            # "s3" -> saglayici "Cloudflare" -> R2 erisim anahtarlari
 ```
 

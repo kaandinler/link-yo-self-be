@@ -48,7 +48,11 @@ log "veritabani -> $DB_DOSYA"
 # Tek tirnak bilerek: degiskenler KONTEYNERIN icinde (Postgres imajinin
 # kendi ortaminda) acilmali, sunucudaki kabukta degil.
 # shellcheck disable=SC2016
-compose exec -T db sh -c 'pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Fc' > "$DB_DOSYA.tmp"
+# </dev/null: `compose exec` stdin'i konteynere aktariyor (-T yalnizca TTY'yi
+# kapatiyor). deploy.sh bu betigi `ssh ... bash -s` ile pipe'tan okunan bir
+# betigin icinden cagiriyor; stdin acik kalsaydi docker o betigin geri
+# kalanini yutardi.
+compose exec -T db sh -c 'pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Fc' < /dev/null > "$DB_DOSYA.tmp"
 
 # Bos ya da bozuk bir dosya "yedek alindi" saniliyordu; pg_restore'un
 # icindekiler listesini okuyabilmesi dosyanin butun oldugunu gosteriyor.
@@ -68,7 +72,10 @@ MEDIA_BIRIMI="${MEDIA_BIRIMI:-linkyoself_media}"
 if docker volume inspect "$MEDIA_BIRIMI" > /dev/null 2>&1; then
     MEDIA_DOSYA="media-$ZAMAN.tgz"
     log "avatarlar ($MEDIA_BIRIMI) -> $MEDIA_DOSYA"
-    docker run --rm -v "$MEDIA_BIRIMI:/kaynak:ro" -v "$BACKUP_DIR:/hedef" alpine \
+    # --user: dosya cagiranin (deploy) olsun. Konteyner root olarak yazsaydi
+    # asagidaki chmod EPERM ile duser ve set -e butun yedegi basarisiz
+    # sayardi. Avatarlar herkese okunabilir (api 10001 olarak yaziyor).
+    docker run --rm --user "$(id -u):$(id -g)" -v "$MEDIA_BIRIMI:/kaynak:ro" -v "$BACKUP_DIR:/hedef" alpine \
         tar czf "/hedef/$MEDIA_DOSYA.tmp" -C /kaynak .
     mv "$MEDIA_DOSYA.tmp" "$MEDIA_DOSYA"
     chmod 600 "$MEDIA_DOSYA"

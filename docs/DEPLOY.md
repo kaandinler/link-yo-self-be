@@ -105,7 +105,9 @@ Bir kez:
    ```bash
    ssh-keygen -t ed25519 -f linkyoself-deploy -N "" -C github-actions
    ssh-copy-id -i linkyoself-deploy.pub deploy@<sunucu-ip>
-   ssh-keyscan -t ed25519 <sunucu-ip>     # -> DEPLOY_KNOWN_HOSTS
+   ssh-keyscan -t ed25519 <DEPLOY_HOST>   # -> DEPLOY_KNOWN_HOSTS
+   # DIKKAT: DEPLOY_HOST'a ne yazacaksaniz (IP ya da ad) AYNISIYLA tarayin;
+   # known_hosts satiri o ada bagli, farkliysa ssh baglanmayi reddeder.
    ```
 2. GitHub -> backend deposu -> Settings -> Environments -> **New environment: `production`**
    - **Required reviewers:** kendiniz
@@ -143,7 +145,7 @@ bir migration sonrasi `deploy/restore.md`.
 | Profil sayfasi 500, web log'unda `fetch failed` | web, `https://api.DOMAIN`'e ulasamiyor: caddy ayakta mi, sertifika alindi mi. |
 | `docker compose up` "POSTGRES_PASSWORD tanimli degil" | `.env` deponun KOKUNDE olmali, `deploy/` altinda degil. |
 | Disk doluyor | `docker system df`; eski imajlar `docker image prune -a`. Log'lar 3x10 MB ile sinirli. |
-| Sunucu `apt` guncellemesi sonrasi yeniden baslatma istiyor | `sudo reboot` -- konteynerler `restart: unless-stopped` ile geri geliyor. |
+| Sunucu `apt` guncellemesi sonrasi yeniden baslatma istiyor | `ssh root@<sunucu-ip> reboot` (deploy'un sudo yetkisi yok; root yalnizca anahtarla girebiliyor) -- konteynerler `restart: unless-stopped` ile geri geliyor. |
 
 Log okuma:
 

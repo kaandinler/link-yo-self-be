@@ -25,7 +25,8 @@ ENV_DOSYASI="${ENV_DOSYASI:-$BETIK_DIZINI/../.env}"
 
 env_oku() {
     [ -f "$ENV_DOSYASI" ] || return 0
-    grep -E "^$1=" "$ENV_DOSYASI" | tail -1 | cut -d= -f2- | tr -d '"'"'"' '
+    # Satir sonundaki "# yorum" ve tirnaklar ayiklaniyor.
+    grep -E "^$1=" "$ENV_DOSYASI" | tail -1 | cut -d= -f2- | sed 's/[[:space:]]#.*//' | tr -d '"'"'"' '
 }
 
 DOMAIN="${DOMAIN:-$(env_oku DOMAIN)}"
