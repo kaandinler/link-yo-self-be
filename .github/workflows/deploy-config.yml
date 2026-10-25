@@ -51,6 +51,52 @@ jobs:
             -v "$PWD/deploy/Caddyfile:/etc/caddy/Caddyfile:ro" \
             caddy:2-alpine caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
 
+      # Istemci adresinin dogrulugu (hiz siniri) bu iki varsayima dayaniyor;
+      # biri bozulursa sinir sessizce atlatilabilir ya da tek sayaca duser.
+      - name: Istemci adresi yapilandirmasi
+        run: |
+          json=$(docker compose -f docker-compose.yml -f deploy/docker-compose.prod.yml config --format json)
+          echo "$json" | jq -e '.services.api.environment.ALLOWED_HOSTS | fromjson | index("api")' >/dev/null \
+            || { echo "api ALLOWED_HOSTS'ta yok: web'in yigin ici cagrilari 400 alir" >&2; exit 1; }
+          echo "$json" | jq -e '.services.web.environment.API_URL_INTERNAL == "http://api:8000/api"' >/dev/null \
+            || { echo "web'de API_URL_INTERNAL yok: istemci adresi backend'e ulasmaz" >&2; exit 1; }
+          echo "$json" | jq -e '.services.api.environment.TRUSTED_PROXY_COUNT == "1"' >/dev/null \
+            || { echo "TRUSTED_PROXY_COUNT 1 degil" >&2; exit 1; }
+          # trusted_proxies verilirse Caddy guvendigi vekilin basligini
+          # korur ve kendi gordugu adresi ekler; backend'in "sagdan 1."
+          # kurali o yolda yanlis adresi alir. Bilerek yok.
+          if grep -q 'trusted_proxies' deploy/Caddyfile; then
+            echo "Caddyfile'da trusted_proxies var; istemci adresi hesabini yeniden dusunun" >&2; exit 1
+          fi
+
+      - name: Caddy, istemcinin yazdigi X-Forwarded-For'u eziyor mu
+        run: |
+          # Gelen X-Forwarded-For'u govdede geri yazan bir arka uc.
+          cat > yanki.py <<'PY'
+          import http.server
+          class H(http.server.BaseHTTPRequestHandler):
+              def do_GET(self):
+                  govde = (self.headers.get("X-Forwarded-For") or "").encode()
+                  self.send_response(200)
+                  self.end_headers()
+                  self.wfile.write(govde)
+          http.server.HTTPServer(("", 9000), H).serve_forever()
+          PY
+          printf ':8080 {\n\treverse_proxy yanki:9000\n}\n' > Caddyfile.test
+          docker network create xff
+          docker run -d --name yanki --network xff -v "$PWD/yanki.py:/yanki.py:ro" python:3.12-alpine python /yanki.py
+          docker run -d --name caddy-xff --network xff -p 8080:8080 \
+            -v "$PWD/Caddyfile.test:/etc/caddy/Caddyfile:ro" caddy:2-alpine
+          for _ in $(seq 1 30); do curl -sf localhost:8080 >/dev/null && break; sleep 1; done
+
+          gelen=$(curl -sf -H 'X-Forwarded-For: 6.6.6.6' localhost:8080)
+          echo "arka uca ulasan X-Forwarded-For: '$gelen'"
+          case "$gelen" in
+            "") echo "baslik hic ulasmadi" >&2; exit 1 ;;
+            *6.6.6.6*) echo "Caddy istemcinin sahte basligini GECIRDI" >&2; exit 1 ;;
+            *,*) echo "baslikta birden fazla adres var: '$gelen'" >&2; exit 1 ;;
+          esac
+
       - name: Betikler (shellcheck)
         run: |
           shopt -s nullglob
