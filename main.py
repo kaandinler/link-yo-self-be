@@ -112,13 +112,32 @@ def guvenilir_adresler() -> list[str]:
     )
 
 
+def belge_adresleri() -> dict[str, str | None]:
+    """FastAPI'nin belge yollari; uretimde hepsi kapali (None).
+
+    NEDEN: Swagger, ReDoc ve ham OpenAPI semasi butun uclarin -- admin
+    uclari dahil -- parametrelerinin ve hata sekillerinin hazir bir
+    haritasiydi. Gizlilik saglamaz (uclar tarayicinin isteklerinde zaten
+    gorunur) ama kesfi bedavaya getiriyordu; uretimde onu kullanan kimse
+    yok, frontend semayi okumuyor. Gelistirmede acik. Karar: Kaan,
+    docs/ROADMAP.md.
+
+    Ayri bir fonksiyon, cunku create_app() DI container'ini modullere
+    yeniden bagliyor; testte ikinci kez cagirmak sonraki testlerin
+    taktigi sahte nesneleri kopariyordu.
+    """
+    if settings.environment == "production":
+        return {"docs_url": None, "redoc_url": None, "openapi_url": None}
+    return {"docs_url": "/docs", "redoc_url": "/redoc", "openapi_url": "/openapi.json"}
+
+
 def create_app() -> FastAPI:
-    # Create FastAPI instance
     app = FastAPI(
         title="LinkYoSelf API",
         description="API for managing social media links",
         version="0.1.0",
         lifespan=lifespan,
+        **belge_adresleri(),
     )
 
     # Configure security for production

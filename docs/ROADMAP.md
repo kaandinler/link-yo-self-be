@@ -18,11 +18,6 @@ domain Cloudflare'de.
 - **Uptime izleme.** Ucretsiz katmanli bir dis kontrol (UptimeRobot,
   Better Stack, healthchecks.io) `https://${DOMAIN}` ve `https://api.${DOMAIN}`'i
   izlesin. Hesap acmak insan isi.
-- **Uretimde Swagger (`/docs`, `/redoc`, `/openapi.json`).** Su an uretimde de
-  acik: butun uclarin listesi herkese gorunuyor. Gizlilik saglamaz (uclar
-  zaten tarayicidan gorulebilir) ama saldiri yuzeyini kesfetmeyi kolaylastirir.
-  Secenekler: kapat (`ENVIRONMENT=production`'da `docs_url=None`), acik birak,
-  ya da yalnizca admin'e ac.
 - **Off-site backup hedefi.** `deploy/backup.sh` yerel kopya tutuyor;
   sunucu kaybina karsi Cloudflare R2 (10 GB'a kadar ucretsiz) onerisi.
 
@@ -40,7 +35,9 @@ _(pm agent'i siradaki isi buraya yazar)_
 
 ## Bitti
 
-- **istemci-ip** (be + fe, dal `claude/istemci-ip`): vekil ve oturum ucu backend'e
+- **prod-swagger** (#51): uretimde `/docs`, `/redoc`, `/openapi.json` kapali (Kaan onayladi);
+  gelistirmede acik. `tests/test_api_docs.py`.
+- **istemci-ip** (#50, FE #94): vekil ve oturum ucu backend'e
   yigin icinden (`API_URL_INTERNAL`) ve istemcinin `X-Forwarded-For`'uyla gidiyor;
   hiz sinirinin IP katmani artik istemci basina. Tasarim A, Kaan onayladi. Olcum
   README'de ("Frontend'in iki API adresi").
