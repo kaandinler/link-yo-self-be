@@ -112,25 +112,32 @@ def guvenilir_adresler() -> list[str]:
     )
 
 
-def create_app() -> FastAPI:
-    # Uretimde API belgesi (Swagger, ReDoc ve ham OpenAPI semasi) KAPALI.
-    #
-    # NEDEN: butun uclarin, parametrelerinin ve hata sekillerinin hazir bir
-    # haritasiydi; admin uclari dahil. Gizlilik saglamaz -- uclar
-    # tarayicinin gonderdigi isteklerde zaten gorunur -- ama saldiri
-    # yuzeyini kesfetmeyi bedavaya getiriyordu ve uretimde onu kullanan
-    # kimse yok: frontend semayi okumuyor. Gelistirmede acik kaliyor.
-    # Karar: Kaan, docs/ROADMAP.md.
-    belgeler_acik = settings.environment != "production"
+def belge_adresleri() -> dict[str, str | None]:
+    """FastAPI'nin belge yollari; uretimde hepsi kapali (None).
 
+    NEDEN: Swagger, ReDoc ve ham OpenAPI semasi butun uclarin -- admin
+    uclari dahil -- parametrelerinin ve hata sekillerinin hazir bir
+    haritasiydi. Gizlilik saglamaz (uclar tarayicinin isteklerinde zaten
+    gorunur) ama kesfi bedavaya getiriyordu; uretimde onu kullanan kimse
+    yok, frontend semayi okumuyor. Gelistirmede acik. Karar: Kaan,
+    docs/ROADMAP.md.
+
+    Ayri bir fonksiyon, cunku create_app() DI container'ini modullere
+    yeniden bagliyor; testte ikinci kez cagirmak sonraki testlerin
+    taktigi sahte nesneleri kopariyordu.
+    """
+    if settings.environment == "production":
+        return {"docs_url": None, "redoc_url": None, "openapi_url": None}
+    return {"docs_url": "/docs", "redoc_url": "/redoc", "openapi_url": "/openapi.json"}
+
+
+def create_app() -> FastAPI:
     app = FastAPI(
         title="LinkYoSelf API",
         description="API for managing social media links",
         version="0.1.0",
         lifespan=lifespan,
-        docs_url="/docs" if belgeler_acik else None,
-        redoc_url="/redoc" if belgeler_acik else None,
-        openapi_url="/openapi.json" if belgeler_acik else None,
+        **belge_adresleri(),
     )
 
     # Configure security for production

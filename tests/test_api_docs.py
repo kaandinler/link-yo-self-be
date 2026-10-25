@@ -1,10 +1,16 @@
 """API belgesinin (Swagger, ReDoc, OpenAPI semasi) hangi ortamda acik oldugu.
 
-Uretimde kapali, gelistirmede acik (gerekce: main.create_app). Bu test
+Uretimde kapali, gelistirmede acik (gerekce: main.belge_adresleri). Bu test
 dusserse uretimde butun uclarin haritasi yeniden herkese acilmis demektir.
+
+create_app() BURADA CAGRILMIYOR: DI container'ini modullere yeniden
+bagliyor ve sonraki testlerin sahte nesnelerini kopariyor (olculdu:
+test_auth.py'de 21 test dustu). Ayar, create_app'in kullandigi yardimci
+uzerinden ve o yardimciyla kurulan gercek bir FastAPI uzerinden olculuyor.
 """
 
 import pytest
+from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
 import main
@@ -13,34 +19,38 @@ from settings import settings
 BELGE_YOLLARI = ["/docs", "/redoc", "/openapi.json"]
 
 
-async def _durumlar(app, **basliklar) -> dict[str, int]:
+async def _durumlar(app) -> dict[str, int]:
     async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="https://api.ornek.test"
+        transport=ASGITransport(app=app), base_url="http://test"
     ) as istemci:
-        return {
-            yol: (await istemci.get(yol, headers=basliklar)).status_code
-            for yol in BELGE_YOLLARI
-        }
+        return {yol: (await istemci.get(yol)).status_code for yol in BELGE_YOLLARI}
 
 
 @pytest.mark.asyncio
 async def test_uretimde_belgeler_kapali(monkeypatch):
     monkeypatch.setattr(settings, "environment", "production")
-    monkeypatch.setattr(settings, "allowed_hosts", ["api.ornek.test"])
-    monkeypatch.setattr(settings, "allowed_origins", ["https://ornek.test"])
 
-    app = main.create_app()
-
-    assert app.openapi_url is None
-    # 404: yol yok. (Host ve https dogru verildi; 400/307 olsaydi test
-    # belgeyi degil ara katmanlari olcerdi.)
-    assert await _durumlar(app) == dict.fromkeys(BELGE_YOLLARI, 404)
+    assert main.belge_adresleri() == {
+        "docs_url": None,
+        "redoc_url": None,
+        "openapi_url": None,
+    }
+    assert await _durumlar(FastAPI(**main.belge_adresleri())) == dict.fromkeys(
+        BELGE_YOLLARI, 404
+    )
 
 
 @pytest.mark.asyncio
 async def test_gelistirmede_belgeler_acik(monkeypatch):
     monkeypatch.setattr(settings, "environment", "development")
 
-    app = main.create_app()
+    assert await _durumlar(FastAPI(**main.belge_adresleri())) == dict.fromkeys(
+        BELGE_YOLLARI, 200
+    )
 
-    assert await _durumlar(app) == dict.fromkeys(BELGE_YOLLARI, 200)
+
+@pytest.mark.asyncio
+async def test_uygulama_yardimciyi_kullaniyor():
+    """create_app gercekten belge_adresleri()'ni kullaniyor mu (testler gelistirmede kosuyor)."""
+    assert main.app.openapi_url == "/openapi.json"
+    assert await _durumlar(main.app) == dict.fromkeys(BELGE_YOLLARI, 200)
