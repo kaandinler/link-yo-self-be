@@ -16,7 +16,7 @@ alembic upgrade head
 uvicorn main:app --reload
 ```
 
-Swagger arayuzu: <http://localhost:8000/docs>
+Swagger arayuzu: <http://localhost:8000/docs> (yalnizca gelistirmede; `ENVIRONMENT=production`da `/docs`, `/redoc` ve `/openapi.json` kapali, gerekce `main.create_app`)
 
 > **Not:** `bcrypt` 4.0.1'e pinlenmistir. `passlib` 1.7.4 bcrypt >= 4.1 ile
 > uyumsuzdur ve yukseltilirse kayit ucu 500 doner.

@@ -113,12 +113,24 @@ def guvenilir_adresler() -> list[str]:
 
 
 def create_app() -> FastAPI:
-    # Create FastAPI instance
+    # Uretimde API belgesi (Swagger, ReDoc ve ham OpenAPI semasi) KAPALI.
+    #
+    # NEDEN: butun uclarin, parametrelerinin ve hata sekillerinin hazir bir
+    # haritasiydi; admin uclari dahil. Gizlilik saglamaz -- uclar
+    # tarayicinin gonderdigi isteklerde zaten gorunur -- ama saldiri
+    # yuzeyini kesfetmeyi bedavaya getiriyordu ve uretimde onu kullanan
+    # kimse yok: frontend semayi okumuyor. Gelistirmede acik kaliyor.
+    # Karar: Kaan, docs/ROADMAP.md.
+    belgeler_acik = settings.environment != "production"
+
     app = FastAPI(
         title="LinkYoSelf API",
         description="API for managing social media links",
         version="0.1.0",
         lifespan=lifespan,
+        docs_url="/docs" if belgeler_acik else None,
+        redoc_url="/redoc" if belgeler_acik else None,
+        openapi_url="/openapi.json" if belgeler_acik else None,
     )
 
     # Configure security for production

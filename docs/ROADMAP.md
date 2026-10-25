@@ -18,11 +18,6 @@ domain Cloudflare'de.
 - **Uptime izleme.** Ucretsiz katmanli bir dis kontrol (UptimeRobot,
   Better Stack, healthchecks.io) `https://${DOMAIN}` ve `https://api.${DOMAIN}`'i
   izlesin. Hesap acmak insan isi.
-- **Uretimde Swagger (`/docs`, `/redoc`, `/openapi.json`).** Su an uretimde de
-  acik: butun uclarin listesi herkese gorunuyor. Gizlilik saglamaz (uclar
-  zaten tarayicidan gorulebilir) ama saldiri yuzeyini kesfetmeyi kolaylastirir.
-  Secenekler: kapat (`ENVIRONMENT=production`'da `docs_url=None`), acik birak,
-  ya da yalnizca admin'e ac.
 - **Off-site backup hedefi.** `deploy/backup.sh` yerel kopya tutuyor;
   sunucu kaybina karsi Cloudflare R2 (10 GB'a kadar ucretsiz) onerisi.
 
@@ -82,6 +77,9 @@ Acik PR'lar (merge sirasi): #46 deploy-compose -> #47 deploy-sunucu -> #48 deplo
 -> #49 prod-smoke. Log rotasyonu #46'nin, duman testi #49'un icinde.
 
 ## Bitti
+
+- **prod-swagger**: uretimde `/docs`, `/redoc`, `/openapi.json` kapali (Kaan onayladi);
+  gelistirmede acik. `tests/test_api_docs.py`.
 
 - Ozellik seti MVP'yi gecti: auth, e-posta dogrulama, sifre sifirlama, link/sosyal
   hesap CRUD, `@username` public sayfa + OG karti, analytics, avatar (local/S3),
