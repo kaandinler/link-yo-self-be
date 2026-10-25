@@ -19,8 +19,11 @@ bu depodaki `docs/ROADMAP.md`.
 2. Biten isleri ROADMAP'te `## Bitti` bolumune tasi (PR numarasiyla).
 3. Siradaki TEK isi sec. Oncelik:
    1. Kirik CI ya da guvenlik acigi
-   2. Production'a cikisi bloklayan isler
-   3. Kucuk, iyi tanimli UX/ozellik isleri
+   2. ROADMAP'in basindaki "Hedef" paragrafinin soyledigi sira (su an:
+      `Siradaki` listesi yazildigi sirayla). Hedef paragrafini insan
+      belirler; sen degistirmezsin.
+   Bir madde `docs/goals/` altindaki bir dosyaya isaret ediyorsa task'i o
+   dosyadan yaz; dosyayla celisen bir kapsam onerme.
    Acik bir PR'i bekleyen ya da baska bir isin bitmesine bagli olan isi secme.
 4. Secilen is icin task tanimi yaz (asagidaki format) ve ROADMAP'te
    `## Simdi` bolumune koy.
