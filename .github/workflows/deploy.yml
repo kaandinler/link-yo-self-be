@@ -41,12 +41,13 @@ jobs:
       - uses: actions/checkout@v7
 
       # fe_ref uzak kabuga tirnak icinde gidiyor; icinde tirnak ya da
-      # bosluk olan bir deger sunucuda komut calistirabilirdi.
+      # bosluk olan bir deger sunucuda komut calistirabilirdi. Basta "-"
+      # de yasak: git onu secenek (--orphan=...) olarak okurdu.
       - name: Girdiyi dogrula
         env:
           FE_REF: ${{ inputs.fe_ref }}
         run: |
-          [[ "$FE_REF" =~ ^[A-Za-z0-9._/-]+$ ]] || { echo "gecersiz fe_ref: $FE_REF" >&2; exit 1; }
+          [[ "$FE_REF" =~ ^[A-Za-z0-9._/][A-Za-z0-9._/-]*$ ]] || { echo "gecersiz fe_ref: $FE_REF" >&2; exit 1; }
 
       - name: SSH
         env:
