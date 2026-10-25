@@ -142,7 +142,17 @@ ise o adi cozemiyor. `NEXT_PUBLIC_*` degistirildiginde
 
 ### Uretimde
 
-`.env` icinde en azindan:
+**Hazir katman:** `deploy/docker-compose.prod.yml` asagidaki listenin
+tamamini tek bir `DOMAIN` degiskeninden turetiyor ve onune TLS'i
+sonlandiran Caddy'yi koyuyor; `.env`'e yalnizca `DOMAIN`, `ACME_EMAIL`,
+`SECRET_KEY`, `POSTGRES_PASSWORD` (ve SMTP) yaziliyor. Sablon:
+`deploy/.env.prod.example`.
+
+```bash
+docker compose -f docker-compose.yml -f deploy/docker-compose.prod.yml up -d --build
+```
+
+Katmansiz, elle kurulan bir dagitimda `.env` icinde en azindan:
 
 ```bash
 ENVIRONMENT=production

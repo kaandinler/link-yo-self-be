@@ -1,0 +1,117 @@
+# LinkYoSelf: uretim katmani. Ana docker-compose.yml'i EZIYOR, kopyalamiyor.
+#
+#   docker compose -f docker-compose.yml -f deploy/docker-compose.prod.yml up -d --build
+#
+# Iki depo yine yan yana olmali (bkz. docker-compose.yml). Ayarlar bu
+# deponun kokundeki `.env`'den geliyor; sablonu `deploy/.env.prod.example`.
+# Butun adimlar: docs/DEPLOY.md.
+#
+# NE DEGISIYOR
+#
+#   - caddy: tek giris. 80/443'u o dinliyor, TLS sertifikasini kendisi
+#     aliyor ve yeniliyor (Let's Encrypt). api ve web disari kapali.
+#   - Uretim ayarlari (ENVIRONMENT, ALLOWED_*, TRUSTED_PROXY_COUNT ...)
+#     tek bir DOMAIN degiskeninden turetiliyor. .env'e elle yazilsalardi
+#     birinin unutulmasi ya da yanlis yazilmasi kolaydi; README'deki
+#     uretim listesinin her maddesi burada.
+#   - Parola ve anahtarlar ZORUNLU: eksikse `docker compose` hicbir
+#     konteyner baslatmadan duruyor. Ana dosyadaki "postgres" varsayilani
+#     uretimde kalmasin.
+#   - Log'lara boyut siniri. Docker'in json-file surucusu varsayilan
+#     olarak sinirsiz yaziyor; kucuk bir VPS diski bunu kaldirmaz.
+#
+# Yollar ana dosyanin dizinine gore cozuluyor (compose kurali), yani
+# `./deploy/Caddyfile` deponun kokunden bakiliyor.
+
+x-logging: &logging
+  logging:
+    driver: json-file
+    options:
+      max-size: "10m"
+      max-file: "3"
+
+# api ve migrate AYNI ortamla kosmali (bkz. ana dosyadaki x-api).
+x-prod-env: &prod-env
+  ENVIRONMENT: production
+  DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD tanimli degil -- .env dosyasina yazin}@db:5432/${POSTGRES_DB:-linkyoself}
+  ALLOWED_HOSTS: '["api.${DOMAIN:?DOMAIN tanimli degil -- .env dosyasina yazin}"]'
+  ALLOWED_ORIGINS: '["https://${DOMAIN}"]'
+  FRONTEND_URL: https://${DOMAIN}
+  MEDIA_URL: https://api.${DOMAIN}/media
+  # Onumuzde tek guvenilir vekil var: Caddy. X-Forwarded-For'un sagdan
+  # 1. elemani onun gordugu adres (bkz. core/rate_limit/keys.py).
+  TRUSTED_PROXY_COUNT: "1"
+  # Uvicorn Caddy'nin X-Forwarded-Proto basligina guvensin; yoksa https
+  # ile gelen istegi http saniyor ve HTTPSRedirectMiddleware sonsuz
+  # yonlendirmeye giriyor (README, "Uretimde"). `*` guvenli cunku api'nin
+  # portu disari acik degil: ona yalnizca yigin icinden ulasiliyor.
+  FORWARDED_ALLOW_IPS: "*"
+  # Iki isci; sayaclar Redis'te oldugu icin hiz siniri yine dogru sayiyor.
+  WEB_CONCURRENCY: "2"
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    <<: *logging
+    environment:
+      DOMAIN: ${DOMAIN}
+      ACME_EMAIL: ${ACME_EMAIL:?ACME_EMAIL tanimli degil -- .env dosyasina yazin}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp" # HTTP/3
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      # Sertifikalar burada. Birim olmasaydi her yeniden olusturmada
+      # yeni sertifika istenir ve Let's Encrypt'in haftalik sinirina
+      # takilinirdi.
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      default:
+        # web'in sunucu tarafi API'ye herkese acik https adresle gidiyor
+        # (README: ic `http://api:8000` uretimde ALLOWED_HOSTS'a ve HTTPS
+        # yonlendirmesine takiliyor). Bu takma adlar o adresi yigin icinde
+        # dogrudan Caddy'ye cozuyor: istek sunucunun disina cikip geri
+        # donmuyor ve sertifika yine gecerli.
+        aliases:
+          - ${DOMAIN}
+          - api.${DOMAIN}
+    depends_on:
+      api:
+        condition: service_healthy
+      web:
+        condition: service_started
+    restart: unless-stopped
+
+  db:
+    <<: *logging
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+
+  redis:
+    <<: *logging
+
+  migrate:
+    <<: *logging
+    environment: *prod-env
+
+  api:
+    <<: *logging
+    environment: *prod-env
+    # Disari port yok; tek giris Caddy.
+    ports: !reset []
+
+  web:
+    <<: *logging
+    build:
+      args:
+        NEXT_PUBLIC_API_URL: https://api.${DOMAIN}/api
+        NEXT_PUBLIC_SITE_URL: https://${DOMAIN}
+    environment:
+      API_URL: https://api.${DOMAIN}/api
+    ports: !reset []
+
+volumes:
+  caddy_data:
+  caddy_config:
