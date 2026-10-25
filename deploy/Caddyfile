@@ -1,0 +1,50 @@
+# LinkYoSelf: tek giris. deploy/docker-compose.prod.yml bu dosyayi bagliyor.
+#
+# DOMAIN ve ACME_EMAIL ortamdan geliyor (.env -> compose -> konteyner).
+# Sertifikalar otomatik: Caddy ilk istekte Let's Encrypt'ten aliyor ve
+# suresi dolmadan yeniliyor. Bunun icin DNS kayitlari (@, www, api)
+# sunucuyu gostermeli ve 80/443 acik olmali (bkz. docs/DEPLOY.md).
+
+{
+	email {$ACME_EMAIL}
+}
+
+# Iki sitenin ortak basliklari.
+(guvenlik) {
+	encode zstd gzip
+	header {
+		# Tarayici bir yil boyunca bu alana yalnizca https ile gelsin.
+		# includeSubDomains YOK: alan adinin altinda ileride https'siz bir
+		# alt alan acilirsa (deneme, e-posta saglayicisinin dogrulama
+		# sayfasi) tarayici onu acmayi reddederdi. Gerekirse sonra eklenir.
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
+	}
+}
+
+{$DOMAIN} {
+	import guvenlik
+	header {
+		# Panoyu baska bir sitenin icine gomup kullaniciya istemedigi bir
+		# tiklamayi yaptirmak (clickjacking) kapali.
+		X-Frame-Options "DENY"
+	}
+	reverse_proxy web:3000
+}
+
+www.{$DOMAIN} {
+	redir https://{$DOMAIN}{uri} permanent
+}
+
+api.{$DOMAIN} {
+	import guvenlik
+	# Avatar ham dosya siniri 8 MB (AVATAR_MAX_BYTES); multipart sarmali
+	# icin pay birakildi. Asil sinir uygulamada; bu, govdenin tamami
+	# okunmadan reddedilmesini sagliyor.
+	request_body {
+		max_size 10MB
+	}
+	reverse_proxy api:8000
+}

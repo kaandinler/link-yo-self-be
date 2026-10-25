@@ -1,0 +1,58 @@
+name: Deploy config
+
+# Uretim yapilandirmasi (deploy/) sunucuya gitmeden once dogrulaniyor.
+# Bunlar ancak deploy aninda patlayacak hatalar: yanlis girintili bir
+# compose dosyasi, Caddy'nin anlamadigi bir yonerge, bir betikteki
+# tirnak hatasi. Burada yakalamak, uretimi yarim birakmaktan ucuz.
+on:
+  push:
+    branches: [dev, main]
+    paths: ["deploy/**", "docker-compose.yml", ".github/workflows/deploy*.yml"]
+  pull_request:
+    paths: ["deploy/**", "docker-compose.yml", ".github/workflows/deploy*.yml"]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    env:
+      # Sahte degerler: yalnizca yerlestirmenin ve birlestirmenin
+      # calistigini gosteriyorlar.
+      DOMAIN: ornek.test
+      ACME_EMAIL: ops@ornek.test
+      SECRET_KEY: ci-only
+      POSTGRES_PASSWORD: ci-only
+    steps:
+      - uses: actions/checkout@v7
+
+      # Ana dosya frontend'i kardes dizinden derliyor; config yalnizca
+      # yolun var olmasini istiyor, icerigini degil.
+      - name: Kardes frontend dizini
+        run: mkdir -p ../link-yo-self-fe
+
+      - name: Compose birlesimi
+        run: |
+          docker compose -f docker-compose.yml -f deploy/docker-compose.prod.yml config > merged.yml
+          # Disari yalnizca Caddy acik olmali.
+          acik=$(docker compose -f docker-compose.yml -f deploy/docker-compose.prod.yml config --format json \
+            | jq -r '.services | to_entries[] | select(.value.ports != null and (.value.ports|length) > 0) | .key')
+          echo "disari acik servisler: $acik"
+          test "$acik" = "caddy"
+
+      - name: Zorunlu degiskenler eksikken duruyor mu
+        run: |
+          if POSTGRES_PASSWORD= docker compose -f docker-compose.yml -f deploy/docker-compose.prod.yml config >/dev/null 2>&1; then
+            echo "POSTGRES_PASSWORD bosken config gecti -- zorunlu degil demek" >&2
+            exit 1
+          fi
+
+      - name: Caddyfile
+        run: |
+          docker run --rm -e DOMAIN -e ACME_EMAIL \
+            -v "$PWD/deploy/Caddyfile:/etc/caddy/Caddyfile:ro" \
+            caddy:2-alpine caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
+
+      - name: Betikler (shellcheck)
+        run: |
+          shopt -s nullglob
+          betikler=(deploy/*.sh)
+          if [ ${#betikler[@]} -gt 0 ]; then shellcheck "${betikler[@]}"; fi
