@@ -13,7 +13,7 @@
 #   1. Paketleri guncelliyor; git, jq, ufw, unattended-upgrades kuruyor
 #   2. Docker Engine + compose eklentisi (Docker'in kendi apt deposundan)
 #   3. `deploy` kullanicisi; root'un SSH anahtarlari ona kopyalaniyor
-#   4. SSH: yalnizca anahtar, root girisi kapali
+#   4. SSH: yalnizca anahtar (parola kapali), root yalnizca anahtarla
 #   5. Guvenlik duvari: yalnizca 22, 80, 443
 #   6. Swap (2 GB): web imajini derlerken Next 4 GB'lik makinede zorlaniyor
 #   7. Guvenlik guncellemeleri otomatik
@@ -106,16 +106,32 @@ if [ ! -s "$DEPLOY_HOME/.ssh/authorized_keys" ]; then
     bilgi "ATLANDI: $DEPLOY_USER icin SSH anahtari yok (root'ta da yok)."
     bilgi "Anahtari $DEPLOY_HOME/.ssh/authorized_keys'e ekleyip betigi yeniden calistirin."
 else
-    cat > /etc/ssh/sshd_config.d/99-linkyoself.conf <<'SSHD'
+    # 00- on eki BILINCLI: sshd her ayar icin OKUDUGU ILK degeri kullaniyor
+    # ve drop-in'ler ad sirasiyla yukleniyor. Bulut imajlarinin
+    # 50-cloud-init.conf'u cogu zaman "PasswordAuthentication yes" diyor;
+    # 99- ile ondan sonra okunur ve SESSIZCE etkisiz kalirdi.
+    rm -f /etc/ssh/sshd_config.d/99-linkyoself.conf # eski surumun dosyasi
+    cat > /etc/ssh/sshd_config.d/00-linkyoself.conf <<'SSHD'
 # deploy/bootstrap-server.sh tarafindan yazildi.
 PasswordAuthentication no
 KbdInteractiveAuthentication no
-PermitRootLogin no
+# root yalnizca ANAHTARLA girebiliyor ("no" degil): deploy kullanicisinin
+# sudo yetkisi yok ve Hetzner'in anahtarli sunucularinda root parolasi da
+# yok. "no" yazilsaydi paket kurmak, yeniden baslatmak ya da deploy
+# anahtari kaybolunca kurtarmak icin root'a ulasmanin yolu kalmazdi.
+PermitRootLogin prohibit-password
 SSHD
     # Yapilandirma bozuksa yeniden yuklemek SSH'i dusururdu; once dogrula.
-    sshd -t || { rm -f /etc/ssh/sshd_config.d/99-linkyoself.conf; dur "sshd yapilandirmasi gecersiz; degisiklik geri alindi"; }
+    sshd -t || { rm -f /etc/ssh/sshd_config.d/00-linkyoself.conf; dur "sshd yapilandirmasi gecersiz; degisiklik geri alindi"; }
     systemctl reload ssh 2>/dev/null || systemctl reload sshd
-    bilgi "parola ve root girisi kapali. YENI bir terminalde test edin:"
+    # Gercekten uygulandi mi? Baska bir drop-in ya da ana dosya ezmis olabilir.
+    etkin="$(sshd -T 2>/dev/null)"
+    if grep -qx 'passwordauthentication no' <<<"$etkin" && grep -qxE 'permitrootlogin (without-password|prohibit-password)' <<<"$etkin"; then
+        bilgi "parola girisi kapali, root yalnizca anahtarla."
+    else
+        bilgi "UYARI: sshd ayarlari beklenenden farkli; 'sshd -T | grep -E \"^(passwordauthentication|permitrootlogin) \"' ile bakin."
+    fi
+    bilgi "YENI bir terminalde test edin:"
     bilgi "  ssh $DEPLOY_USER@<sunucu-ip>"
     bilgi "bu oturumu o calismadan KAPATMAYIN."
 fi
