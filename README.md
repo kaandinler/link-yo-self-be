@@ -133,12 +133,31 @@ farkli olmasi gerekenleri eziyor: `DATABASE_URL` ve `REDIS_URL`.
 | Degisken | Kimin icin | Ne zaman |
 |---|---|---|
 | `NEXT_PUBLIC_API_URL` | **Tarayici** (tiklama sayaci) | Derleme aninda gomuluyor |
-| `API_URL` | **Next sunucusu** (vekil, oturum, profil sayfasi) | Calisma aninda |
+| `API_URL` | **Next sunucusu** (profil sayfasi, paylasim karti, sitemap) | Calisma aninda |
+| `API_URL_INTERNAL` | **Next sunucusu, istemci adina** (vekil, oturum ucu) | Calisma aninda; yalnizca uretim katmaninda |
 
 Ikisi ayri, cunku konteynerde `localhost:8000` Next'in kendi konteyneri;
 yigin icinden backend'e `http://api:8000/api` ile gidiliyor, tarayici
 ise o adi cozemiyor. `NEXT_PUBLIC_*` degistirildiginde
 `docker compose build web` gerekiyor.
+
+**`API_URL_INTERNAL` neden ayri:** vekil ve oturum ucu backend'i
+kullanici ADINA cagiriyor; hiz sinirinin IP katmani da o kullanicinin
+adresini gormeli. Uretimde `API_URL` Caddy uzerinden geciyor ve Caddy,
+Next'i guvenilmeyen bir istemci sayip `X-Forwarded-For`'u Next'in
+adresiyle eziyor -- butun site tek bir IP gibi gorunuyordu. Olculdu
+(production modunda backend + Next standalone, sinir 15 dk'da 20):
+
+| | Istemci C, 21 basarisiz giris | Baska bir istemci D, 1 deneme |
+|---|---|---|
+| Baslik iletilmeden (eski) | 20x401, 1x429 | **429** (C'nin sayaci) |
+| `API_URL_INTERNAL` + iletilen baslik | 20x401, 1x429 | **401** (kendi sayaci) |
+
+Next basligi degistirmeden iletiyor (kendi adresini eklemiyor); backend
+`TRUSTED_PROXY_COUNT=1` ile sagdan 1. elemani aliyor, yani tarayici ->
+Caddy -> api ve tarayici -> Caddy -> Next -> api yollarinin ikisi de
+dogru adresi veriyor. Istemcinin kendi yazdigi basligi Caddy atiyor
+(deploy-config workflow'unda gercek Caddy imajiyla test ediliyor).
 
 ### Uretimde
 
