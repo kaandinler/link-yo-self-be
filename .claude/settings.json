@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "deny": [
+      "Bash(git push origin main:*)",
+      "Bash(git push origin HEAD:main:*)",
+      "Bash(git push --force:*)",
+      "Bash(git push -f:*)",
+      "Bash(git push --force-with-lease:*)",
+      "Bash(ssh:*)",
+      "Bash(scp:*)",
+      "Bash(rsync:*)",
+      "Bash(gh workflow run:*)",
+      "Bash(gh pr merge:*)",
+      "Read(./.env)",
+      "Read(./deploy/.env)",
+      "Edit(./.env)",
+      "Edit(./deploy/.env)",
+      "Write(./.env)",
+      "Write(./deploy/.env)",
+      "Read(./.env.local)",
+      "Read(./.env.production)"
+    ]
+  }
+}
