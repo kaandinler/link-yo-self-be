@@ -18,6 +18,11 @@ domain Cloudflare'de.
 - **Uptime izleme.** Ucretsiz katmanli bir dis kontrol (UptimeRobot,
   Better Stack, healthchecks.io) `https://${DOMAIN}` ve `https://api.${DOMAIN}`'i
   izlesin. Hesap acmak insan isi.
+- **Uretimde Swagger (`/docs`, `/redoc`, `/openapi.json`).** Su an uretimde de
+  acik: butun uclarin listesi herkese gorunuyor. Gizlilik saglamaz (uclar
+  zaten tarayicidan gorulebilir) ama saldiri yuzeyini kesfetmeyi kolaylastirir.
+  Secenekler: kapat (`ENVIRONMENT=production`'da `docs_url=None`), acik birak,
+  ya da yalnizca admin'e ac.
 - **Off-site backup hedefi.** `deploy/backup.sh` yerel kopya tutuyor;
   sunucu kaybina karsi Cloudflare R2 (10 GB'a kadar ucretsiz) onerisi.
 
@@ -67,13 +72,14 @@ _(pm agent'i siradaki isi buraya yazar)_
    basarisiz girisler AYRI sayilmali; istemcinin kendi yazdigi
    `X-Forwarded-For` hicbir yolda sayaci etkilememeli; bunu gercek yigin
    (Caddy dahil) uzerinde olcen bir test.
-2. **prod-smoke** — deploy sonrasi uctan uca duman testi betigi: kayit -> giris ->
-   link ekle -> public sayfa -> tiklama sayaci. Deploy workflow'una adim olarak.
-3. **prod-oncesi-tarama** — production'dan once kapanmasi gereken aciklar:
-   olu kod, eksik test, admin uclarinin yetki testleri, hata sayfalari.
+2. **prod-oncesi-tarama (devami)** — ilk tarama (2026-10-25) temiz cikti: dev'de
+   BE testleri, FE lint/typecheck ve e2e yesil; admin uclari `is_admin` ile
+   korunuyor ve testli. Geriye kalan: hata sayfalarinin (500/404) uretim
+   derlemesinde elle kontrolu, `@faker-js/faker`'in `dependencies` yerine
+   `devDependencies`'e alinmasi (istemci paketine girip girmedigi olculmeli).
 
-Acik PR'lar (merge sirasi): #46 deploy-compose -> #47 deploy-sunucu -> #48 deploy-cd.
-Log rotasyonu #46'nin icinde.
+Acik PR'lar (merge sirasi): #46 deploy-compose -> #47 deploy-sunucu -> #48 deploy-cd
+-> #49 prod-smoke. Log rotasyonu #46'nin, duman testi #49'un icinde.
 
 ## Bitti
 
