@@ -1,0 +1,79 @@
+name: Deploy
+
+# URETIME YAYIN. Yalnizca elle tetikleniyor ve yalnizca main'den.
+#
+# `production` environment'i kullaniyor: GitHub'da o environment'a
+# "Required reviewers" olarak Kaan eklenmeli. Boylece is, biri Actions
+# sekmesinden onaylamadan BASLAMIYOR -- bir agent ya da yanlislikla
+# tetiklenen bir calisma uretime dokunamiyor.
+#
+# Gereken secret'lar (production environment'inda):
+#   DEPLOY_HOST          sunucunun IP'si ya da adi
+#   DEPLOY_USER          deploy
+#   DEPLOY_SSH_KEY       yalnizca bu is icin uretilmis ozel anahtar
+#   DEPLOY_KNOWN_HOSTS   sunucunun host anahtari (ssh-keyscan ciktisi)
+# Istege bagli degisken: DOMAIN (yalnizca environment'in baglantisi icin).
+#
+# Kurulum adimlari: docs/DEPLOY.md.
+
+on:
+  workflow_dispatch:
+    inputs:
+      fe_ref:
+        description: "Frontend surumu (dal, etiket ya da commit)"
+        default: origin/main
+        required: true
+
+# Ayni anda iki yayin yok; sonradan gelen bekliyor, iptal etmiyor.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    environment:
+      name: production
+      url: ${{ vars.DOMAIN && format('https://{0}', vars.DOMAIN) || '' }}
+    steps:
+      - uses: actions/checkout@v7
+
+      # fe_ref uzak kabuga tirnak icinde gidiyor; icinde tirnak ya da
+      # bosluk olan bir deger sunucuda komut calistirabilirdi. Basta "-"
+      # de yasak: git onu secenek (--orphan=...) olarak okurdu.
+      - name: Girdiyi dogrula
+        env:
+          FE_REF: ${{ inputs.fe_ref }}
+        run: |
+          [[ "$FE_REF" =~ ^[A-Za-z0-9._/][A-Za-z0-9._/-]*$ ]] || { echo "gecersiz fe_ref: $FE_REF" >&2; exit 1; }
+
+      - name: SSH
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          # Host anahtari SABITLENIYOR, ssh-keyscan ile o an ogrenilmiyor:
+          # o an ogrenilen anahtar araya giren birinin anahtari da olabilir.
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 644 ~/.ssh/known_hosts
+
+      # Betik bu commit'ten gonderiliyor (stdin): yayinlanan surumun
+      # betigi calisiyor ve sunucudaki checkout onu calisirken ezmiyor
+      # (bkz. deploy/deploy.sh'in basi).
+      - name: Yayin
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          USER_: ${{ secrets.DEPLOY_USER }}
+          FE_REF: ${{ inputs.fe_ref }}
+        run: |
+          ssh -i ~/.ssh/id_deploy -o StrictHostKeyChecking=yes -o ServerAliveInterval=30 \
+            "$USER_@$HOST" "bash -s -- '$GITHUB_SHA' '$FE_REF'" < deploy/deploy.sh
+
+      - name: Anahtari sil
+        if: always()
+        run: rm -f ~/.ssh/id_deploy
