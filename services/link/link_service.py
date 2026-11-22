@@ -1,8 +1,12 @@
 # services/link/link_service.py
-
+from datetime import UTC
 
 from core.base_service import BaseService
-from core.exceptions import NotFoundException, PermissionDeniedException
+from core.exceptions import (
+    NotFoundException,
+    PermissionDeniedException,
+    ValidationException,
+)
 from models import EVENT_LINK_CLICK, Link
 from repositories.analytics.analytics_event_repository import (
     AnalyticsEventRepository,
@@ -45,6 +49,8 @@ class LinkService(BaseService):
             border_radius=link_data.border_radius or 8,
             is_active=link_data.is_active if link_data.is_active is not None else True,
             order_index=order_index,
+            publish_at=link_data.publish_at,
+            expire_at=link_data.expire_at,
             kind=link_data.kind,
             is_featured=link_data.is_featured,
         )
@@ -75,12 +81,23 @@ class LinkService(BaseService):
     ) -> Link:
         """Link günceller, kullanıcı yetkisini kontrol eder"""
         link = await self.get_link_by_id(link_id, user_id)
-
-        # Sadece None olmayan alanları güncelle
         update_data = link_data.model_dump(exclude_unset=True)
+        # Tek alan gelirse mevcut kayıttaki diğer değerle birleştirip
+        # aralık kontrolünü yap (DTO'da ikisi birden doluysa DTO zaten
+        # kontrol ediyor; burada eksik tarafı tamamlıyoruz).
+        effective_publish = update_data.get("publish_at", link.publish_at)
+        effective_expire = update_data.get("expire_at", link.expire_at)
+        if effective_publish is not None and effective_expire is not None:
+            # SQLite geri okumada naive donebilir; aware ile karsilastirmak
+            # icin UTC'ye normalize et (aware zaten UTC'de).
+            if effective_publish.tzinfo is None:
+                effective_publish = effective_publish.replace(tzinfo=UTC)
+            if effective_expire.tzinfo is None:
+                effective_expire = effective_expire.replace(tzinfo=UTC)
+            if effective_expire < effective_publish:
+                raise ValidationException(detail="expire_at must be >= publish_at")
         for key, value in update_data.items():
             setattr(link, key, value)
-
         return await self.repository.update_link(link)
 
     async def delete_link(self, link_id: int, user_id: int) -> None:

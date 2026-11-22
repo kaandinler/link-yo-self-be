@@ -1,5 +1,7 @@
 """Link CRUD, siralama, toggle ve tiklama testleri."""
 
+from datetime import UTC
+
 import pytest
 
 from core.exceptions import NotFoundException
@@ -293,6 +295,64 @@ class TestGorunmeyenLinkeTiklanamaz:
 # NOT: Analytics testleri tests/test_analytics.py'ye tasindi. Uc artik
 # /api/v1/analytics/summary; linklere ait olmayan metrikleri de (profil
 # goruntulenme) tasidigi icin links router'inin altindan cikti.
+
+
+class TestLinkZamanlama:
+    """publish_at / expire_at alanlari ve aralik dogrulama."""
+
+    async def test_link_zamanlama_ile_olusturulur_ve_okunur(self, auth_client):
+        """Alanlarla link olusturma/okuma; alansiz olusturmada null doner."""
+        from datetime import datetime
+
+        pub = datetime(2026, 1, 1, 0, 0, 0, tzinfo=UTC)
+        exp = datetime(2026, 12, 31, 23, 59, 59, tzinfo=UTC)
+        link = await create_link(
+            auth_client,
+            publish_at=pub.isoformat(),
+            expire_at=exp.isoformat(),
+        )
+        assert link["publish_at"] is not None
+        assert link["expire_at"] is not None
+        # SQLite'da aware datetime naive olarak geri gelebilir; string
+        # karsilastirma ile dogrula.
+        assert link["publish_at"].startswith("2026-01-01")
+        assert link["expire_at"].startswith("2026-12-31")
+        # Alansiz olusturma -> null
+        link2 = await create_link(auth_client, title="Alansiz")
+        assert link2["publish_at"] is None
+        assert link2["expire_at"] is None
+
+    async def test_expire_publish_ondan_kucukse_reddedilir(self, auth_client):
+        """expire_at < publish_at ise 422."""
+        response = await auth_client.post(
+            "/api/v1/links/",
+            json={
+                **LINK,
+                "publish_at": "2026-06-01T00:00:00+00:00",
+                "expire_at": "2026-05-01T00:00:00+00:00",
+            },
+        )
+        assert response.status_code == 422
+
+    async def test_update_tek_alan_mevcut_degerle_celisiyorsa_reddedilir(
+        self, auth_client
+    ):
+        """Update'te tek alan gonderildiginde mevcut kayitla birlestirip kontrol."""
+        link = await create_link(auth_client, publish_at="2026-06-01T00:00:00+00:00")
+        # expire_at'i publish_at'tan once bir tarihe ayarla -> reddedilmeli
+        response = await auth_client.put(
+            f"/api/v1/links/{link['id']}",
+            json={"expire_at": "2026-05-01T00:00:00+00:00"},
+        )
+        assert response.status_code == 422
+
+    async def test_timezone_naive_datetime_reddedilir(self, auth_client):
+        """Timezone-naive datetime 422 ile reddedilir."""
+        response = await auth_client.post(
+            "/api/v1/links/",
+            json={**LINK, "publish_at": "2026-01-01T00:00:00"},
+        )
+        assert response.status_code == 422
 
 
 class TestLinkKindAndFeatured:

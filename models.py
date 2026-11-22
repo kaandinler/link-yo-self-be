@@ -274,6 +274,11 @@ class Link(BaseModel):
     is_active = Column(Boolean, default=True, nullable=False)
     click_count = Column(Integer, default=0, nullable=False)  # Analytics için
     order_index = Column(Integer, default=0, nullable=False)  # Sıralama için
+    # NEDEN: Linkin görünürlüğünü zamanla sınırlamak için; örn. etkinlik
+    # linkleri etkinlik bitince otomatik gizlenir. Nullable: çoğu link
+    # zaman sınırlamasızdır.
+    publish_at = Column(DateTime(timezone=True), nullable=True)
+    expire_at = Column(DateTime(timezone=True), nullable=True)
     kind = Column(String(20), default="link", server_default="link", nullable=False)
     is_featured = Column(Boolean, default=False, server_default=false(), nullable=False)
 
