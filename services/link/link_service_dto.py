@@ -1,6 +1,7 @@
 import re
+from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 class LinkCreate(BaseModel):
@@ -18,6 +19,24 @@ class LinkCreate(BaseModel):
         8, ge=0, le=50, description="Border radius in pixels"
     )
     is_active: bool | None = Field(True, description="Whether the link is active")
+    publish_at: datetime | None = Field(
+        None, description="Publish time (timezone-aware)"
+    )
+    expire_at: datetime | None = Field(None, description="Expire time (timezone-aware)")
+
+    @field_validator("publish_at", "expire_at")
+    @classmethod
+    def validate_aware(cls, v: datetime | None) -> datetime | None:
+        if v is not None and v.tzinfo is None:
+            raise ValueError("Datetime must be timezone-aware")
+        return v
+
+    @model_validator(mode="after")
+    def validate_range(self) -> "LinkCreate":
+        if self.publish_at is not None and self.expire_at is not None:
+            if self.expire_at < self.publish_at:
+                raise ValueError("expire_at must be >= publish_at")
+        return self
 
     @field_validator("url", mode="before")
     @classmethod
@@ -64,6 +83,22 @@ class LinkUpdate(BaseModel):
     text_color: str | None = Field(None, max_length=20)
     border_radius: int | None = Field(None, ge=0, le=50)
     is_active: bool | None = None
+    publish_at: datetime | None = None
+    expire_at: datetime | None = None
+
+    @field_validator("publish_at", "expire_at")
+    @classmethod
+    def validate_aware(cls, v: datetime | None) -> datetime | None:
+        if v is not None and v.tzinfo is None:
+            raise ValueError("Datetime must be timezone-aware")
+        return v
+
+    @model_validator(mode="after")
+    def validate_range(self) -> "LinkUpdate":
+        if self.publish_at is not None and self.expire_at is not None:
+            if self.expire_at < self.publish_at:
+                raise ValueError("expire_at must be >= publish_at")
+        return self
 
     @field_validator("url", mode="before")
     @classmethod
@@ -114,6 +149,8 @@ class LinkRead(BaseModel):
     is_active: bool = True
     click_count: int = 0
     order_index: int = 0
+    publish_at: datetime | None = None
+    expire_at: datetime | None = None
 
     model_config = ConfigDict(from_attributes=True)
 
