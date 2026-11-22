@@ -293,3 +293,62 @@ class TestGorunmeyenLinkeTiklanamaz:
 # NOT: Analytics testleri tests/test_analytics.py'ye tasindi. Uc artik
 # /api/v1/analytics/summary; linklere ait olmayan metrikleri de (profil
 # goruntulenme) tasidigi icin links router'inin altindan cikti.
+
+
+class TestLinkKindAndFeatured:
+    """kind (link|header) ve is_featured alanlari."""
+
+    async def test_default_kind_link_and_not_featured(self, auth_client):
+        link = await create_link(auth_client)
+        assert link["kind"] == "link"
+        assert link["is_featured"] is False
+
+    async def test_create_header_featured(self, auth_client):
+        link = await create_link(
+            auth_client, kind="header", is_featured=True, title="Baslik"
+        )
+        assert link["kind"] == "header"
+        assert link["is_featured"] is True
+
+    async def test_invalid_kind_returns_422(self, auth_client):
+        response = await auth_client.post(
+            "/api/v1/links/", json={**LINK, "kind": "invalid"}
+        )
+        assert response.status_code == 422
+
+    async def test_update_kind_and_featured(self, auth_client):
+        link = await create_link(auth_client)
+        response = await auth_client.put(
+            f"/api/v1/links/{link['id']}",
+            json={"kind": "header", "is_featured": True},
+        )
+        assert response.status_code == 200
+        data = response.json()["data"]
+        assert data["kind"] == "header"
+        assert data["is_featured"] is True
+        # Dokunulmayan alanlar korunur
+        assert data["title"] == link["title"]
+        assert data["url"] == link["url"]
+
+    async def test_update_invalid_kind_returns_422(self, auth_client):
+        link = await create_link(auth_client)
+        response = await auth_client.put(
+            f"/api/v1/links/{link['id']}",
+            json={"kind": "invalid"},
+        )
+        assert response.status_code == 422
+
+    async def test_read_includes_kind_and_featured(self, auth_client):
+        link = await create_link(auth_client, kind="header", is_featured=True)
+        response = await auth_client.get(f"/api/v1/links/{link['id']}")
+        data = response.json()["data"]
+        assert data["kind"] == "header"
+        assert data["is_featured"] is True
+
+    async def test_list_includes_kind_and_featured(self, auth_client):
+        await create_link(auth_client, kind="header", is_featured=True, title="H")
+        response = await auth_client.get("/api/v1/links/")
+        data = response.json()["data"]
+        assert len(data) == 1
+        assert data[0]["kind"] == "header"
+        assert data[0]["is_featured"] is True

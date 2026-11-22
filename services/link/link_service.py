@@ -45,6 +45,8 @@ class LinkService(BaseService):
             border_radius=link_data.border_radius or 8,
             is_active=link_data.is_active if link_data.is_active is not None else True,
             order_index=order_index,
+            kind=link_data.kind,
+            is_featured=link_data.is_featured,
         )
 
         return await self.repository.create_link(link)
