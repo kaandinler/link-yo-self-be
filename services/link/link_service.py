@@ -51,6 +51,8 @@ class LinkService(BaseService):
             order_index=order_index,
             publish_at=link_data.publish_at,
             expire_at=link_data.expire_at,
+            kind=link_data.kind,
+            is_featured=link_data.is_featured,
         )
 
         return await self.repository.create_link(link)

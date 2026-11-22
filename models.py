@@ -9,6 +9,7 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    false,
     func,
 )
 from sqlalchemy.orm import DeclarativeMeta, declarative_base, relationship
@@ -278,6 +279,8 @@ class Link(BaseModel):
     # zaman sınırlamasızdır.
     publish_at = Column(DateTime(timezone=True), nullable=True)
     expire_at = Column(DateTime(timezone=True), nullable=True)
+    kind = Column(String(20), default="link", server_default="link", nullable=False)
+    is_featured = Column(Boolean, default=False, server_default=false(), nullable=False)
 
     # İlişkiler
     user = relationship("User", back_populates="links")

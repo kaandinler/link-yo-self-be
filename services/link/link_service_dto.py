@@ -1,5 +1,6 @@
 import re
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
@@ -7,6 +8,10 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 class LinkCreate(BaseModel):
     title: str = Field(..., min_length=1, max_length=255, description="Link title")
     url: str = Field(..., min_length=1, max_length=2048, description="Link URL")
+    kind: Literal["link", "header"] = Field(
+        "link", description="Link kind: link or header"
+    )
+    is_featured: bool = Field(False, description="Whether the link is featured")
     description: str | None = Field(
         None, max_length=500, description="Link description"
     )
@@ -77,6 +82,8 @@ class LinkCreate(BaseModel):
 class LinkUpdate(BaseModel):
     title: str | None = Field(None, min_length=1, max_length=255)
     url: str | None = Field(None, min_length=1, max_length=2048)
+    kind: Literal["link", "header"] | None = None
+    is_featured: bool | None = None
     description: str | None = Field(None, max_length=500)
     icon_url: str | None = Field(None, max_length=500)
     background_color: str | None = Field(None, max_length=20)
@@ -141,6 +148,8 @@ class LinkRead(BaseModel):
     user_id: int
     title: str
     url: str
+    kind: Literal["link", "header"] = "link"
+    is_featured: bool = False
     description: str | None = None
     icon_url: str | None = None
     background_color: str | None = None
